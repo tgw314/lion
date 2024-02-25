@@ -9,7 +9,7 @@ int main(int argc, char **argv) {
 
     printf(
         ".intel_syntax noprefix\n"
-        ".global main\n"
+        ".globl main\n"
         "main:\n"
         "  mov rax, %d\n"
         "  ret\n",
