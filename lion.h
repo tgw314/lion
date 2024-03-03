@@ -14,6 +14,7 @@ typedef enum {
     TK_RESERVED,  // 記号
     TK_IDENT,     // 識別子
     TK_NUM,       // 数字
+    TK_RETURN,    // return
     TK_EOF,       // EOF
 } TokenKind;
 
@@ -39,9 +40,9 @@ bool consume(char *op);
 // それ以外の場合にはエラーを報告する。
 void expect(char *op);
 
-// 次のトークンが識別子のときには、トークンを1つ読み進めて
+// 次のトークンが期待している TokenKind のときには、トークンを1つ読み進めて
 // そのトークンを返す。それ以外の場合には NULL を返す。
-Token *consume_ident();
+Token *consume_kind(TokenKind kind);
 
 // 次のトークンが数値の場合、トークンを1つ読み進めてその数値を返す。
 // それ以外の場合にはエラーを報告する。
@@ -51,6 +52,9 @@ bool at_eof();
 
 // 新しいトークンを作成して cur に繋げる
 Token *new_token(TokenKind kind, Token *cur, char *str);
+
+int is_al(char c);
+int is_alnum(char c);
 
 // 入力文字列 p をトークナイズしてそれを返す
 Token *tokenize(char *p);
@@ -68,6 +72,7 @@ typedef enum {
     ND_ASSIGN,  // =
     ND_LVAR,    // ローカル変数
     ND_NUM,     // 整数
+    ND_RETURN,  // return
 } NodeKind;
 
 typedef struct Node Node;
@@ -107,7 +112,7 @@ LVar *find_lvar(Token *tok);
 // program = stmt*
 void program();
 
-// stmt = expr ";"
+// stmt = expr ";" | "return" expr ";"
 Node *stmt();
 
 // expr = assign
