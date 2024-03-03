@@ -84,9 +84,25 @@ struct Node {
 
 extern Node *code[100];
 
+typedef struct LVar LVar;
+
+// ローカル変数の型
+struct LVar {
+    LVar *next;  // 次の変数か NULL
+    char *name;  // 変数の名前
+    int len;     // 名前の長さ
+    int offset;  // RBP からのオフセット
+};
+
+// ローカル変数
+extern LVar *locals;
+
 Node *new_node(NodeKind kind, Node *lhs, Node *rhs);
 Node *new_node_num(int val);
 Node *new_node_lvar(Token *tok);
+
+// 変数を名前で検索する。見つからなかった場合は NULL を返す。
+LVar *find_lvar(Token *tok);
 
 // program = stmt*
 void program();
