@@ -12,6 +12,7 @@ void error_at(char *loc, char *fmt, ...);
 // トークンの種類
 typedef enum {
     TK_RESERVED,  // 記号
+    TK_IDENT,     // 識別子
     TK_NUM,       // 数字
     TK_EOF,       // EOF
 } TokenKind;
@@ -38,6 +39,10 @@ bool consume(char *op);
 // それ以外の場合にはエラーを報告する。
 void expect(char *op);
 
+// 次のトークンが識別子のときには、トークンを1つ読み進めて
+// そのトークンを返す。それ以外の場合には NULL を返す。
+Token *consume_ident();
+
 // 次のトークンが数値の場合、トークンを1つ読み進めてその数値を返す。
 // それ以外の場合にはエラーを報告する。
 int expect_number();
@@ -45,22 +50,24 @@ int expect_number();
 bool at_eof();
 
 // 新しいトークンを作成して cur に繋げる
-Token *new_token(TokenKind kind, Token *cur, char *str, int len);
+Token *new_token(TokenKind kind, Token *cur, char *str);
 
 // 入力文字列 p をトークナイズしてそれを返す
 Token *tokenize(char *p);
 
 // 抽象構文木のノードの種類
 typedef enum {
-    ND_ADD,  // +
-    ND_SUB,  // -
-    ND_MUL,  // *
-    ND_DIV,  // /
-    ND_EQ,   // ==
-    ND_NEQ,  // !=
-    ND_LS,   // <
-    ND_LEQ,  // <=
-    ND_NUM,  // 整数
+    ND_ADD,     // +
+    ND_SUB,     // -
+    ND_MUL,     // *
+    ND_DIV,     // /
+    ND_EQ,      // ==
+    ND_NEQ,     // !=
+    ND_LS,      // <
+    ND_LEQ,     // <=
+    ND_ASSIGN,  // =
+    ND_LVAR,    // ローカル変数
+    ND_NUM,     // 整数
 } NodeKind;
 
 typedef struct Node Node;
@@ -71,13 +78,27 @@ struct Node {
     Node *lhs;      // 左辺
     Node *rhs;      // 右辺
     int val;        // kind が ND_NUM の場合の数値
+    int offset;     /* kind が ND_LVAR の場合のみ
+                       ローカル変数のベースポインタからのオフセット */
 };
+
+extern Node *code[100];
 
 Node *new_node(NodeKind kind, Node *lhs, Node *rhs);
 Node *new_node_num(int val);
+Node *new_node_lvar(Token *tok);
 
-// expr = equality
+// program = stmt*
+void program();
+
+// stmt = expr ";"
+Node *stmt();
+
+// expr = assign
 Node *expr();
+
+// assign = equality ("=" assign)?
+Node *assign();
 
 // equality = relational ("==" relational | "!=" relational)*
 Node *equality();
@@ -94,7 +115,7 @@ Node *mul();
 // unary = ("+" | "-")? primary
 Node *unary();
 
-// primary = num | "(" expr ")"
+// primary = num | ident | "(" expr ")"
 Node *primary();
 
 void gen(Node *node);

@@ -21,6 +21,15 @@ void expect(char *op) {
     token = token->next;
 }
 
+Token *consume_ident() {
+    if (token->kind != TK_IDENT) {
+        return NULL;
+    }
+    Token *tmp = token;
+    token = token->next;
+    return tmp;
+}
+
 int expect_number() {
     if (token->kind != TK_NUM) {
         error_at(token->str, "数ではありません");
@@ -32,11 +41,10 @@ int expect_number() {
 
 bool at_eof() { return token->kind == TK_EOF; }
 
-Token *new_token(TokenKind kind, Token *cur, char *str, int len) {
+Token *new_token(TokenKind kind, Token *cur, char *str) {
     Token *tok = calloc(1, sizeof(Token));
     tok->kind = kind;
     tok->str = str;
-    tok->len = len;
 
     cur->next = tok;
 
@@ -49,26 +57,40 @@ Token *tokenize(char *p) {
     Token *cur = &head;
 
     while (*p) {
+        int len;
+
         // 空白文字をスキップ
         if (isspace(*p)) {
             p++;
             continue;
         }
 
-        if (!strncmp(p, "==", 2) || !strncmp(p, "!=", 2) ||
-            !strncmp(p, "<=", 2) || !strncmp(p, ">=", 2)) {
-            cur = new_token(TK_RESERVED, cur, p, 2);
-            p += 2;
-            continue;
-        }
-        if (strchr("+-*/()<>", *p)) {
-            cur = new_token(TK_RESERVED, cur, p, 1);
-            p++;
+        len = 2;
+        if (!strncmp(p, "==", len) || !strncmp(p, "!=", len) ||
+            !strncmp(p, "<=", len) || !strncmp(p, ">=", len)) {
+            cur = new_token(TK_RESERVED, cur, p);
+            cur->len = len;
+            p += len;
             continue;
         }
 
+        len = 1;
+        if (strchr("+-*/()<>=;", *p)) {
+            cur = new_token(TK_RESERVED, cur, p);
+            cur->len = len;
+            p += len;
+            continue;
+        }
+        if ('a' <= *p && *p <= 'z') {
+            cur = new_token(TK_IDENT, cur, p);
+            cur->len = len;
+            p += len;
+            continue;
+        }
+
+        len = 0;
         if (isdigit(*p)) {
-            cur = new_token(TK_NUM, cur, p, 0);
+            cur = new_token(TK_NUM, cur, p);
             cur->val = strtol(p, &p, 10);
             continue;
         }
@@ -76,6 +98,6 @@ Token *tokenize(char *p) {
         error_at(p, "トークナイズできません");
     }
 
-    new_token(TK_EOF, cur, p, 0);
+    new_token(TK_EOF, cur, p);
     return head.next;
 }
