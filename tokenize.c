@@ -57,38 +57,42 @@ Token *tokenize(char *p) {
     Token *cur = &head;
 
     while (*p) {
-        int len;
-
         // 空白文字をスキップ
         if (isspace(*p)) {
             p++;
             continue;
         }
 
-        len = 2;
-        if (!strncmp(p, "==", len) || !strncmp(p, "!=", len) ||
-            !strncmp(p, "<=", len) || !strncmp(p, ">=", len)) {
-            cur = new_token(TK_RESERVED, cur, p);
-            cur->len = len;
-            p += len;
-            continue;
+        {
+            int len = 2;
+            if (!strncmp(p, "==", len) || !strncmp(p, "!=", len) ||
+                !strncmp(p, "<=", len) || !strncmp(p, ">=", len)) {
+                cur = new_token(TK_RESERVED, cur, p);
+                cur->len = len;
+                p += len;
+                continue;
+            }
         }
 
-        len = 1;
         if (strchr("+-*/()<>=;", *p)) {
+            int len = 1;
+
             cur = new_token(TK_RESERVED, cur, p);
             cur->len = len;
             p += len;
             continue;
         }
-        if ('a' <= *p && *p <= 'z') {
-            cur = new_token(TK_IDENT, cur, p);
-            cur->len = len;
-            p += len;
-            continue;
+
+        {
+            int len = strspn(p, "abcdefghijklmnopqrstuvwxyz");
+            if (len > 0) {
+                cur = new_token(TK_IDENT, cur, p);
+                cur->len = len;
+                p += len;
+                continue;
+            }
         }
 
-        len = 0;
         if (isdigit(*p)) {
             cur = new_token(TK_NUM, cur, p);
             cur->val = strtol(p, &p, 10);

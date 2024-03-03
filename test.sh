@@ -32,5 +32,6 @@ assert 0 "(1+3) > 2*5;"
 assert 1 "3 >= 6/2;"
 assert 0 "3 <= 4/2;"
 assert 81 "a = 7; b = 9; (a + 2) * b;"
+assert 81 "numa = 7; numb = 9; (numa + 2) * numb;"
 
 echo OK

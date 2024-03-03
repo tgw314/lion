@@ -32,6 +32,8 @@ Token *token;
 
 Node *code[100];
 
+LVar *locals;
+
 int main(int argc, char **argv) {
     if (argc != 2) {
         error("%s: 引数の数が正しくありません", argv[0]);
