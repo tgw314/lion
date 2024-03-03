@@ -60,8 +60,20 @@ void program() {
 }
 
 Node *stmt() {
-    Node *node = expr();
-    expect(";");
+    Node *node;
+
+    if (consume_kind(TK_RETURN)) {
+        node = calloc(1, sizeof(Node));
+        node->kind = ND_RETURN;
+        node->lhs = expr();
+    } else {
+        node = expr();
+    }
+
+    if (!consume(";")) {
+        error_at(token->str, "';'ではないトークンです");
+    }
+
     return node;
 }
 
@@ -152,7 +164,7 @@ Node *primary() {
         return node;
     }
 
-    Token *tok = consume_ident();
+    Token *tok = consume_kind(TK_IDENT);
     if (tok) {
         return new_node_lvar(tok);
     }

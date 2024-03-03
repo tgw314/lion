@@ -1,4 +1,5 @@
 #include <ctype.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -21,8 +22,8 @@ void expect(char *op) {
     token = token->next;
 }
 
-Token *consume_ident() {
-    if (token->kind != TK_IDENT) {
+Token *consume_kind(TokenKind kind) {
+    if (token->kind != kind) {
         return NULL;
     }
     Token *tmp = token;
@@ -51,6 +52,15 @@ Token *new_token(TokenKind kind, Token *cur, char *str) {
     return tok;
 }
 
+int is_al(char c) {
+    return ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || (c == '_');
+}
+
+int is_alnum(char c) {
+    return ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') ||
+           ('0' <= c && c <= '9') || (c == '_');
+}
+
 Token *tokenize(char *p) {
     Token head;
     head.next = NULL;
@@ -63,34 +73,37 @@ Token *tokenize(char *p) {
             continue;
         }
 
-        {
-            int len = 2;
-            if (!strncmp(p, "==", len) || !strncmp(p, "!=", len) ||
-                !strncmp(p, "<=", len) || !strncmp(p, ">=", len)) {
-                cur = new_token(TK_RESERVED, cur, p);
-                cur->len = len;
-                p += len;
-                continue;
-            }
-        }
+        if (strncmp(p, "return", 6) == 0 && !is_alnum(p[6])) {
+            cur = new_token(TK_RETURN, cur, p);
 
-        if (strchr("+-*/()<>=;", *p)) {
-            int len = 1;
-
-            cur = new_token(TK_RESERVED, cur, p);
-            cur->len = len;
-            p += len;
+            p += 6;
             continue;
         }
 
-        {
-            int len = strspn(p, "abcdefghijklmnopqrstuvwxyz");
-            if (len > 0) {
-                cur = new_token(TK_IDENT, cur, p);
-                cur->len = len;
-                p += len;
-                continue;
-            }
+        if (!strncmp(p, "==", 2) || !strncmp(p, "!=", 2) ||
+            !strncmp(p, "<=", 2) || !strncmp(p, ">=", 2)) {
+            cur = new_token(TK_RESERVED, cur, p);
+
+            cur->len = 2;
+            p += cur->len;
+            continue;
+        }
+
+        if (strchr("+-*/()<>=;", *p)) {
+            cur = new_token(TK_RESERVED, cur, p);
+
+            cur->len = 1;
+            p += cur->len;
+            continue;
+        }
+
+        if (is_al(*p)) {
+            cur = new_token(TK_IDENT, cur, p);
+            cur->len = 1;
+            while (is_alnum(*(p + cur->len))) cur->len++;
+
+            p += cur->len;
+            continue;
         }
 
         if (isdigit(*p)) {
