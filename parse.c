@@ -3,7 +3,48 @@
 
 #include "lion.h"
 
-Node *new_node(NodeKind kind, Node *lhs, Node *rhs) {
+// program = stmt*
+void program();
+
+// stmt = expr ";" | "return" expr ";"
+static Node *stmt();
+
+// expr = assign
+static Node *expr();
+
+// assign = equality ("=" assign)?
+static Node *assign();
+
+// equality = relational ("==" relational | "!=" relational)*
+static Node *equality();
+
+// relational = add ("<" add | "<=" add | ">" add | ">=" add)*
+static Node *relational();
+
+// add = mul ("+" mul | "-" mul)*
+static Node *add();
+
+// mul = unary ("*" unary | "/" unary)*
+static Node *mul();
+
+// unary = ("+" | "-")? primary
+static Node *unary();
+
+// primary = num | ident | "(" expr ")"
+static Node *primary();
+
+// 変数を名前で検索する。見つからなかった場合は NULL を返す。
+static LVar *find_lvar(Token *tok) {
+    for (LVar *var = locals; var; var = var->next) {
+        if (var->len == tok->len && !memcmp(tok->str, var->name, var->len)) {
+            return var;
+        }
+    }
+
+    return NULL;
+}
+
+static Node *new_node(NodeKind kind, Node *lhs, Node *rhs) {
     Node *node = calloc(1, sizeof(Node));
     node->kind = kind;
     node->lhs = lhs;
@@ -11,14 +52,14 @@ Node *new_node(NodeKind kind, Node *lhs, Node *rhs) {
     return node;
 }
 
-Node *new_node_num(int val) {
+static Node *new_node_num(int val) {
     Node *node = calloc(1, sizeof(Node));
     node->kind = ND_NUM;
     node->val = val;
     return node;
 }
 
-Node *new_node_lvar(Token *tok) {
+static Node *new_node_lvar(Token *tok) {
     Node *node = calloc(1, sizeof(Node));
     node->kind = ND_LVAR;
 
@@ -41,16 +82,6 @@ Node *new_node_lvar(Token *tok) {
     return node;
 }
 
-LVar *find_lvar(Token *tok) {
-    for (LVar *var = locals; var; var = var->next) {
-        if (var->len == tok->len && !memcmp(tok->str, var->name, var->len)) {
-            return var;
-        }
-    }
-
-    return NULL;
-}
-
 void program() {
     int i = 0;
     while (!at_eof()) {
@@ -59,7 +90,7 @@ void program() {
     code[i] = NULL;
 }
 
-Node *stmt() {
+static Node *stmt() {
     Node *node;
 
     if (consume_kind(TK_RETURN)) {
@@ -77,9 +108,9 @@ Node *stmt() {
     return node;
 }
 
-Node *expr() { return assign(); }
+static Node *expr() { return assign(); }
 
-Node *assign() {
+static Node *assign() {
     Node *node = equality();
     if (consume("=")) {
         node = new_node(ND_ASSIGN, node, assign());
@@ -87,7 +118,7 @@ Node *assign() {
     return node;
 }
 
-Node *equality() {
+static Node *equality() {
     Node *node = relational();
 
     while (true) {
@@ -101,7 +132,7 @@ Node *equality() {
     }
 }
 
-Node *relational() {
+static Node *relational() {
     Node *node = add();
 
     while (true) {
@@ -119,7 +150,7 @@ Node *relational() {
     }
 }
 
-Node *add() {
+static Node *add() {
     Node *node = mul();
 
     while (true) {
@@ -133,7 +164,7 @@ Node *add() {
     }
 }
 
-Node *mul() {
+static Node *mul() {
     Node *node = unary();
 
     while (true) {
@@ -147,7 +178,7 @@ Node *mul() {
     }
 }
 
-Node *unary() {
+static Node *unary() {
     if (consume("+")) {
         return primary();
     }
@@ -157,7 +188,7 @@ Node *unary() {
     return primary();
 }
 
-Node *primary() {
+static Node *primary() {
     if (consume("(")) {
         Node *node = expr();
         expect(")");

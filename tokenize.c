@@ -5,6 +5,8 @@
 
 #include "lion.h"
 
+// 次のトークンが期待している記号のときには、トークンを1つ読み進めて
+// 真を返す。それ以外の場合には偽を返す。
 bool consume(char *op) {
     if (token->kind != TK_RESERVED || strlen(op) != token->len ||
         memcmp(token->str, op, token->len)) {
@@ -14,6 +16,8 @@ bool consume(char *op) {
     return true;
 }
 
+// 次のトークンが期待している記号のときには、トークンを1つ読み進める。
+// それ以外の場合にはエラーを報告する。
 void expect(char *op) {
     if (token->kind != TK_RESERVED || strlen(op) != token->len ||
         memcmp(token->str, op, token->len)) {
@@ -22,6 +26,8 @@ void expect(char *op) {
     token = token->next;
 }
 
+// 次のトークンが期待している TokenKind のときには、トークンを1つ読み進めて
+// そのトークンを返す。それ以外の場合には NULL を返す。
 Token *consume_kind(TokenKind kind) {
     if (token->kind != kind) {
         return NULL;
@@ -31,6 +37,8 @@ Token *consume_kind(TokenKind kind) {
     return tmp;
 }
 
+// 次のトークンが数値の場合、トークンを1つ読み進めてその数値を返す。
+// それ以外の場合にはエラーを報告する。
 int expect_number() {
     if (token->kind != TK_NUM) {
         error_at(token->str, "数ではありません");
@@ -42,7 +50,8 @@ int expect_number() {
 
 bool at_eof() { return token->kind == TK_EOF; }
 
-Token *new_token(TokenKind kind, Token *cur, char *str) {
+// 新しいトークンを作成して cur に繋げる
+static Token *new_token(TokenKind kind, Token *cur, char *str) {
     Token *tok = calloc(1, sizeof(Token));
     tok->kind = kind;
     tok->str = str;
@@ -52,15 +61,20 @@ Token *new_token(TokenKind kind, Token *cur, char *str) {
     return tok;
 }
 
-int is_al(char c) {
+static bool startswith(char *p, char *q) {
+    return memcmp(p, q, strlen(q)) == 0;
+}
+
+static bool is_al(char c) {
     return ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || (c == '_');
 }
 
-int is_alnum(char c) {
+static bool is_alnum(char c) {
     return ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') ||
            ('0' <= c && c <= '9') || (c == '_');
 }
 
+// 入力文字列 p をトークナイズしてそれを返す
 Token *tokenize(char *p) {
     Token head;
     head.next = NULL;
@@ -73,15 +87,15 @@ Token *tokenize(char *p) {
             continue;
         }
 
-        if (strncmp(p, "return", 6) == 0 && !is_alnum(p[6])) {
+        if (startswith(p, "return") && !is_alnum(p[6])) {
             cur = new_token(TK_RETURN, cur, p);
 
             p += 6;
             continue;
         }
 
-        if (!strncmp(p, "==", 2) || !strncmp(p, "!=", 2) ||
-            !strncmp(p, "<=", 2) || !strncmp(p, ">=", 2)) {
+        if (startswith(p, "==") || startswith(p, "!=") || startswith(p, "<=") ||
+            startswith(p, ">=")) {
             cur = new_token(TK_RESERVED, cur, p);
 
             cur->len = 2;
@@ -99,6 +113,7 @@ Token *tokenize(char *p) {
 
         if (is_al(*p)) {
             cur = new_token(TK_IDENT, cur, p);
+
             cur->len = 1;
             while (is_alnum(*(p + cur->len))) cur->len++;
 

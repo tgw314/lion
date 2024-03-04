@@ -27,11 +27,8 @@ void error_at(char *loc, char *fmt, ...) {
 }
 
 char *user_input;
-
 Token *token;
-
 Node *code[100];
-
 LVar *locals;
 
 int main(int argc, char **argv) {
