@@ -21,7 +21,7 @@ bool consume(char *op) {
 void expect(char *op) {
     if (token->kind != TK_RESERVED || strlen(op) != token->len ||
         memcmp(token->str, op, token->len)) {
-        error_at(token->str, "'%c'ではありません", op);
+        error_at(token->str, "'%s'ではありません", op);
     }
     token = token->next;
 }
@@ -37,6 +37,18 @@ Token *consume_kind(TokenKind kind) {
     return tmp;
 }
 
+// 次のトークンが期待しているキーワードのときには、トークンを1つ読み進めて
+// 真を返す。それ以外の場合には偽を返す。
+bool consume_keyword(char *k) {
+    if (token->kind != TK_KEYWORD || strlen(k) != token->len ||
+        memcmp(token->str, k, token->len)) {
+        return false;
+    }
+
+    token = token->next;
+    return true;
+}
+
 // 次のトークンが数値の場合、トークンを1つ読み進めてその数値を返す。
 // それ以外の場合にはエラーを報告する。
 int expect_number() {
@@ -49,6 +61,10 @@ int expect_number() {
 }
 
 bool at_eof() { return token->kind == TK_EOF; }
+
+bool equal(Token *tok, char *op) {
+    return strlen(op) == tok->len && !memcmp(tok->str, op, tok->len);
+}
 
 // 新しいトークンを作成して cur に繋げる
 static Token *new_token(TokenKind kind, Token *cur, char *str) {
@@ -87,15 +103,8 @@ Token *tokenize(char *p) {
             continue;
         }
 
-        if (startswith(p, "return") && !is_alnum(p[6])) {
-            cur = new_token(TK_RETURN, cur, p);
-
-            p += 6;
-            continue;
-        }
-
-        if (startswith(p, "==") || startswith(p, "!=") || startswith(p, "<=") ||
-            startswith(p, ">=")) {
+        if (startswith(p, "==") || startswith(p, "!=") ||
+            startswith(p, "<=") || startswith(p, ">=")) {
             cur = new_token(TK_RESERVED, cur, p);
 
             cur->len = 2;
@@ -116,6 +125,14 @@ Token *tokenize(char *p) {
 
             cur->len = 1;
             while (is_alnum(*(p + cur->len))) cur->len++;
+
+            if (equal(cur, "return") ||
+                equal(cur, "if") ||
+                equal(cur, "else") ||
+                equal(cur, "while") ||
+                equal(cur, "for")) {
+                cur->kind = TK_KEYWORD;
+            }
 
             p += cur->len;
             continue;

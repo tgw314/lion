@@ -5,7 +5,7 @@ typedef enum {
     TK_RESERVED,  // 記号
     TK_IDENT,     // 識別子
     TK_NUM,       // 数字
-    TK_RETURN,    // return
+    TK_KEYWORD,   // キーワード
     TK_EOF,       // EOF
 } TokenKind;
 
@@ -34,6 +34,10 @@ typedef enum {
     ND_LVAR,    // ローカル変数
     ND_NUM,     // 整数
     ND_RETURN,  // return
+    ND_IF,      // if
+    ND_ELSE,    // else
+    ND_WHILE,   // while
+    ND_FOR,     // for
 } NodeKind;
 
 typedef struct Node Node;
@@ -43,6 +47,13 @@ struct Node {
     NodeKind kind;  // ノードの型
     Node *lhs;      // 左辺
     Node *rhs;      // 右辺
+                    
+    Node *cond;     // kind が ND_IF, ND_WHILE, ND_FOR の場合のみ
+    Node *then;     // kind が ND_IF, ND_WHILE, ND_FOR の場合のみ
+    Node *els;      // kind が ND_IF の場合のみ
+    Node *init;     // kind が ND_FOR の場合のみ
+    Node *upd;      // kind が ND_FOR の場合のみ
+                    
     int val;        // kind が ND_NUM の場合の数値
     int offset;     /* kind が ND_LVAR の場合のみ
                        ローカル変数のベースポインタからのオフセット */
@@ -73,23 +84,19 @@ void error(char *fmt, ...);
 // エラー箇所を報告する
 void error_at(char *loc, char *fmt, ...);
 
-// 次のトークンが期待している記号のときには、トークンを1つ読み進めて
-// 真を返す。それ以外の場合には偽を返す。
 bool consume(char *op);
 
-// 次のトークンが期待している TokenKind のときには、トークンを1つ読み進めて
-// そのトークンを返す。それ以外の場合には NULL を返す。
 Token *consume_kind(TokenKind kind);
 
-// 次のトークンが期待している記号のときには、トークンを1つ読み進める。
-// それ以外の場合にはエラーを報告する。
 void expect(char *op);
 
-// 次のトークンが数値の場合、トークンを1つ読み進めてその数値を返す。
-// それ以外の場合にはエラーを報告する。
+bool consume_keyword(char *k);
+
 int expect_number();
 
 bool at_eof();
+
+bool equal(Token *tok, char *op);
 
 // 入力文字列 p をトークナイズしてそれを返す
 Token *tokenize(char *p);

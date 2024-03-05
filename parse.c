@@ -3,34 +3,15 @@
 
 #include "lion.h"
 
-// program = stmt*
 void program();
-
-// stmt = expr ";" | "return" expr ";"
 static Node *stmt();
-
-// expr = assign
 static Node *expr();
-
-// assign = equality ("=" assign)?
 static Node *assign();
-
-// equality = relational ("==" relational | "!=" relational)*
 static Node *equality();
-
-// relational = add ("<" add | "<=" add | ">" add | ">=" add)*
 static Node *relational();
-
-// add = mul ("+" mul | "-" mul)*
 static Node *add();
-
-// mul = unary ("*" unary | "/" unary)*
 static Node *mul();
-
-// unary = ("+" | "-")? primary
 static Node *unary();
-
-// primary = num | ident | "(" expr ")"
 static Node *primary();
 
 // 変数を名前で検索する。見つからなかった場合は NULL を返す。
@@ -44,24 +25,27 @@ static LVar *find_lvar(Token *tok) {
     return NULL;
 }
 
-static Node *new_node(NodeKind kind, Node *lhs, Node *rhs) {
+static Node *new_node(NodeKind kind) {
     Node *node = calloc(1, sizeof(Node));
     node->kind = kind;
+    return node;
+}
+
+static Node *new_node_expr(NodeKind kind, Node *lhs, Node *rhs) {
+    Node *node = new_node(kind);
     node->lhs = lhs;
     node->rhs = rhs;
     return node;
 }
 
 static Node *new_node_num(int val) {
-    Node *node = calloc(1, sizeof(Node));
-    node->kind = ND_NUM;
+    Node *node = new_node(ND_NUM);
     node->val = val;
     return node;
 }
 
 static Node *new_node_lvar(Token *tok) {
-    Node *node = calloc(1, sizeof(Node));
-    node->kind = ND_LVAR;
+    Node *node = new_node(ND_LVAR);
 
     LVar *lvar = find_lvar(tok);
 
@@ -82,6 +66,7 @@ static Node *new_node_lvar(Token *tok) {
     return node;
 }
 
+// program = stmt*
 void program() {
     int i = 0;
     while (!at_eof()) {
@@ -90,12 +75,60 @@ void program() {
     code[i] = NULL;
 }
 
+// stmt = expr ";"
+//      | "if" "(" expr ")" stmt ("else" stmt)?
+//      | "while" "(" expr ")" stmt
+//      | "for" "(" expr? ";" expr? ";" expr? ")" stmt
+//      | "return" expr ";"
 static Node *stmt() {
     Node *node;
 
-    if (consume_kind(TK_RETURN)) {
-        node = calloc(1, sizeof(Node));
-        node->kind = ND_RETURN;
+    if (consume_keyword("if")) {
+        node = new_node(ND_IF);
+
+        expect("(");
+        node->cond = expr();
+        expect(")");
+        node->then = stmt();
+        if (consume_keyword("else")) {
+            node->els = stmt();
+        }
+
+        return node;
+    } else if (consume_keyword("while")) {
+        node = new_node(ND_WHILE);
+
+        expect("(");
+        node->cond = expr();
+        expect(")");
+        node->then = stmt();
+
+        return node;
+    } else if (consume_keyword("for")) {
+        node = new_node(ND_FOR);
+
+        expect("(");
+        if (!consume(";")) {
+            node->init = expr();
+            expect(";");
+        }
+        if (!consume(";")) {
+            node->cond = expr();
+            expect(";");
+        } else {
+            node->cond = new_node_num(1);
+        }
+        if (!consume(")")) {
+            node->upd = expr();
+            expect(")");
+        }
+        node->then = stmt();
+
+        return node;
+    }
+
+    if (consume_keyword("return")) {
+        node = new_node(ND_RETURN);
         node->lhs = expr();
     } else {
         node = expr();
@@ -108,86 +141,94 @@ static Node *stmt() {
     return node;
 }
 
+// expr = assign
 static Node *expr() { return assign(); }
 
+// assign = equality ("=" assign)?
 static Node *assign() {
     Node *node = equality();
     if (consume("=")) {
-        node = new_node(ND_ASSIGN, node, assign());
+        node = new_node_expr(ND_ASSIGN, node, assign());
     }
     return node;
 }
 
+// equality = relational ("==" relational | "!=" relational)*
 static Node *equality() {
     Node *node = relational();
 
     while (true) {
         if (consume("==")) {
-            node = new_node(ND_EQ, node, relational());
+            node = new_node_expr(ND_EQ, node, relational());
         } else if (consume("!=")) {
-            node = new_node(ND_NEQ, node, relational());
+            node = new_node_expr(ND_NEQ, node, relational());
         } else {
             return node;
         }
     }
 }
 
+// relational = add ("<" add | "<=" add | ">" add | ">=" add)*
 static Node *relational() {
     Node *node = add();
 
     while (true) {
         if (consume("<=")) {
-            node = new_node(ND_LEQ, node, add());
+            node = new_node_expr(ND_LEQ, node, add());
         } else if (consume("<")) {
-            node = new_node(ND_LS, node, add());
+            node = new_node_expr(ND_LS, node, add());
         } else if (consume(">=")) {
-            node = new_node(ND_LEQ, add(), node);
+            node = new_node_expr(ND_LEQ, add(), node);
         } else if (consume(">")) {
-            node = new_node(ND_LS, add(), node);
+            node = new_node_expr(ND_LS, add(), node);
         } else {
             return node;
         }
     }
 }
 
+// add = mul ("+" mul | "-" mul)*
 static Node *add() {
     Node *node = mul();
 
     while (true) {
         if (consume("+")) {
-            node = new_node(ND_ADD, node, mul());
+            node = new_node_expr(ND_ADD, node, mul());
         } else if (consume("-")) {
-            node = new_node(ND_SUB, node, mul());
+            node = new_node_expr(ND_SUB, node, mul());
         } else {
             return node;
         }
     }
 }
 
+// mul = unary ("*" unary | "/" unary)*
 static Node *mul() {
     Node *node = unary();
 
     while (true) {
         if (consume("*")) {
-            node = new_node(ND_MUL, node, unary());
+            node = new_node_expr(ND_MUL, node, unary());
         } else if (consume("/")) {
-            node = new_node(ND_DIV, node, unary());
+            node = new_node_expr(ND_DIV, node, unary());
         } else {
             return node;
         }
     }
 }
 
+// unary = ("+" | "-")? primary
 static Node *unary() {
     if (consume("+")) {
         return primary();
     }
     if (consume("-")) {
-        return new_node(ND_SUB, new_node_num(0), primary());
+        return new_node_expr(ND_SUB, new_node_num(0), primary());
     }
     return primary();
 }
 
+// primary = num | ident | "(" expr ")"
 static Node *primary() {
     if (consume("(")) {
         Node *node = expr();
