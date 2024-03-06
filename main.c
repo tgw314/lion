@@ -54,10 +54,6 @@ int main(int argc, char **argv) {
     // 先頭の式から順にコード生成
     for (Node *code = codes; code; code = code->next) {
         gen(code);
-
-        // 式の評価結果としてスタックに一つの値が残っている
-        // はずなので、スタックが溢れないようにポップしておく
-        printf("  pop rax\n");
     }
 
     // エピローグ
