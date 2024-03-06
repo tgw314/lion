@@ -28,7 +28,6 @@ void error_at(char *loc, char *fmt, ...) {
 
 char *user_input;
 Token *token;
-Node *code[100];
 LVar *locals;
 
 int main(int argc, char **argv) {
@@ -40,7 +39,7 @@ int main(int argc, char **argv) {
     locals = calloc(1, sizeof(LVar));
     user_input = argv[1];
     token = tokenize(user_input);
-    program();
+    Node *codes = program();
 
     // アセンブリの前半部分を出力
     printf(".intel_syntax noprefix\n");
@@ -53,8 +52,8 @@ int main(int argc, char **argv) {
     printf("  sub rsp, %d\n", locals->offset);
 
     // 先頭の式から順にコード生成
-    for (int i = 0; code[i]; i++) {
-        gen(code[i]);
+    for (Node *code = codes; code; code = code->next) {
+        gen(code);
 
         // 式の評価結果としてスタックに一つの値が残っている
         // はずなので、スタックが溢れないようにポップしておく

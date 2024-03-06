@@ -3,7 +3,6 @@
 
 #include "lion.h"
 
-void program();
 static Node *stmt();
 static Node *expr();
 static Node *assign();
@@ -69,15 +68,19 @@ static Node *new_node_lvar(Token *tok) {
 }
 
 // program = stmt*
-void program() {
-    int i = 0;
+Node *program() {
+    Node head = {};
+    Node *cur = &head;
     while (!at_eof()) {
-        code[i++] = stmt();
+        cur->next = stmt();
+        cur = cur->next;
     }
-    code[i] = NULL;
+    cur->next = NULL;
+    return head.next;
 }
 
 // stmt = expr ";"
+//      | "{" stmt* "}"
 //      | "if" "(" expr ")" stmt ("else" stmt)?
 //      | "while" "(" expr ")" stmt
 //      | "for" "(" expr? ";" expr? ";" expr? ")" stmt
@@ -85,7 +88,20 @@ void program() {
 static Node *stmt() {
     Node *node;
 
-    if (consume("if")) {
+    if (consume("{")) {
+        node = new_node(ND_BLOCK);
+
+        Node head = {};
+        Node *cur = &head;
+        while (!consume("}")) {
+            cur->next = stmt();
+            cur = cur->next;
+        }
+        cur->next = NULL;
+
+        node->body = head.next;
+        return node;
+    } else if (consume("if")) {
         node = new_node(ND_IF);
 
         expect("(");
