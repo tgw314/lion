@@ -37,6 +37,7 @@ typedef enum {
     ND_ELSE,    // else
     ND_WHILE,   // while
     ND_FOR,     // for
+    ND_BLOCK,   // ブロック
 } NodeKind;
 
 typedef struct Node Node;
@@ -44,6 +45,7 @@ typedef struct Node Node;
 // 抽象構文木のノードの型
 struct Node {
     NodeKind kind;  // ノードの型
+    Node *next;     // 次のステートメント
     Node *lhs;      // 左辺
     Node *rhs;      // 右辺
                     
@@ -52,6 +54,7 @@ struct Node {
     Node *els;      // kind が ND_IF の場合のみ
     Node *init;     // kind が ND_FOR の場合のみ
     Node *upd;      // kind が ND_FOR の場合のみ
+    Node *body;     // kind が ND_BLOCK の場合のみ
                     
     int val;        // kind が ND_NUM の場合の数値
     int offset;     /* kind が ND_LVAR の場合のみ
@@ -71,8 +74,6 @@ struct LVar {
 extern char *user_input;
 
 extern Token *token;
-
-extern Node *code[100];
 
 extern LVar *locals;
 
@@ -98,6 +99,6 @@ bool equal(Token *tok, char *op);
 // 入力文字列 p をトークナイズしてそれを返す
 Token *tokenize(char *p);
 
-void program();
+Node *program();
 
 void gen(Node *node);
