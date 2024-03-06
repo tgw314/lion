@@ -83,19 +83,19 @@ void program() {
 static Node *stmt() {
     Node *node;
 
-    if (consume_keyword("if")) {
+    if (consume("if")) {
         node = new_node(ND_IF);
 
         expect("(");
         node->cond = expr();
         expect(")");
         node->then = stmt();
-        if (consume_keyword("else")) {
+        if (consume("else")) {
             node->els = stmt();
         }
 
         return node;
-    } else if (consume_keyword("while")) {
+    } else if (consume("while")) {
         node = new_node(ND_WHILE);
 
         expect("(");
@@ -104,7 +104,7 @@ static Node *stmt() {
         node->then = stmt();
 
         return node;
-    } else if (consume_keyword("for")) {
+    } else if (consume("for")) {
         node = new_node(ND_FOR);
 
         expect("(");
@@ -127,7 +127,7 @@ static Node *stmt() {
         return node;
     }
 
-    if (consume_keyword("return")) {
+    if (consume("return")) {
         node = new_node(ND_RETURN);
         node->lhs = expr();
     } else {

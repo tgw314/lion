@@ -37,18 +37,6 @@ Token *consume_kind(TokenKind kind) {
     return tmp;
 }
 
-// 次のトークンが期待しているキーワードのときには、トークンを1つ読み進めて
-// 真を返す。それ以外の場合には偽を返す。
-bool consume_keyword(char *k) {
-    if (token->kind != TK_KEYWORD || strlen(k) != token->len ||
-        memcmp(token->str, k, token->len)) {
-        return false;
-    }
-
-    token = token->next;
-    return true;
-}
-
 // 次のトークンが数値の場合、トークンを1つ読み進めてその数値を返す。
 // それ以外の場合にはエラーを報告する。
 int expect_number() {
@@ -131,7 +119,7 @@ Token *tokenize(char *p) {
                 equal(cur, "else") ||
                 equal(cur, "while") ||
                 equal(cur, "for")) {
-                cur->kind = TK_KEYWORD;
+                cur->kind = TK_RESERVED;
             }
 
             p += cur->len;

@@ -5,7 +5,6 @@ typedef enum {
     TK_RESERVED,  // 記号
     TK_IDENT,     // 識別子
     TK_NUM,       // 数字
-    TK_KEYWORD,   // キーワード
     TK_EOF,       // EOF
 } TokenKind;
 
@@ -89,8 +88,6 @@ bool consume(char *op);
 Token *consume_kind(TokenKind kind);
 
 void expect(char *op);
-
-bool consume_keyword(char *k);
 
 int expect_number();
 
