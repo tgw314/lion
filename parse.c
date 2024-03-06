@@ -25,6 +25,14 @@ static LVar *find_lvar(Token *tok) {
     return NULL;
 }
 
+static LVar *new_lvar(char *name, int len) {
+    LVar *lvar = calloc(1, sizeof(LVar));
+    lvar->name = name;
+    lvar->len = len;
+    lvar->offset = locals->offset + 8;
+    return lvar;
+}
+
 static Node *new_node(NodeKind kind) {
     Node *node = calloc(1, sizeof(Node));
     node->kind = kind;
@@ -49,19 +57,13 @@ static Node *new_node_lvar(Token *tok) {
 
     LVar *lvar = find_lvar(tok);
 
-    if (lvar) {
-        node->offset = lvar->offset;
-    } else {
-        lvar = calloc(1, sizeof(LVar));
-
+    if (!lvar) {
+        lvar = new_lvar(tok->str, tok->len);
         lvar->next = locals;
-        lvar->name = tok->str;
-        lvar->len = tok->len;
-        lvar->offset = ((locals) ? locals->offset : 0) + 8;
-
-        node->offset = lvar->offset;
         locals = lvar;
     }
+
+    node->offset = lvar->offset;
 
     return node;
 }
