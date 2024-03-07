@@ -246,16 +246,41 @@ static Node *unary() {
     return primary();
 }
 
-// primary = num | ident | "(" expr ")"
+// primary = num
+//         | ident "(" (expr ("," expr)*)? ")"
+//         | "(" expr ")"
 static Node *primary() {
+    Node *node;
+
     if (consume("(")) {
-        Node *node = expr();
+        node = expr();
         expect(")");
         return node;
     }
 
     Token *tok = consume_kind(TK_IDENT);
     if (tok) {
+        if (consume("(")) {
+            node = new_node(ND_CALL);
+            node->funcname = strndup(tok->str, tok->len);
+
+            if (!consume(")")) {
+                Node head = {};
+                Node *cur = &head;
+
+                cur->next = expr();
+                cur = cur->next;
+                while (!consume(")")) {
+                    expect(",");
+
+                    cur->next = expr();
+                    cur = cur->next;
+                }
+                node->args = head.next;
+            }
+
+            return node;
+        }
         return new_node_lvar(tok);
     }
 
