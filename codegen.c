@@ -2,9 +2,40 @@
 
 #include "lion.h"
 
+static int rsp_offset = 0;
+static char *arg_regs[] = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"};
+
 static int count() {
     static int i = 0;
     return i++;
+}
+
+// align = 2^n の場合のみ有効
+static int align(int n, int align) {
+    return (n + align - 1) & ~(align - 1);
+}
+
+static void push_num(const int n) {
+    printf("  push %d\n", n);
+    rsp_offset += 8;
+}
+
+static void push(const char *reg) {
+    printf("  push %s\n", reg);
+    rsp_offset += 8;
+}
+
+static void pop(const char *reg) {
+    printf("  pop %s\n", reg);
+    rsp_offset -= 8;
+}
+
+static void call(const char *funcname) {
+    if (rsp_offset % 16) {
+        printf("  sub rsp, 8\n");
+    }
+    printf("  call %s\n", funcname);
+    push("rax");
 }
 
 static void gen_lval(Node *node) {
@@ -14,53 +45,53 @@ static void gen_lval(Node *node) {
 
     printf("  mov rax, rbp\n");
     printf("  sub rax, %d\n", node->offset);
-    printf("  push rax\n");
+    push("rax");
 }
 
-void gen(Node *node) {
+static void gen_stmt(Node *node) {
     switch (node->kind) {
         case ND_NUM:
             puts("# ND_NUM {");
-            printf("  push %d\n", node->val);
+            push_num(node->val);
             puts("# } ND_NUM");
             return;
         case ND_LVAR:
-            gen_lval(node);
             puts("# ND_LVAR {");
-            printf("  pop rax\n");
+            gen_lval(node);
+            pop("rax");
             printf("  mov rax, [rax]\n");
-            printf("  push rax\n");
+            push("rax");
             puts("# } ND_LVAR");
             return;
         case ND_ASSIGN:
             puts("# ND_ASSIGN {");
             gen_lval(node->lhs);
-            gen(node->rhs);
-            printf("  pop rdi\n");
-            printf("  pop rax\n");
+            gen_stmt(node->rhs);
+            pop("rdi");
+            pop("rax");
             printf("  mov [rax], rdi\n");
-            printf("  push rdi\n");
+            push("rdi");
             puts("# } ND_ASSIGN");
             return;
         case ND_BLOCK:
             puts("# ND_BLOCK {");
             for (Node *n = node->body; n; n = n->next) {
-                gen(n);
+                gen_stmt(n);
             }
             puts("# } ND_BLOCK");
             return;
         case ND_IF: {
             int i = count();
             puts("# ND_IF {");
-            gen(node->cond);
-            printf("  pop rax\n");
+            gen_stmt(node->cond);
+            pop("rax");
             printf("  cmp rax, 0\n");
             printf("  je  .Lelse%03d\n", i);
-            gen(node->then);
+            gen_stmt(node->then);
             printf("  jmp .Lend%03d\n", i);
             printf(".Lelse%03d:\n", i);
             if (node->els) {
-                gen(node->els);
+                gen_stmt(node->els);
             }
             printf(".Lend%03d:\n", i);
             puts("# } ND_IF");
@@ -70,11 +101,11 @@ void gen(Node *node) {
             int i = count();
             puts("# ND_WHILE {");
             printf(".Lbegin%03d:\n", i);
-            gen(node->cond);
-            printf("  pop rax\n");
+            gen_stmt(node->cond);
+            pop("rax");
             printf("  cmp rax, 0\n");
             printf("  je  .Lend%03d\n", i);
-            gen(node->then);
+            gen_stmt(node->then);
             printf("  jmp .Lbegin%03d\n", i);
             printf(".Lend%03d:\n", i);
             puts("# } ND_WHILE");
@@ -84,39 +115,53 @@ void gen(Node *node) {
             int i = count();
             puts("# ND_FOR {");
             if (node->init) {
-                gen(node->init);
+                gen_stmt(node->init);
             }
             printf(".Lbegin%03d:\n", i);
-            gen(node->cond);
-            printf("  pop rax\n");
+            gen_stmt(node->cond);
+            pop("rax");
             printf("  cmp rax, 0\n");
             printf("  je  .Lend%03d\n", i);
-            gen(node->then);
+            gen_stmt(node->then);
             if (node->upd) {
-                gen(node->upd);
+                gen_stmt(node->upd);
             }
             printf("  jmp .Lbegin%03d\n", i);
             printf(".Lend%03d:\n", i);
             puts("# } ND_FOR");
             return;
         }
+        case ND_CALL: {
+            int argc = 0;
+            puts("# ND_CALL {");
+            for (Node *arg = node->args; arg; arg = arg->next) {
+                gen_stmt(arg);
+                argc++;
+            }
+            for (int i = argc - 1; i >= 0; i--) {
+                pop(arg_regs[i]);
+            }
+            call(node->funcname);
+            puts("# } ND_CALL");
+            return;
+        }
         case ND_RETURN:
             puts("# ND_RETURN {");
-            gen(node->lhs);
-            printf("  pop rax\n");
+            gen_stmt(node->lhs);
+            pop("rax");
             printf("  mov rsp, rbp\n");
-            printf("  pop rbp\n");
+            pop("rbp");
             printf("  ret\n");
             puts("# } ND_RETURN");
             return;
     }
 
-    gen(node->lhs);
-    gen(node->rhs);
+    gen_stmt(node->lhs);
+    gen_stmt(node->rhs);
 
     puts("# {");
-    printf("  pop rdi\n");
-    printf("  pop rax\n");
+    pop("rdi");
+    pop("rax");
     puts("# }");
 
     switch (node->kind) {
@@ -171,5 +216,29 @@ void gen(Node *node) {
             break;
     }
 
-    printf("  push rax\n");
+    push("rax");
+}
+
+void generate(Node *prog) {
+    // アセンブリの前半部分を出力
+    printf(".intel_syntax noprefix\n");
+    printf(".globl main\n");
+    printf("main:\n");
+
+    // プロローグ
+    push("rbp");
+    printf("  mov rbp, rsp\n");
+    // 予めアラインしているので以降は無視できる
+    printf("  sub rsp, %d\n", align(locals->offset, 16));
+
+    // 先頭の式から順にコード生成
+    for (Node *code = prog; code; code = code->next) {
+        gen_stmt(code);
+    }
+
+    // エピローグ
+    // 最後の式の結果が RAX に残っているのでそれが返り値になる
+    printf("  mov rsp, rbp\n");
+    pop("rbp");
+    printf("  ret\n");
 }

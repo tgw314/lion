@@ -38,27 +38,28 @@ typedef enum {
     ND_WHILE,   // while
     ND_FOR,     // for
     ND_BLOCK,   // ブロック
+    ND_CALL,    // 関数呼び出し
 } NodeKind;
 
 typedef struct Node Node;
 
 // 抽象構文木のノードの型
 struct Node {
-    NodeKind kind;  // ノードの型
-    Node *next;     // 次のステートメント
-    Node *lhs;      // 左辺
-    Node *rhs;      // 右辺
-                    
-    Node *cond;     // kind が ND_IF, ND_WHILE, ND_FOR の場合のみ
-    Node *then;     // kind が ND_IF, ND_WHILE, ND_FOR の場合のみ
-    Node *els;      // kind が ND_IF の場合のみ
-    Node *init;     // kind が ND_FOR の場合のみ
-    Node *upd;      // kind が ND_FOR の場合のみ
-    Node *body;     // kind が ND_BLOCK の場合のみ
-                    
-    int val;        // kind が ND_NUM の場合の数値
-    int offset;     /* kind が ND_LVAR の場合のみ
-                       ローカル変数のベースポインタからのオフセット */
+    NodeKind kind;   // ノードの型
+    Node *next;      // 次のステートメント
+    Node *lhs;       // 左辺
+    Node *rhs;       // 右辺
+    Node *cond;      // kind が ND_IF, ND_WHILE, ND_FOR の場合のみ
+    Node *then;      // kind が ND_IF, ND_WHILE, ND_FOR の場合のみ
+    Node *els;       // kind が ND_IF の場合のみ
+    Node *init;      // kind が ND_FOR の場合のみ
+    Node *upd;       // kind が ND_FOR の場合のみ
+    Node *body;      // kind が ND_BLOCK の場合のみ
+    int val;         // kind が ND_NUM の場合の数値
+    int offset;      /* kind が ND_LVAR の場合のみ
+                        ローカル変数のベースポインタからのオフセット */
+    char *funcname;  // kind が ND_CALL の場合のみ
+    Node *args;      // kind が ND_CALL の場合のみ
 };
 
 typedef struct LVar LVar;
@@ -101,4 +102,4 @@ Token *tokenize(char *p);
 
 Node *program();
 
-void gen(Node *node);
+void generate(Node *prog);

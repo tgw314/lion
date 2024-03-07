@@ -39,27 +39,8 @@ int main(int argc, char **argv) {
     locals = calloc(1, sizeof(LVar));
     user_input = argv[1];
     token = tokenize(user_input);
-    Node *codes = program();
 
-    // アセンブリの前半部分を出力
-    printf(".intel_syntax noprefix\n");
-    printf(".globl main\n");
-    printf("main:\n");
+    generate(program());
 
-    // プロローグ
-    printf("  push rbp\n");
-    printf("  mov rbp, rsp\n");
-    printf("  sub rsp, %d\n", locals->offset);
-
-    // 先頭の式から順にコード生成
-    for (Node *code = codes; code; code = code->next) {
-        gen(code);
-    }
-
-    // エピローグ
-    // 最後の式の結果が RAX に残っているのでそれが返り値になる
-    printf("  mov rsp, rbp\n");
-    printf("  pop rbp\n");
-    printf("  ret\n");
     return 0;
 }
