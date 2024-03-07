@@ -77,6 +77,14 @@ static bool is_alnum(char c) {
     return is_al(c) || ('0' <= c && c <= '9');
 }
 
+static bool is_keyword(Token *tok) {
+    return equal(tok, "return") ||
+           equal(tok, "if") ||
+           equal(tok, "else") ||
+           equal(tok, "while") ||
+           equal(tok, "for");
+}
+
 // 入力文字列 p をトークナイズしてそれを返す
 Token *tokenize(char *p) {
     Token head;
@@ -113,11 +121,7 @@ Token *tokenize(char *p) {
             cur->len = 1;
             while (is_alnum(*(p + cur->len))) cur->len++;
 
-            if (equal(cur, "return") ||
-                equal(cur, "if") ||
-                equal(cur, "else") ||
-                equal(cur, "while") ||
-                equal(cur, "for")) {
+            if (is_keyword(cur)) {
                 cur->kind = TK_RESERVED;
             }
 
