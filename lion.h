@@ -62,21 +62,37 @@ struct Node {
     Node *args;      // kind が ND_CALL の場合のみ
 };
 
+typedef enum {
+    LV_NORMAL,
+    LV_ARG,
+} LVarKind;
+
 typedef struct LVar LVar;
 
 // ローカル変数の型
 struct LVar {
+    LVarKind kind;
     LVar *next;  // 次の変数か NULL
     char *name;  // 変数の名前
-    int len;     // 名前の長さ
     int offset;  // RBP からのオフセット
+};
+
+typedef struct Function Function;
+
+// 関数
+struct Function {
+    char *name;
+    int stack_size;
+    LVar *locals;    // ローカル変数
+    Function *next;  // 次の関数
+    Node *body;
 };
 
 extern char *user_input;
 
 extern Token *token;
 
-extern LVar *locals;
+extern Function *functions;
 
 // エラーを報告するための関数
 // printf と同じ引数を取る
@@ -87,9 +103,11 @@ void error_at(char *loc, char *fmt, ...);
 
 bool consume(char *op);
 
-Token *consume_kind(TokenKind kind);
-
 void expect(char *op);
+
+Token *consume_ident();
+
+Token *expect_ident();
 
 int expect_number();
 
@@ -100,6 +118,6 @@ bool equal(Token *tok, char *op);
 // 入力文字列 p をトークナイズしてそれを返す
 Token *tokenize(char *p);
 
-Node *program();
+Function *program();
 
-void generate(Node *prog);
+void generate(Function *funcs);

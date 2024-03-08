@@ -2,6 +2,7 @@
 
 #include "lion.h"
 
+static Function *func;
 static int rsp_offset = 0;
 static char *arg_regs[] = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"};
 
@@ -86,28 +87,28 @@ static void gen_stmt(Node *node) {
             gen_stmt(node->cond);
             pop("rax");
             printf("  cmp rax, 0\n");
-            printf("  je  .Lelse%03d\n", i);
+            printf("  je  .L.else.%03d\n", i);
             gen_stmt(node->then);
-            printf("  jmp .Lend%03d\n", i);
-            printf(".Lelse%03d:\n", i);
+            printf("  jmp .L.end.%03d\n", i);
+            printf(".L.else.%03d:\n", i);
             if (node->els) {
                 gen_stmt(node->els);
             }
-            printf(".Lend%03d:\n", i);
+            printf(".L.end.%03d:\n", i);
             puts("# } ND_IF");
             return;
         }
         case ND_WHILE: {
             int i = count();
             puts("# ND_WHILE {");
-            printf(".Lbegin%03d:\n", i);
+            printf(".L.begin.%03d:\n", i);
             gen_stmt(node->cond);
             pop("rax");
             printf("  cmp rax, 0\n");
-            printf("  je  .Lend%03d\n", i);
+            printf("  je  .L.end.%03d\n", i);
             gen_stmt(node->then);
-            printf("  jmp .Lbegin%03d\n", i);
-            printf(".Lend%03d:\n", i);
+            printf("  jmp .L.begin.%03d\n", i);
+            printf(".L.end.%03d:\n", i);
             puts("# } ND_WHILE");
             return;
         }
@@ -117,19 +118,19 @@ static void gen_stmt(Node *node) {
             if (node->init) {
                 gen_stmt(node->init);
             }
-            printf(".Lbegin%03d:\n", i);
+            printf(".L.begin.%03d:\n", i);
             if (node->cond) {
                 gen_stmt(node->cond);
                 pop("rax");
                 printf("  cmp rax, 0\n");
-                printf("  je  .Lend%03d\n", i);
+                printf("  je  .L.end.%03d\n", i);
             }
             gen_stmt(node->then);
             if (node->upd) {
                 gen_stmt(node->upd);
             }
-            printf("  jmp .Lbegin%03d\n", i);
-            printf(".Lend%03d:\n", i);
+            printf("  jmp .L.begin.%03d\n", i);
+            printf(".L.end.%03d:\n", i);
             puts("# } ND_FOR");
             return;
         }
@@ -151,9 +152,7 @@ static void gen_stmt(Node *node) {
             puts("# ND_RETURN {");
             gen_stmt(node->lhs);
             pop("rax");
-            printf("  mov rsp, rbp\n");
-            pop("rbp");
-            printf("  ret\n");
+            printf("  jmp .L.return.%s\n", func->name);
             puts("# } ND_RETURN");
             return;
     }
@@ -221,26 +220,39 @@ static void gen_stmt(Node *node) {
     push("rax");
 }
 
-void generate(Node *prog) {
-    // アセンブリの前半部分を出力
+void generate(Function *funcs) {
     printf(".intel_syntax noprefix\n");
-    printf(".globl main\n");
-    printf("main:\n");
+    for (func = funcs; func; func = func->next) {
+        printf(".globl %s\n", func->name);
+        printf("%s:\n", func->name);
 
-    // プロローグ
-    push("rbp");
-    printf("  mov rbp, rsp\n");
-    // 予めアラインしているので以降は無視できる
-    printf("  sub rsp, %d\n", align(locals->offset, 16));
+        // プロローグ
+        push("rbp");
+        printf("  mov rbp, rsp\n");
+        // 予めアラインしているので以降は無視できる
+        printf("  sub rsp, %d\n", align(func->stack_size, 16));
 
-    // 先頭の式から順にコード生成
-    for (Node *code = prog; code; code = code->next) {
-        gen_stmt(code);
+        // 引数をローカル変数として代入
+        int i = 0;
+        for (LVar *arg = func->locals;
+             arg != NULL && arg->kind == LV_ARG;
+             arg = arg->next) {
+            int offset = arg->offset;
+            printf("  mov rax, rbp\n");
+            printf("  sub rax, %d\n", offset);
+            printf("  mov [rax], %s\n", arg_regs[i++]);
+        }
+
+        // 先頭の式から順にコード生成
+        for (Node *s = func->body; s; s = s->next) {
+            gen_stmt(s);
+        }
+
+        // エピローグ
+        // 最後の式の結果が RAX に残っているのでそれが返り値になる
+        printf(".L.return.%s:\n", func->name);
+        printf("  mov rsp, rbp\n");
+        pop("rbp");
+        printf("  ret\n");
     }
-
-    // エピローグ
-    // 最後の式の結果が RAX に残っているのでそれが返り値になる
-    printf("  mov rsp, rbp\n");
-    pop("rbp");
-    printf("  ret\n");
 }
