@@ -26,11 +26,22 @@ void expect(char *op) {
     token = token->next;
 }
 
-// 次のトークンが期待している TokenKind のときには、トークンを1つ読み進めて
+// 次のトークンの kind が TK_IDENT のときには、トークンを1つ読み進めて
 // そのトークンを返す。それ以外の場合には NULL を返す。
-Token *consume_kind(TokenKind kind) {
-    if (token->kind != kind) {
+Token *consume_ident() {
+    if (token->kind != TK_IDENT) {
         return NULL;
+    }
+    Token *tmp = token;
+    token = token->next;
+    return tmp;
+}
+
+// 次のトークンの kind が TK_IDENT のときには、トークンを1つ読み進めて
+// そのトークンを返す。それ以外の場合にはエラーを報告する。
+Token *expect_ident() {
+    if (token->kind != TK_IDENT) {
+        error_at(token->str, "識別子ではありません");
     }
     Token *tmp = token;
     token = token->next;
