@@ -133,8 +133,6 @@ static Node *stmt() {
         if (!consume(";")) {
             node->cond = expr();
             expect(";");
-        } else {
-            node->cond = new_node_num(1);
         }
         if (!consume(")")) {
             node->upd = expr();
