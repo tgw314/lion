@@ -88,12 +88,16 @@ static bool is_alnum(char c) {
     return is_al(c) || ('0' <= c && c <= '9');
 }
 
+static char *keywords[] = {"return", "if", "else", "while", "for"};
+
 static bool is_keyword(Token *tok) {
-    return equal(tok, "return") ||
-           equal(tok, "if") ||
-           equal(tok, "else") ||
-           equal(tok, "while") ||
-           equal(tok, "for");
+    int len = sizeof(keywords) / sizeof(*keywords);
+    for (int i = 0; i < len; i++) {
+        if (equal(tok, keywords[i])) {
+            return true;
+        }
+    }
+    return false;
 }
 
 // 入力文字列 p をトークナイズしてそれを返す
