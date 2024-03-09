@@ -54,5 +54,6 @@ assert 0  "main() { print(); return 0; }"
 assert 25 "main() { return add(10, 15); }"
 assert 25 "add_self(a, b) { return a + b; } main() { return add_self(10, 15); }"
 assert 233 "fib(n) { if (n <= 1) return n; return fib(n - 1) + fib(n - 2); } main() { return fib(13); }"
+assert 8 "main() { a = 10; b = &a; return *b - 2; }"
 
 echo OK

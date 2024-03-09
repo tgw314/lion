@@ -278,12 +278,19 @@ static Node *mul() {
 }
 
 // unary = ("+" | "-")? primary
+//       | ("*" | "&") unary
 static Node *unary() {
     if (consume("+")) {
         return primary();
     }
     if (consume("-")) {
         return new_node_expr(ND_SUB, new_node_num(0), primary());
+    }
+    if (consume("*")) {
+        return new_node_expr(ND_DEREF, unary(), NULL);
+    }
+    if (consume("&")) {
+        return new_node_expr(ND_ADDR, unary(), NULL);
     }
     return primary();
 }
