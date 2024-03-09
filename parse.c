@@ -3,10 +3,7 @@
 
 #include "lion.h"
 
-static Function func_head;
-static Function *func_cur = &func_head;
-static LVar lvar_head;
-static LVar *lvar_cur;
+static Function *func_cur;
 
 static Node *stmt();
 static Node *expr();
@@ -18,9 +15,15 @@ static Node *mul();
 static Node *unary();
 static Node *primary();
 
+static Function *new_func(char *name) {
+    Function *func = calloc(1, sizeof(Function));
+    func->name = name;
+    return func;
+}
+
 // 変数を名前で検索する。見つからなかった場合は NULL を返す。
-static LVar *find_lvar(Token *tok) {
-    for (LVar *var = lvar_head.next; var; var = var->next) {
+static LVar *find_lvar(LVar *lvars_head, Token *tok) {
+    for (LVar *var = lvars_head; var; var = var->next) {
         if (var->name != NULL && !strncmp(tok->str, var->name, tok->len)) {
             return var;
         }
@@ -38,9 +41,13 @@ static LVar *new_lvar(LVarKind kind, char *name, int len) {
     return lvar;
 }
 
-static void add_lvar(LVar *lvar) {
-    lvar_cur->next = lvar;
-    lvar_cur = lvar_cur->next;
+static void add_lvar(LVar *lvars_head, LVar *lvar) {
+    for (LVar *var = lvars_head; var; var = var->next) {
+        if (var->next == NULL) {
+            var->next = lvar;
+            return;
+        }
+    }
 }
 
 static Node *new_node(NodeKind kind) {
@@ -65,11 +72,11 @@ static Node *new_node_num(int val) {
 static Node *new_node_lvar(Token *tok) {
     Node *node = new_node(ND_LVAR);
 
-    LVar *lvar = find_lvar(tok);
+    LVar *lvar = find_lvar(func_cur->locals, tok);
 
     if (!lvar) {
         lvar = new_lvar(LV_NORMAL, tok->str, tok->len);
-        add_lvar(lvar);
+        add_lvar(func_cur->locals, lvar);
     }
 
     node->offset = lvar->offset;
@@ -77,39 +84,41 @@ static Node *new_node_lvar(Token *tok) {
     return node;
 }
 
-// program = (ident "(" (ident ("," ident)*)? ")" stmt*)*
+// program = (ident "(" (ident ("," ident)*)? ")" stmt)*
 Function *program() {
+    Function func_head = {};
+    func_cur = &func_head;
+
     while (!at_eof()) {
-        Token *func_tok = expect_ident();
-        lvar_cur = &lvar_head;
+        {  // 関数名
+            Token *tok = expect_ident();
 
-        func_cur->next = calloc(1, sizeof(Function));
-        func_cur = func_cur->next;
-
-        func_cur->name = strndup(func_tok->str, func_tok->len);
-
-        expect("(");
-        Token *arg_tok = consume_ident();
-        if (arg_tok) {
-            add_lvar(new_lvar(LV_ARG, arg_tok->str, arg_tok->len));
-            while (!consume(")")) {
-                expect(",");
-                arg_tok = expect_ident();
-                add_lvar(new_lvar(LV_ARG, arg_tok->str, arg_tok->len));
-            }
-        } else {
-            expect(")");
+            func_cur->next = new_func(strndup(tok->str, tok->len));
+            func_cur = func_cur->next;
         }
-        func_cur->locals = lvar_head.next;
 
-        Node stmt_head = {};
-        Node *stmt_cur = &stmt_head;
+        LVar locals_head = {};
 
-        stmt_cur->next = stmt();
-        stmt_cur = stmt_cur->next;
+        {  // 引数
+            expect("(");
+            func_cur->locals = &locals_head;
+            Token *tok = consume_ident();
+            if (tok) {
+                add_lvar(func_cur->locals,
+                         new_lvar(LV_ARG, tok->str, tok->len));
+                while (!consume(")")) {
+                    expect(",");
+                    tok = expect_ident();
+                    add_lvar(func_cur->locals,
+                             new_lvar(LV_ARG, tok->str, tok->len));
+                }
+            } else {
+                expect(")");
+            }
+        }
 
-        stmt_cur->next = NULL;
-        func_cur->body = stmt_head.next;
+        func_cur->body = stmt();
+        func_cur->locals = locals_head.next;
     }
     return func_head.next;
 }
