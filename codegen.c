@@ -148,6 +148,19 @@ static void gen_stmt(Node *node) {
             puts("# } ND_CALL");
             return;
         }
+        case ND_ADDR:
+            puts("# ND_ADDR {");
+            gen_lval(node->lhs);
+            puts("# } ND_ADDR");
+            return;
+        case ND_DEREF:
+            puts("# ND_DEREF {");
+            gen_stmt(node->lhs);
+            pop("rax");
+            printf("  mov rax, [rax]\n");
+            push("rax");
+            puts("# } ND_DEREF");
+            return;
         case ND_RETURN:
             puts("# ND_RETURN {");
             gen_stmt(node->lhs);
