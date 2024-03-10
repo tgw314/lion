@@ -75,8 +75,7 @@ static Node *new_node_lvar(Token *tok) {
     LVar *lvar = find_lvar(func_cur->locals, tok);
 
     if (!lvar) {
-        lvar = new_lvar(LV_NORMAL, tok->str, tok->len);
-        add_lvar(func_cur->locals, lvar);
+        error_at(tok->str, "定義されていない変数です");
     }
 
     node->offset = lvar->offset;
@@ -84,13 +83,14 @@ static Node *new_node_lvar(Token *tok) {
     return node;
 }
 
-// program = (ident "(" (ident ("," ident)*)? ")" stmt)*
+// program = ("int" ident "(" ("int" ident ("," "int" ident)*)? ")" stmt)*
 Function *program() {
     Function func_head = {};
     func_cur = &func_head;
 
     while (!at_eof()) {
         {  // 関数名
+            expect("int");
             Token *tok = expect_ident();
 
             func_cur->next = new_func(strndup(tok->str, tok->len));
@@ -102,12 +102,18 @@ Function *program() {
         {  // 引数
             expect("(");
             func_cur->locals = &locals_head;
-            Token *tok = consume_ident();
+
+            Token *tok = NULL;
+            if (consume("int")) {
+                tok = expect_ident();
+            }
+
             if (tok) {
                 add_lvar(func_cur->locals,
                          new_lvar(LV_ARG, tok->str, tok->len));
                 while (!consume(")")) {
                     expect(",");
+                    expect("int");
                     tok = expect_ident();
                     add_lvar(func_cur->locals,
                              new_lvar(LV_ARG, tok->str, tok->len));
@@ -128,6 +134,7 @@ Function *program() {
 //      | "if" "(" expr ")" stmt ("else" stmt)?
 //      | "while" "(" expr ")" stmt
 //      | "for" "(" expr? ";" expr? ";" expr? ")" stmt
+//      | "int" ident ";"
 //      | "return" expr ";"
 static Node *stmt() {
     Node *node;
@@ -185,18 +192,25 @@ static Node *stmt() {
         node->then = stmt();
 
         return node;
+    } else if (consume("int")) {
+        Token *tok = expect_ident();
+        add_lvar(func_cur->locals,
+                 new_lvar(LV_NORMAL, tok->str, tok->len));
+        expect(";");
+
+        // 宣言にノードは必要ないので再帰して返す
+        node = stmt();
+
+        return node;
     }
 
     if (consume("return")) {
-        node = new_node(ND_RETURN);
-        node->lhs = expr();
+        node = new_node_expr(ND_RETURN, expr(), NULL);
     } else {
         node = expr();
     }
 
-    if (!consume(";")) {
-        error_at(token->str, "';'ではないトークンです");
-    }
+    expect(";");
 
     return node;
 }
@@ -296,7 +310,7 @@ static Node *unary() {
 }
 
 // primary = num
-//         | ident "(" (expr ("," expr)*)? ")"
+//         | ident ( "(" expr ("," expr)* ")" )?
 //         | "(" expr ")"
 static Node *primary() {
     Node *node;

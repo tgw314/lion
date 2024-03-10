@@ -32,6 +32,7 @@ typedef enum {
     ND_ASSIGN,  // =
     ND_ADDR,    // &
     ND_DEREF,   // *
+    ND_DEF,     // int
     ND_LVAR,    // ローカル変数
     ND_NUM,     // 整数
     ND_RETURN,  // return

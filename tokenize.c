@@ -81,17 +81,18 @@ static bool startswith(char *p, char *q) {
 }
 
 static bool is_al(char c) {
-    return ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || (c == '_');
+    return ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') ||
+           (c == '_');
 }
 
 static bool is_alnum(char c) {
     return is_al(c) || ('0' <= c && c <= '9');
 }
 
-static char *keywords[] = {"return", "if", "else", "while", "for"};
-
 static bool is_keyword(Token *tok) {
-    int len = sizeof(keywords) / sizeof(*keywords);
+    static char *keywords[] = {"return", "if", "else",
+                               "while", "for", "int"};
+    static int len = sizeof(keywords) / sizeof(*keywords);
     for (int i = 0; i < len; i++) {
         if (equal(tok, keywords[i])) {
             return true;
