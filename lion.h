@@ -91,12 +91,6 @@ struct Function {
     Node *body;
 };
 
-extern char *user_input;
-
-extern Token *token;
-
-extern Function *functions;
-
 // エラーを報告するための関数
 // printf と同じ引数を取る
 void error(char *fmt, ...);
@@ -119,7 +113,7 @@ bool at_eof();
 bool equal(Token *tok, char *op);
 
 // 入力文字列 p をトークナイズしてそれを返す
-Token *tokenize(char *p);
+void tokenize(char *p);
 
 Function *program();
 
