@@ -5,6 +5,8 @@
 
 #include "lion.h"
 
+static char *user_input;
+
 void error(char *fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
@@ -26,20 +28,13 @@ void error_at(char *loc, char *fmt, ...) {
     exit(1);
 }
 
-char *user_input;
-Token *token;
-LVar *locals;
-
 int main(int argc, char **argv) {
     if (argc != 2) {
         error("%s: 引数の数が正しくありません", argv[0]);
         return 1;
     }
 
-    locals = calloc(1, sizeof(LVar));
-    user_input = argv[1];
-    token = tokenize(user_input);
-
+    tokenize(user_input = argv[1]);
     generate(program());
 
     return 0;

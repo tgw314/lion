@@ -5,6 +5,8 @@
 
 #include "lion.h"
 
+static Token *token;
+
 // 次のトークンが期待している記号のときには、トークンを1つ読み進めて
 // 真を返す。それ以外の場合には偽を返す。
 bool consume(char *op) {
@@ -101,8 +103,8 @@ static bool is_keyword(Token *tok) {
     return false;
 }
 
-// 入力文字列 p をトークナイズしてそれを返す
-Token *tokenize(char *p) {
+// 入力文字列 p をトークナイズする
+void tokenize(char *p) {
     Token head;
     head.next = NULL;
     Token *cur = &head;
@@ -155,5 +157,5 @@ Token *tokenize(char *p) {
     }
 
     new_token(TK_EOF, cur, p);
-    return head.next;
+    token = head.next;
 }
