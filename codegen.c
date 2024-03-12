@@ -6,15 +6,16 @@ static Function *func;
 static int rsp_offset = 0;
 static char *arg_regs[] = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"};
 
+static void gen_lval(Node *node);
+static void gen_stmt(Node *node);
+
 static int count() {
     static int i = 0;
     return i++;
 }
 
 // align = 2^n の場合のみ有効
-static int align(int n, int align) {
-    return (n + align - 1) & ~(align - 1);
-}
+static int align(int n, int align) { return (n + align - 1) & ~(align - 1); }
 
 static void push_num(const int n) {
     printf("  push %d\n", n);
@@ -40,13 +41,17 @@ static void call(const char *funcname) {
 }
 
 static void gen_lval(Node *node) {
-    if (node->kind != ND_LVAR) {
-        error("代入の左辺値が変数ではありません");
+    if (node->kind == ND_LVAR) {
+        printf("  mov rax, rbp\n");
+        printf("  sub rax, %d\n", node->offset);
+        push("rax");
+        return;
     }
-
-    printf("  mov rax, rbp\n");
-    printf("  sub rax, %d\n", node->offset);
-    push("rax");
+    if (node->kind == ND_DEREF) {
+        gen_stmt(node->lhs);
+        return;
+    }
+    error("代入の左辺値が変数ではありません");
 }
 
 static void gen_stmt(Node *node) {
@@ -247,8 +252,7 @@ void generate(Function *funcs) {
 
         // 引数をローカル変数として代入
         int i = 0;
-        for (LVar *arg = func->locals;
-             arg != NULL && arg->kind == LV_ARG;
+        for (LVar *arg = func->locals; arg != NULL && arg->kind == LV_ARG;
              arg = arg->next) {
             int offset = arg->offset;
             printf("  mov rax, rbp\n");
