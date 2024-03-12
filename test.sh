@@ -55,5 +55,6 @@ assert 25 "int main() { return add(10, 15); }"
 assert 25 "int add_self(int a, int b) { return a + b; } int main() { return add_self(10, 15); }"
 assert 233 "int fib(int n) { if (n <= 1) return n; return fib(n - 1) + fib(n - 2); } int main() { return fib(13); }"
 assert 8 "int main() { int a; int b; a = 10; b = &a; return *b - 2; }"
+assert 0 "int main() { ;;;;;;;;;;;;;;;;;;return 0; }"
 
 echo OK

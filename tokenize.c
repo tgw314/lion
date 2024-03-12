@@ -7,6 +7,16 @@
 
 static Token *token;
 
+// 次のトークンが期待している記号のときには、
+// 真を返す。それ以外の場合には偽を返す。
+bool confirm(char *op) {
+    if (token->kind != TK_RESERVED || strlen(op) != token->len ||
+        memcmp(token->str, op, token->len)) {
+        return false;
+    }
+    return true;
+}
+
 // 次のトークンが期待している記号のときには、トークンを1つ読み進めて
 // 真を返す。それ以外の場合には偽を返す。
 bool consume(char *op) {
@@ -63,7 +73,7 @@ int expect_number() {
 
 bool at_eof() { return token->kind == TK_EOF; }
 
-bool equal(Token *tok, char *op) {
+static bool equal(Token *tok, char *op) {
     return strlen(op) == tok->len && !memcmp(tok->str, op, tok->len);
 }
 
