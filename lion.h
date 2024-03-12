@@ -98,6 +98,8 @@ void error(char *fmt, ...);
 // エラー箇所を報告する
 void error_at(char *loc, char *fmt, ...);
 
+bool confirm(char *op);
+
 bool consume(char *op);
 
 void expect(char *op);
@@ -109,8 +111,6 @@ Token *expect_ident();
 int expect_number();
 
 bool at_eof();
-
-bool equal(Token *tok, char *op);
 
 // 入力文字列 p をトークナイズしてそれを返す
 void tokenize(char *p);

@@ -129,7 +129,7 @@ Function *program() {
     return func_head.next;
 }
 
-// stmt = expr ";"
+// stmt = expr? ";"
 //      | "{" stmt* "}"
 //      | "if" "(" expr ")" stmt ("else" stmt)?
 //      | "while" "(" expr ")" stmt
@@ -194,8 +194,7 @@ static Node *stmt() {
         return node;
     } else if (consume("int")) {
         Token *tok = expect_ident();
-        add_lvar(func_cur->locals,
-                 new_lvar(LV_NORMAL, tok->str, tok->len));
+        add_lvar(func_cur->locals, new_lvar(LV_NORMAL, tok->str, tok->len));
         expect(";");
 
         // 宣言にノードは必要ないので再帰して返す
@@ -207,6 +206,9 @@ static Node *stmt() {
     if (consume("return")) {
         node = new_node_expr(ND_RETURN, expr(), NULL);
     } else {
+        if (consume(";")) {
+            return new_node(ND_BLOCK);
+        }
         node = expr();
     }
 
