@@ -66,6 +66,19 @@ struct Node {
 };
 
 typedef enum {
+    TY_INT,
+    TY_PTR,
+} TypeKind;
+
+typedef struct Type Type;
+
+// 型
+struct Type {
+    TypeKind ty;
+    struct Type *ptr_to;
+};
+
+typedef enum {
     LV_NORMAL,
     LV_ARG,
 } LVarKind;
@@ -76,6 +89,7 @@ typedef struct LVar LVar;
 struct LVar {
     LVarKind kind;
     LVar *next;  // 次の変数か NULL
+    Type *type;  // 変数の型
     char *name;  // 変数の名前
     int offset;  // RBP からのオフセット
 };
@@ -86,6 +100,7 @@ typedef struct Function Function;
 struct Function {
     char *name;
     int stack_size;
+    Type *type;      // 返り値の型
     LVar *locals;    // ローカル変数
     Function *next;  // 次の関数
     Node *body;

@@ -5,6 +5,7 @@
 
 static Function *func_cur;
 
+static Type *declare();
 static Node *stmt();
 static Node *expr();
 static Node *assign();
@@ -32,10 +33,11 @@ static LVar *find_lvar(LVar *lvars_head, Token *tok) {
     return NULL;
 }
 
-static LVar *new_lvar(LVarKind kind, char *name, int len) {
+static LVar *new_lvar(LVarKind kind, Type *type, char *name) {
     LVar *lvar = calloc(1, sizeof(LVar));
     lvar->kind = kind;
-    lvar->name = strndup(name, len);
+    lvar->type = type;
+    lvar->name = name;
     lvar->offset = func_cur->stack_size + 8;
     func_cur->stack_size += 8;
     return lvar;
@@ -75,7 +77,7 @@ static Node *new_node_lvar(Token *tok) {
     LVar *lvar = find_lvar(func_cur->locals, tok);
 
     if (!lvar) {
-        error_at(tok->str, "定義されていない変数です");
+        error_at(tok->str, "宣言されていない変数です");
     }
 
     node->offset = lvar->offset;
@@ -83,14 +85,14 @@ static Node *new_node_lvar(Token *tok) {
     return node;
 }
 
-// program = ("int" ident "(" ("int" ident ("," "int" ident)*)? ")" stmt)*
+// program = (declare ident "(" (declare ident ("," declare ident)*)? ")" stmt)*
 Function *program() {
     Function func_head = {};
     func_cur = &func_head;
 
     while (!at_eof()) {
         {  // 関数名
-            expect("int");
+            Type *type = declare();
             Token *tok = expect_ident();
 
             func_cur->next = new_func(strndup(tok->str, tok->len));
@@ -103,20 +105,25 @@ Function *program() {
             expect("(");
             func_cur->locals = &locals_head;
 
+            Type *type = declare();
             Token *tok = NULL;
-            if (consume("int")) {
+            if (type != NULL) {
                 tok = expect_ident();
-            }
 
-            if (tok) {
                 add_lvar(func_cur->locals,
-                         new_lvar(LV_ARG, tok->str, tok->len));
+                         new_lvar(LV_ARG, type, strndup(tok->str, tok->len)));
                 while (!consume(")")) {
                     expect(",");
-                    expect("int");
+
+                    type = declare();
                     tok = expect_ident();
-                    add_lvar(func_cur->locals,
-                             new_lvar(LV_ARG, tok->str, tok->len));
+
+                    if (find_lvar(func_cur->locals, tok) != NULL) {
+                        error_at(tok->str, "引数の再定義はできません");
+                    }
+                    add_lvar(
+                        func_cur->locals,
+                        new_lvar(LV_ARG, type, strndup(tok->str, tok->len)));
                 }
             } else {
                 expect(")");
@@ -129,12 +136,31 @@ Function *program() {
     return func_head.next;
 }
 
+// declare = "int" "*"*
+static Type *declare() {
+    Type *head = calloc(1, sizeof(Type));
+    Type *cur = head;
+
+    if (consume("int")) {
+        while (consume("*")) {
+            cur->ty = TY_PTR;
+            cur->ptr_to = calloc(1, sizeof(Type));
+
+            cur = cur->ptr_to;
+        }
+        cur->ty = TY_INT;
+
+        return head;
+    }
+    return NULL;
+}
+
 // stmt = expr? ";"
 //      | "{" stmt* "}"
 //      | "if" "(" expr ")" stmt ("else" stmt)?
 //      | "while" "(" expr ")" stmt
 //      | "for" "(" expr? ";" expr? ";" expr? ")" stmt
-//      | "int" ident ";"
+//      | declare ident ";"
 //      | "return" expr ";"
 static Node *stmt() {
     Node *node;
@@ -192,15 +218,20 @@ static Node *stmt() {
         node->then = stmt();
 
         return node;
-    } else if (consume("int")) {
-        Token *tok = expect_ident();
-        add_lvar(func_cur->locals, new_lvar(LV_NORMAL, tok->str, tok->len));
-        expect(";");
+    }
+    /* else if (declare()) */ {
+        Type *type = declare();
+        if (type != NULL) {
+            Token *tok = expect_ident();
+            if (find_lvar(func_cur->locals, tok) != NULL) {
+                error_at(tok->str, "再定義はできません");
+            }
+            add_lvar(func_cur->locals,
+                     new_lvar(LV_NORMAL, type, strndup(tok->str, tok->len)));
+            expect(";");
 
-        // 宣言にノードは必要ないので再帰して返す
-        node = stmt();
-
-        return node;
+            return stmt();
+        }
     }
 
     if (consume("return")) {

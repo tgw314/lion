@@ -93,17 +93,13 @@ static bool startswith(char *p, char *q) {
 }
 
 static bool is_al(char c) {
-    return ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') ||
-           (c == '_');
+    return ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || (c == '_');
 }
 
-static bool is_alnum(char c) {
-    return is_al(c) || ('0' <= c && c <= '9');
-}
+static bool is_alnum(char c) { return is_al(c) || ('0' <= c && c <= '9'); }
 
 static bool is_keyword(Token *tok) {
-    static char *keywords[] = {"return", "if", "else",
-                               "while", "for", "int"};
+    static char *keywords[] = {"return", "if", "else", "while", "for", "int"};
     static int len = sizeof(keywords) / sizeof(*keywords);
     for (int i = 0; i < len; i++) {
         if (equal(tok, keywords[i])) {
@@ -126,8 +122,8 @@ void tokenize(char *p) {
             continue;
         }
 
-        if (startswith(p, "==") || startswith(p, "!=") ||
-            startswith(p, "<=") || startswith(p, ">=")) {
+        if (startswith(p, "==") || startswith(p, "!=") || startswith(p, "<=") ||
+            startswith(p, ">=")) {
             cur = new_token(TK_RESERVED, cur, p);
 
             cur->len = 2;
