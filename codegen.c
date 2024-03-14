@@ -39,7 +39,7 @@ static void call(const char *funcname) {
 static void gen_lval(Node *node) {
     if (node->kind == ND_LVAR) {
         printf("  mov rax, rbp\n");
-        printf("  sub rax, %d\n", node->offset);
+        printf("  sub rax, %d\n", node->lvar->offset);
         printf("  push rax\n");
         return;
     }

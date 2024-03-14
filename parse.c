@@ -38,8 +38,10 @@ static LVar *new_lvar(LVarKind kind, Type *type, char *name) {
     lvar->kind = kind;
     lvar->type = type;
     lvar->name = name;
-    lvar->offset = func_cur->stack_size + 8;
+
     func_cur->stack_size += 8;
+    lvar->offset = func_cur->stack_size;
+
     return lvar;
 }
 
@@ -58,6 +60,12 @@ static Node *new_node(NodeKind kind) {
     return node;
 }
 
+static Node *new_node_num(int val) {
+    Node *node = new_node(ND_NUM);
+    node->val = val;
+    return node;
+}
+
 static Node *new_node_expr(NodeKind kind, Node *lhs, Node *rhs) {
     Node *node = new_node(kind);
     node->lhs = lhs;
@@ -65,10 +73,54 @@ static Node *new_node_expr(NodeKind kind, Node *lhs, Node *rhs) {
     return node;
 }
 
-static Node *new_node_num(int val) {
-    Node *node = new_node(ND_NUM);
-    node->val = val;
-    return node;
+static Node *new_node_add(Node *lhs, Node *rhs) {
+    set_expr_type(lhs);
+    set_expr_type(rhs);
+
+    if (lhs->type->kind == TY_INT && rhs->type->kind == TY_INT) {
+        return new_node_expr(ND_ADD, lhs, rhs);
+    }
+
+    // 左右の入れ替え
+    if (lhs->type->kind == TY_INT && rhs->type->kind == TY_PTR) {
+        Node *tmp = lhs;
+        lhs = rhs;
+        rhs = tmp;
+    }
+
+    if (lhs->type->kind == TY_PTR && rhs->type->kind == TY_PTR) {
+        error("ポインタ同士の加算はできません");
+    }
+
+    // lhs: PTR, rhs: INT
+    rhs = new_node_expr(ND_MUL, rhs, new_node_num(lhs->type->ptr_to->size));
+    return new_node_expr(ND_ADD, lhs, rhs);
+}
+
+static Node *new_node_sub(Node *lhs, Node *rhs) {
+    set_expr_type(lhs);
+    set_expr_type(rhs);
+
+    if (lhs->type->kind == TY_INT && rhs->type->kind == TY_INT) {
+        return new_node_expr(ND_SUB, lhs, rhs);
+    }
+
+    if (lhs->type->kind == TY_PTR && rhs->type->kind == TY_INT) {
+        rhs = new_node_expr(ND_MUL, rhs, new_node_num(lhs->type->ptr_to->size));
+        set_expr_type(rhs);
+        Node *node = new_node_expr(ND_SUB, lhs, rhs);
+        node->type = lhs->type;
+        return node;
+    }
+
+    if (lhs->type->kind == TY_PTR && rhs->type->kind == TY_PTR) {
+        Node *node = new_node_expr(ND_SUB, lhs, rhs);
+        node->type = new_type(TY_INT);
+        return new_node_expr(ND_DIV, node,
+                             new_node_num(lhs->type->ptr_to->size));
+    }
+
+    error("誤ったオペランドです");
 }
 
 static Node *new_node_lvar(Token *tok) {
@@ -80,7 +132,7 @@ static Node *new_node_lvar(Token *tok) {
         error_at(tok->str, "宣言されていない変数です");
     }
 
-    node->offset = lvar->offset;
+    node->lvar = lvar;
 
     return node;
 }
@@ -138,19 +190,17 @@ Function *program() {
 
 // declare = "int" "*"*
 static Type *declare() {
-    Type *head = calloc(1, sizeof(Type));
-    Type *cur = head;
+    Type head = {};
+    Type *cur = &head;
 
     if (consume("int")) {
         while (consume("*")) {
-            cur->ty = TY_PTR;
-            cur->ptr_to = calloc(1, sizeof(Type));
-
+            cur->ptr_to = new_type(TY_PTR);
             cur = cur->ptr_to;
         }
-        cur->ty = TY_INT;
+        cur->ptr_to = new_type(TY_INT);
 
-        return head;
+        return head.ptr_to;
     }
     return NULL;
 }
@@ -300,9 +350,9 @@ static Node *add() {
 
     while (true) {
         if (consume("+")) {
-            node = new_node_expr(ND_ADD, node, mul());
+            node = new_node_add(node, mul());
         } else if (consume("-")) {
-            node = new_node_expr(ND_SUB, node, mul());
+            node = new_node_sub(node, mul());
         } else {
             return node;
         }
