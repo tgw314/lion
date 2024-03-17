@@ -48,14 +48,11 @@ void set_expr_type(Node *node) {
         case ND_LEQ:
         case ND_NUM:
         case ND_CALL:
-            node->type = calloc(1, sizeof(Type));
-            node->type->kind = TY_INT;
+            node->type = new_type(TY_INT);
             return;
         case ND_ADDR:
-            node->type = calloc(1, sizeof(Type));
-            node->type->kind = TY_PTR;
+            node->type = new_type(TY_PTR);
             node->type->ptr_to = node->lhs->type;
-            node->type->size = 8;
             return;
         case ND_DEREF:
             if (node->lhs->type->kind != TY_PTR) {
