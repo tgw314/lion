@@ -374,9 +374,15 @@ static Node *mul() {
     }
 }
 
-// unary = ("+" | "-")? primary
+// unary = "sizeof" unary
+//       | ("+" | "-")? primary
 //       | ("*" | "&") unary
 static Node *unary() {
+    if (consume("sizeof")) {
+        Node *node = unary();
+        set_expr_type(node);
+        return new_node_num(node->type->size);
+    }
     if (consume("+")) {
         return primary();
     }

@@ -17,9 +17,6 @@ static int count() {
 static int align(int n, int align) { return (n + align - 1) & ~(align - 1); }
 
 static void call(const char *funcname) {
-    // if (rsp_offset % 16) {
-    //     printf("  sub rsp, 8\n");
-    // }
     int i = count();
     printf("  mov rax, rsp\n");
     printf("  and rax, 15\n");
