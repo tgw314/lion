@@ -153,22 +153,13 @@ Function *program() {
         LVar locals_head = {};
 
         {  // 引数
-            expect("(");
             func_cur->locals = &locals_head;
 
-            Type *type = declare();
-            Token *tok = NULL;
-            if (type != NULL) {
-                tok = expect_ident();
-
-                add_lvar(func_cur->locals,
-                         new_lvar(type, strndup(tok->str, tok->len)));
-                func_cur->arg_count++;
-                while (!consume(")")) {
-                    expect(",");
-
-                    type = declare();
-                    tok = expect_ident();
+            expect("(");
+            if (!consume(")")) {
+                while (true) {
+                    Type *type = declare();
+                    Token *tok = expect_ident();
 
                     if (find_lvar(func_cur->locals, tok) != NULL) {
                         error_at(tok->str, "引数の再定義はできません");
@@ -176,8 +167,11 @@ Function *program() {
                     add_lvar(func_cur->locals,
                              new_lvar(type, strndup(tok->str, tok->len)));
                     func_cur->arg_count++;
+
+                    if (!consume(",")) {
+                        break;
+                    }
                 }
-            } else {
                 expect(")");
             }
         }
