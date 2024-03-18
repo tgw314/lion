@@ -33,9 +33,8 @@ static LVar *find_lvar(LVar *lvars_head, Token *tok) {
     return NULL;
 }
 
-static LVar *new_lvar(LVarKind kind, Type *type, char *name) {
+static LVar *new_lvar(Type *type, char *name) {
     LVar *lvar = calloc(1, sizeof(LVar));
-    lvar->kind = kind;
     lvar->type = type;
     lvar->name = name;
 
@@ -163,7 +162,8 @@ Function *program() {
                 tok = expect_ident();
 
                 add_lvar(func_cur->locals,
-                         new_lvar(LV_ARG, type, strndup(tok->str, tok->len)));
+                         new_lvar(type, strndup(tok->str, tok->len)));
+                func_cur->arg_count++;
                 while (!consume(")")) {
                     expect(",");
 
@@ -173,9 +173,9 @@ Function *program() {
                     if (find_lvar(func_cur->locals, tok) != NULL) {
                         error_at(tok->str, "引数の再定義はできません");
                     }
-                    add_lvar(
-                        func_cur->locals,
-                        new_lvar(LV_ARG, type, strndup(tok->str, tok->len)));
+                    add_lvar(func_cur->locals,
+                             new_lvar(type, strndup(tok->str, tok->len)));
+                    func_cur->arg_count++;
                 }
             } else {
                 expect(")");
@@ -277,7 +277,7 @@ static Node *stmt() {
                 error_at(tok->str, "再定義はできません");
             }
             add_lvar(func_cur->locals,
-                     new_lvar(LV_NORMAL, type, strndup(tok->str, tok->len)));
+                     new_lvar(type, strndup(tok->str, tok->len)));
             expect(";");
 
             return stmt();

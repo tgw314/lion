@@ -33,16 +33,10 @@ struct Type {
     Type *ptr_to;
 };
 
-typedef enum {
-    LV_NORMAL,
-    LV_ARG,
-} LVarKind;
-
 typedef struct LVar LVar;
 
 // ローカル変数の型
 struct LVar {
-    LVarKind kind;
     LVar *next;  // 次の変数か NULL
     Type *type;  // 変数の型
     char *name;  // 変数の名前
@@ -103,6 +97,7 @@ struct Function {
     int stack_size;
     Type *type;      // 返り値の型
     LVar *locals;    // ローカル変数
+    int arg_count;   // 引数の数
     Function *next;  // 次の関数
     Node *body;
 };

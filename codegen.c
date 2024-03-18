@@ -243,14 +243,15 @@ void generate(Function *funcs) {
         // 予めアラインしているので以降は無視できる
         printf("  sub rsp, %d\n", align(func->stack_size, 16));
 
-        // 引数をローカル変数として代入
-        int i = 0;
-        for (LVar *arg = func->locals; arg != NULL && arg->kind == LV_ARG;
-             arg = arg->next) {
-            int offset = arg->offset;
-            printf("  mov rax, rbp\n");
-            printf("  sub rax, %d\n", offset);
-            printf("  mov [rax], %s\n", arg_regs[i++]);
+        {  // 引数をローカル変数として代入
+            LVar *arg = func->locals;
+            for (int i = 0; i < func->arg_count; i++) {
+                printf("  mov rax, rbp\n");
+                printf("  sub rax, %d\n", arg->offset);
+                printf("  mov [rax], %s\n", arg_regs[i]);
+
+                arg = arg->next;
+            }
         }
 
         // 先頭の式から順にコード生成
