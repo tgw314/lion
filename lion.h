@@ -29,7 +29,6 @@ typedef struct Type Type;
 // 型
 struct Type {
     TypeKind kind;
-    int size;
     Type *ptr_to;
 };
 
@@ -127,6 +126,8 @@ bool at_eof();
 void tokenize(char *p);
 
 Type *new_type(TypeKind kind);
+
+size_t get_sizeof(Type *type);
 
 void set_expr_type(Node *node);
 
