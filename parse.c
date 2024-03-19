@@ -23,8 +23,8 @@ static Function *new_func(char *name) {
 }
 
 // 変数を名前で検索する。見つからなかった場合は NULL を返す。
-static LVar *find_lvar(LVar *lvars_head, Token *tok) {
-    for (LVar *var = lvars_head; var; var = var->next) {
+static LVar *find_lvar(Token *tok) {
+    for (LVar *var = func_cur->locals; var; var = var->next) {
         if (var->name != NULL && !strncmp(tok->str, var->name, tok->len)) {
             return var;
         }
@@ -44,10 +44,18 @@ static LVar *new_lvar(Type *type, char *name) {
     return lvar;
 }
 
-static void add_lvar(LVar *lvars_head, LVar *lvar) {
-    for (LVar *var = lvars_head; var; var = var->next) {
-        if (var->next == NULL) {
-            var->next = lvar;
+static void add_lvar(LVar *lvar) {
+    static LVar *cur = NULL;
+
+    if (cur != NULL && cur->next == NULL) {
+        cur->next = lvar;
+        cur = cur->next;
+        return;
+    }
+    for (cur = func_cur->locals; cur; cur = cur->next) {
+        if (cur->next == NULL) {
+            cur->next = lvar;
+            cur = cur->next;
             return;
         }
     }
@@ -127,7 +135,7 @@ static Node *new_node_sub(Node *lhs, Node *rhs) {
 static Node *new_node_lvar(Token *tok) {
     Node *node = new_node(ND_LVAR);
 
-    LVar *lvar = find_lvar(func_cur->locals, tok);
+    LVar *lvar = find_lvar(tok);
 
     if (!lvar) {
         error_at(tok->str, "宣言されていない変数です");
@@ -162,12 +170,12 @@ Function *program() {
                 while (true) {
                     Type *type = declare();
                     Token *tok = expect_ident();
+                    LVar *arg = new_lvar(type, strndup(tok->str, tok->len));
 
-                    if (find_lvar(func_cur->locals, tok) != NULL) {
+                    if (find_lvar(tok) != NULL) {
                         error_at(tok->str, "引数の再定義はできません");
                     }
-                    add_lvar(func_cur->locals,
-                             new_lvar(type, strndup(tok->str, tok->len)));
+                    add_lvar(arg);
                     func_cur->arg_count++;
 
                     if (!consume(",")) {
@@ -269,11 +277,11 @@ static Node *stmt() {
         Type *type = declare();
         if (type != NULL) {
             Token *tok = expect_ident();
-            if (find_lvar(func_cur->locals, tok) != NULL) {
+            LVar *var = new_lvar(type, strndup(tok->str, tok->len));
+            if (find_lvar(tok) != NULL) {
                 error_at(tok->str, "再定義はできません");
             }
-            add_lvar(func_cur->locals,
-                     new_lvar(type, strndup(tok->str, tok->len)));
+            add_lvar(var);
             expect(";");
 
             return stmt();
