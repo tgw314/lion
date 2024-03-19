@@ -5,7 +5,7 @@
 
 static Function *func_cur;
 
-static Type *declare();
+static Type *declare(Token **tok);
 static Node *stmt();
 static Node *expr();
 static Node *assign();
@@ -38,7 +38,7 @@ static LVar *new_lvar(Type *type, char *name) {
     lvar->type = type;
     lvar->name = name;
 
-    func_cur->stack_size += 8;
+    func_cur->stack_size += type->kind == TY_ARRAY ? get_sizeof(type) : 8;
     lvar->offset = func_cur->stack_size;
 
     return lvar;
@@ -153,8 +153,12 @@ Function *program() {
 
     while (!at_eof()) {
         {  // 関数名
-            Type *type = declare();
-            Token *tok = expect_ident();
+            Token *tok = NULL;
+            Type *type = declare(&tok);
+            if (type->kind != TY_FUNC) {
+                error_at(tok->str, "グローバル変数の宣言はできません");
+            }
+            type = type->ptr_to;
 
             func_cur->next = new_func(strndup(tok->str, tok->len));
             func_cur = func_cur->next;
@@ -168,8 +172,8 @@ Function *program() {
             expect("(");
             if (!consume(")")) {
                 while (true) {
-                    Type *type = declare();
-                    Token *tok = expect_ident();
+                    Token *tok = NULL;
+                    Type *type = declare(&tok);
                     LVar *arg = new_lvar(type, strndup(tok->str, tok->len));
 
                     if (find_lvar(tok) != NULL) {
@@ -192,8 +196,8 @@ Function *program() {
     return func_head.next;
 }
 
-// declare = "int" "*"*
-static Type *declare() {
+// declare = "int" "*"* ident ( ("[" num "]") | "(" )?
+static Type *declare(Token **ident_tok) {
     Type head = {};
     Type *cur = &head;
 
@@ -204,7 +208,23 @@ static Type *declare() {
         }
         cur->ptr_to = new_type(TY_INT);
 
-        return head.ptr_to;
+        Type *base_type = head.ptr_to;
+
+        *ident_tok = expect_ident();
+
+        if (consume("[")) {
+            Type *type = new_type_array(base_type, expect_number());
+            expect("]");
+            return type;
+        }
+
+        if (match("(")) {
+            Type *type = new_type(TY_FUNC);
+            type->ptr_to = base_type;
+            return type;
+        }
+
+        return base_type;
     }
     return NULL;
 }
@@ -274,10 +294,11 @@ static Node *stmt() {
         return node;
     }
     /* else if (declare()) */ {
-        Type *type = declare();
+        Token *tok = NULL;
+        Type *type = declare(&tok);
         if (type != NULL) {
-            Token *tok = expect_ident();
             LVar *var = new_lvar(type, strndup(tok->str, tok->len));
+
             if (find_lvar(tok) != NULL) {
                 error_at(tok->str, "再定義はできません");
             }

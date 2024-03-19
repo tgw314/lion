@@ -1,4 +1,5 @@
 #include <stdbool.h>
+#include <stddef.h>
 
 // トークンの種類
 typedef enum {
@@ -22,6 +23,8 @@ struct Token {
 typedef enum {
     TY_INT,
     TY_PTR,
+    TY_ARRAY,
+    TY_FUNC,
 } TypeKind;
 
 typedef struct Type Type;
@@ -30,6 +33,7 @@ typedef struct Type Type;
 struct Type {
     TypeKind kind;
     Type *ptr_to;
+    size_t array_size;
 };
 
 typedef struct LVar LVar;
@@ -108,7 +112,7 @@ void error(char *fmt, ...);
 // エラー箇所を報告する
 void error_at(char *loc, char *fmt, ...);
 
-bool confirm(char *op);
+bool match(char *op);
 
 bool consume(char *op);
 
@@ -126,6 +130,8 @@ bool at_eof();
 void tokenize(char *p);
 
 Type *new_type(TypeKind kind);
+
+Type *new_type_array(Type *type, size_t size);
 
 size_t get_sizeof(Type *type);
 
