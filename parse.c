@@ -92,7 +92,8 @@ static Node *new_node_add(Node *lhs, Node *rhs) {
     }
 
     // lhs: PTR, rhs: INT
-    rhs = new_node_expr(ND_MUL, rhs, new_node_num(lhs->type->ptr_to->size));
+    rhs =
+        new_node_expr(ND_MUL, rhs, new_node_num(get_sizeof(lhs->type->ptr_to)));
     return new_node_expr(ND_ADD, lhs, rhs);
 }
 
@@ -105,7 +106,8 @@ static Node *new_node_sub(Node *lhs, Node *rhs) {
     }
 
     if (lhs->type->kind == TY_PTR && rhs->type->kind == TY_INT) {
-        rhs = new_node_expr(ND_MUL, rhs, new_node_num(lhs->type->ptr_to->size));
+        rhs = new_node_expr(ND_MUL, rhs,
+                            new_node_num(get_sizeof(lhs->type->ptr_to)));
         set_expr_type(rhs);
         Node *node = new_node_expr(ND_SUB, lhs, rhs);
         node->type = lhs->type;
@@ -116,7 +118,7 @@ static Node *new_node_sub(Node *lhs, Node *rhs) {
         Node *node = new_node_expr(ND_SUB, lhs, rhs);
         node->type = new_type(TY_INT);
         return new_node_expr(ND_DIV, node,
-                             new_node_num(lhs->type->ptr_to->size));
+                             new_node_num(get_sizeof(lhs->type->ptr_to)));
     }
 
     error("誤ったオペランドです");
@@ -375,7 +377,7 @@ static Node *unary() {
     if (consume("sizeof")) {
         Node *node = unary();
         set_expr_type(node);
-        return new_node_num(node->type->size);
+        return new_node_num(get_sizeof(node->type));
     }
     if (consume("+")) {
         return primary();

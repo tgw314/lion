@@ -5,15 +5,16 @@
 Type *new_type(TypeKind kind) {
     Type *type = calloc(1, sizeof(Type));
     type->kind = kind;
+    return type;
+}
+
+size_t get_sizeof(Type *type) {
     switch (type->kind) {
         case TY_INT:
-            type->size = 4;
-            break;
+            return 4;
         case TY_PTR:
-            type->size = 8;
-            break;
+            return 8;
     }
-    return type;
 }
 
 void set_expr_type(Node *node) {
