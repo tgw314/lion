@@ -48,6 +48,8 @@ static void gen_lval(Node *node) {
 }
 
 static void gen_stmt(Node *node) {
+    set_expr_type(node);
+
     switch (node->kind) {
         case ND_NUM:
             puts("# ND_NUM {");
@@ -58,7 +60,9 @@ static void gen_stmt(Node *node) {
             puts("# ND_LVAR {");
             gen_lval(node);
             printf("  pop rax\n");
-            printf("  mov rax, [rax]\n");
+            if (node->type->kind != TY_ARRAY) {
+                printf("  mov rax, [rax]\n");
+            }
             printf("  push rax\n");
             puts("# } ND_LVAR");
             return;
@@ -155,7 +159,9 @@ static void gen_stmt(Node *node) {
             puts("# ND_DEREF {");
             gen_stmt(node->lhs);
             printf("  pop rax\n");
-            printf("  mov rax, [rax]\n");
+            if (node->type->kind != TY_ARRAY) {
+                printf("  mov rax, [rax]\n");
+            }
             printf("  push rax\n");
             puts("# } ND_DEREF");
             return;

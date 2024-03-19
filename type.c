@@ -8,12 +8,27 @@ Type *new_type(TypeKind kind) {
     return type;
 }
 
+Type *new_type_ptr(Type *type) {
+    Type *ptr = new_type(TY_PTR);
+    ptr->ptr_to = type;
+    return ptr;
+}
+
+Type *new_type_array(Type *type, size_t size) {
+    Type *array = new_type(TY_ARRAY);
+    array->ptr_to = type;
+    array->array_size = size;
+    return array;
+}
+
 size_t get_sizeof(Type *type) {
     switch (type->kind) {
         case TY_INT:
             return 4;
         case TY_PTR:
             return 8;
+        case TY_ARRAY:
+            return type->array_size * get_sizeof(type->ptr_to);
     }
 }
 
@@ -39,8 +54,13 @@ void set_expr_type(Node *node) {
         case ND_SUB:
         case ND_MUL:
         case ND_DIV:
-        // case ND_NEG:
+            // case ND_NEG:
+            node->type = node->lhs->type;
+            return;
         case ND_ASSIGN:
+            if (node->lhs->type->kind == TY_ARRAY) {
+                error("配列への代入はできません");
+            }
             node->type = node->lhs->type;
             return;
         case ND_EQ:
@@ -52,11 +72,14 @@ void set_expr_type(Node *node) {
             node->type = new_type(TY_INT);
             return;
         case ND_ADDR:
-            node->type = new_type(TY_PTR);
-            node->type->ptr_to = node->lhs->type;
+            if (node->lhs->type->kind == TY_ARRAY) {
+                node->type = new_type_ptr(node->lhs->type->ptr_to);
+            } else {
+                node->type = new_type_ptr(node->lhs->type);
+            }
             return;
         case ND_DEREF:
-            if (node->lhs->type->kind != TY_PTR) {
+            if (node->lhs->type->ptr_to == NULL) {
                 error("無効なポインタの参照です");
             }
             node->type = node->lhs->type->ptr_to;

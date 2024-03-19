@@ -9,7 +9,7 @@ static Token *token;
 
 // 次のトークンが期待している記号のときには、
 // 真を返す。それ以外の場合には偽を返す。
-bool confirm(char *op) {
+bool match(char *op) {
     if (token->kind != TK_RESERVED || strlen(op) != token->len ||
         memcmp(token->str, op, token->len)) {
         return false;
@@ -132,7 +132,7 @@ void tokenize(char *p) {
             continue;
         }
 
-        if (strchr("+-*/()<>=;{},&*", *p)) {
+        if (strchr("+-*/()<>=;{},&*[]", *p)) {
             cur = new_token(TK_RESERVED, cur, p);
 
             cur->len = 1;
