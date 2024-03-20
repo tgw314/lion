@@ -72,5 +72,7 @@ assert 8 "int main() { int p; p = sizeof(1); return sizeof(&p); }"
 assert 40 "int main() { int a[10]; return sizeof(a); }"
 assert 3 "int main() { int a[2]; *a = 1; *(a + 1) = 2; int *p; p = a; return *p + *(p + 1); }"
 assert 12 "int main() { int a[2]; a[0] = 5; a[1] = 7; int *p; p = a; return p[0] + p[1]; }"
+assert 81 "int main() { int a, b; a = 7; b = 9; return (a + 2) * b; }"
+assert 3 "int main() { int a = 10, *b = &a, **c = &b; **c = **c - 5; return a - 2; }"
 
 echo OK

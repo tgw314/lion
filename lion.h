@@ -131,6 +131,8 @@ void tokenize(char *p);
 
 Type *new_type(TypeKind kind);
 
+Type *new_type_ptr(Type *type);
+
 Type *new_type_array(Type *type, size_t size);
 
 size_t get_sizeof(Type *type);
