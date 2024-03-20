@@ -5,7 +5,10 @@
 
 static Function *func_cur;
 
-static Type *declare(Token **tok);
+static Type *declspec();
+static Type *declarator(Type *type, Token **ident_tok);
+
+static Node *declaration();
 static Node *stmt();
 static Node *expr();
 static Node *assign();
@@ -153,8 +156,13 @@ Function *program() {
 
     while (!at_eof()) {
         {  // 関数名
+            Type *base_type = declspec();
+            if (base_type == NULL) {
+                error("型がありません");
+            }
             Token *tok = NULL;
-            Type *type = declare(&tok);
+            Type *type = declarator(base_type, &tok);
+
             if (type->kind != TY_FUNC) {
                 error_at(tok->str, "グローバル変数の宣言はできません");
             }
@@ -172,8 +180,13 @@ Function *program() {
             expect("(");
             if (!consume(")")) {
                 while (true) {
+                    Type *base_type = declspec();
+                    if (base_type == NULL) {
+                        error("型がありません");
+                    }
                     Token *tok = NULL;
-                    Type *type = declare(&tok);
+                    Type *type = declarator(base_type, &tok);
+
                     LVar *arg = new_lvar(type, strndup(tok->str, tok->len));
 
                     if (find_lvar(tok) != NULL) {
@@ -196,37 +209,74 @@ Function *program() {
     return func_head.next;
 }
 
-// declare = "int" "*"* ident ( ("[" num "]") | "(" )?
-static Type *declare(Token **ident_tok) {
-    Type head = {};
-    Type *cur = &head;
+// declspec = "int"
+static Type *declspec() {
+    Type *type = NULL;
 
     if (consume("int")) {
-        while (consume("*")) {
-            cur->ptr_to = new_type(TY_PTR);
-            cur = cur->ptr_to;
-        }
-        cur->ptr_to = new_type(TY_INT);
-
-        Type *base_type = head.ptr_to;
-
-        *ident_tok = expect_ident();
-
-        if (consume("[")) {
-            Type *type = new_type_array(base_type, expect_number());
-            expect("]");
-            return type;
-        }
-
-        if (match("(")) {
-            Type *type = new_type(TY_FUNC);
-            type->ptr_to = base_type;
-            return type;
-        }
-
-        return base_type;
+        type = new_type(TY_INT);
     }
-    return NULL;
+
+    return type;
+}
+
+// declarator = "*"* ident ( ("[" num "]") | "(" )?
+static Type *declarator(Type *type, Token **ident_tok) {
+    while (consume("*")) {
+        type = new_type_ptr(type);
+    }
+
+    *ident_tok = expect_ident();
+
+    if (consume("[")) {
+        int len = expect_number();
+        expect("]");
+        type = new_type_array(type, len);
+    }
+
+    if (match("(")) {
+        Type *base_type = type;
+
+        type = new_type(TY_FUNC);
+        type->ptr_to = base_type;
+    }
+
+    return type;
+}
+
+// declaration = declspec
+//               (declarator ("=" expr)? ("," declarator ("=" expr)?)*)? ";"
+static Node *declaration() {
+    Type *base_type = declspec();
+    if (base_type == NULL) {
+        return NULL;
+    }
+
+    Node head = {};
+    Node *cur = &head;
+
+    for (int i = 0; !consume(";"); i++) {
+        if (i > 0) expect(",");
+
+        Token *tok = NULL;
+        Type *type = declarator(base_type, &tok);
+        LVar *var = new_lvar(type, strndup(tok->str, tok->len));
+
+        if (find_lvar(tok) != NULL) {
+            error_at(tok->str, "再定義です");
+        }
+        add_lvar(var);
+
+        if (consume("=")) {
+            cur->next = new_node_expr(ND_ASSIGN, new_node_lvar(tok), expr());
+            cur = cur->next;
+        }
+    }
+
+    Node *node = new_node(ND_BLOCK);
+    node->body = head.next;
+
+    return node;
 }
 
 // stmt = expr? ";"
@@ -234,7 +284,7 @@ static Type *declare(Token **ident_tok) {
 //      | "if" "(" expr ")" stmt ("else" stmt)?
 //      | "while" "(" expr ")" stmt
 //      | "for" "(" expr? ";" expr? ";" expr? ")" stmt
-//      | declare ident ";"
+//      | declaration
 //      | "return" expr ";"
 static Node *stmt() {
     Node *node;
@@ -292,21 +342,8 @@ static Node *stmt() {
         node->then = stmt();
 
         return node;
-    }
-    /* else if (declare()) */ {
-        Token *tok = NULL;
-        Type *type = declare(&tok);
-        if (type != NULL) {
-            LVar *var = new_lvar(type, strndup(tok->str, tok->len));
-
-            if (find_lvar(tok) != NULL) {
-                error_at(tok->str, "再定義はできません");
-            }
-            add_lvar(var);
-            expect(";");
-
-            return stmt();
-        }
+    } else if ((node = declaration())) {
+        return node;
     }
 
     if (consume("return")) {
