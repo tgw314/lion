@@ -220,7 +220,7 @@ static Type *declspec() {
     return type;
 }
 
-// declarator = "*"* ident ( ("[" num "]") | "(" )?
+// declarator = "*"* ident ( ("[" num "]")* | "(" )?
 static Type *declarator(Type *type, Token **ident_tok) {
     while (consume("*")) {
         type = new_type_ptr(type);
@@ -228,7 +228,7 @@ static Type *declarator(Type *type, Token **ident_tok) {
 
     *ident_tok = expect_ident();
 
-    if (consume("[")) {
+    while (consume("[")) {
         int len = expect_number();
         expect("]");
         type = new_type_array(type, len);
@@ -461,7 +461,6 @@ static Node *unary() {
 }
 
 // primary = num
-//         | ident ( "(" expr ("," expr)* ")" )?
 //         | ident ( "(" expr ("," expr)* ")" | "[" num "]" )?
 //         | "(" expr ")"
 static Node *primary() {
@@ -497,16 +496,16 @@ static Node *primary() {
             return node;
         }
 
-        if (consume("[")) {
+        node = new_node_lvar(tok);
+        while (consume("[")) {
             int index = expect_number();
             expect("]");
-            Node *lhs = new_node_add(new_node_lvar(tok), new_node_num(index));
+            Node *lhs = new_node_add(node, new_node_num(index));
 
             node = new_node_expr(ND_DEREF, lhs, NULL);
-            return node;
         }
 
-        return new_node_lvar(tok);
+        return node;
     }
 
     return new_node_num(expect_number());
