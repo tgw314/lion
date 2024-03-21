@@ -343,6 +343,9 @@ void generate(Function *funcs) {
         {  // 引数をローカル変数として代入
             LVar *arg = func->locals;
             for (int i = 0; i < func->arg_count; i++) {
+                if (i >= 6) {
+                    error("7個以上の引数はサポートしていません");
+                }
                 mov_offsetReg(arg->offset, arg_regs[i], arg->type);
 
                 arg = arg->next;
