@@ -21,7 +21,7 @@ typedef enum {
     R15
 } RegAlias64;
 
-static Function *func;
+static Object *func;
 
 static void gen_lval(Node *node);
 static void gen_stmt(Node *node);
@@ -326,7 +326,7 @@ static void gen_stmt(Node *node) {
     printf("  push rax\n");
 }
 
-void generate(Function *funcs) {
+void generate(Object *funcs) {
     RegAlias64 param_regs[] = {RDI, RSI, RDX, RCX, R8, R9};
 
     printf(".intel_syntax noprefix\n");
@@ -341,7 +341,7 @@ void generate(Function *funcs) {
         printf("  sub rsp, %d\n", align(func->stack_size, 16));
 
         {  // 引数をローカル変数として代入
-            LVar *param = func->locals;
+            Object *param = func->locals;
             for (int i = 0; i < func->param_count; i++) {
                 if (i >= 6) {
                     error("7個以上の引数はサポートしていません");

@@ -1,6 +1,11 @@
 #include <stdbool.h>
 #include <stddef.h>
 
+typedef struct Token Token;
+typedef struct Node Node;
+typedef struct Object Object;
+typedef struct Type Type;
+
 // トークンの種類
 typedef enum {
     TK_RESERVED,  // 記号
@@ -9,42 +14,12 @@ typedef enum {
     TK_EOF,       // EOF
 } TokenKind;
 
-typedef struct Token Token;
-
-// トークン型
-struct Token {
-    TokenKind kind;  // トークンの型
-    Token *next;     // 次の入力トークン
-    int val;         // kind が TK_NUM の場合の数値
-    char *str;       // トークン文字列
-    int len;         // トークンの長さ
-};
-
 typedef enum {
     TY_INT,
     TY_PTR,
     TY_ARRAY,
     TY_FUNC,
 } TypeKind;
-
-typedef struct Type Type;
-
-// 型
-struct Type {
-    TypeKind kind;
-    Type *ptr_to;
-    size_t array_size;
-};
-
-typedef struct LVar LVar;
-
-// ローカル変数の型
-struct LVar {
-    LVar *next;  // 次の変数か NULL
-    Type *type;  // 変数の型
-    char *name;  // 変数の名前
-    int offset;  // RBP からのオフセット
-};
 
 // 抽象構文木のノードの種類
 typedef enum {
@@ -70,7 +45,21 @@ typedef enum {
     ND_CALL,    // 関数呼び出し
 } NodeKind;
 
-typedef struct Node Node;
+// トークン型
+struct Token {
+    TokenKind kind;  // トークンの型
+    Token *next;     // 次の入力トークン
+    int val;         // kind が TK_NUM の場合の数値
+    char *str;       // トークン文字列
+    int len;         // トークンの長さ
+};
+
+// 型
+struct Type {
+    TypeKind kind;
+    Type *ptr_to;
+    size_t array_size;
+};
 
 // 抽象構文木のノードの型
 struct Node {
@@ -86,22 +75,27 @@ struct Node {
     Node *upd;       // kind が ND_FOR の場合のみ
     Node *body;      // kind が ND_BLOCK の場合のみ
     int val;         // kind が ND_NUM の場合の数値
-    LVar *lvar;      // kind が ND_LVAR の場合のみ
+    Object *lvar;    // kind が ND_LVAR の場合のみ
     char *funcname;  // kind が ND_CALL の場合のみ
     Node *args;      // kind が ND_CALL の場合のみ
     Type *type;      // 式の型
 };
 
-typedef struct Function Function;
-
 // 関数
-struct Function {
+struct Object {
     char *name;
+    Type *type;    // 返り値の型
+    Object *next;  // 次の関数
+    bool is_func;
+    bool is_local;
+
+    // ローカル変数
+    int offset;  // RBP からのオフセット
+
+    // 関数
     int stack_size;
-    Type *type;       // 返り値の型
-    LVar *locals;     // ローカル変数
+    Object *locals;   // ローカル変数
     int param_count;  // 引数の数
-    Function *next;   // 次の関数
     Node *body;
 };
 
@@ -139,6 +133,6 @@ size_t get_sizeof(Type *type);
 
 void set_expr_type(Node *node);
 
-Function *program();
+Object *program();
 
-void generate(Function *funcs);
+void generate(Object *funcs);
