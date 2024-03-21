@@ -41,7 +41,7 @@ static LVar *new_lvar(Type *type, char *name) {
     lvar->type = type;
     lvar->name = name;
 
-    func_cur->stack_size += type->kind == TY_ARRAY ? get_sizeof(type) : 8;
+    func_cur->stack_size += get_sizeof(type);
     lvar->offset = func_cur->stack_size;
 
     return lvar;
