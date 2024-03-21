@@ -187,13 +187,13 @@ Function *program() {
                     Token *tok = NULL;
                     Type *type = declarator(base_type, &tok);
 
-                    LVar *arg = new_lvar(type, strndup(tok->str, tok->len));
+                    LVar *param = new_lvar(type, strndup(tok->str, tok->len));
 
                     if (find_lvar(tok) != NULL) {
                         error_at(tok->str, "引数の再定義はできません");
                     }
-                    add_lvar(arg);
-                    func_cur->arg_count++;
+                    add_lvar(param);
+                    func_cur->param_count++;
 
                     if (!consume(",")) {
                         break;

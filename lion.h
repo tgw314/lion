@@ -98,10 +98,10 @@ typedef struct Function Function;
 struct Function {
     char *name;
     int stack_size;
-    Type *type;      // 返り値の型
-    LVar *locals;    // ローカル変数
-    int arg_count;   // 引数の数
-    Function *next;  // 次の関数
+    Type *type;       // 返り値の型
+    LVar *locals;     // ローカル変数
+    int param_count;  // 引数の数
+    Function *next;   // 次の関数
     Node *body;
 };
 

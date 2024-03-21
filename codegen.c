@@ -327,7 +327,7 @@ static void gen_stmt(Node *node) {
 }
 
 void generate(Function *funcs) {
-    RegAlias64 arg_regs[] = {RDI, RSI, RDX, RCX, R8, R9};
+    RegAlias64 param_regs[] = {RDI, RSI, RDX, RCX, R8, R9};
 
     printf(".intel_syntax noprefix\n");
     for (func = funcs; func; func = func->next) {
@@ -341,14 +341,14 @@ void generate(Function *funcs) {
         printf("  sub rsp, %d\n", align(func->stack_size, 16));
 
         {  // 引数をローカル変数として代入
-            LVar *arg = func->locals;
-            for (int i = 0; i < func->arg_count; i++) {
+            LVar *param = func->locals;
+            for (int i = 0; i < func->param_count; i++) {
                 if (i >= 6) {
                     error("7個以上の引数はサポートしていません");
                 }
-                mov_offsetReg(arg->offset, arg_regs[i], arg->type);
+                mov_offsetReg(param->offset, param_regs[i], param->type);
 
-                arg = arg->next;
+                param = param->next;
             }
         }
 
