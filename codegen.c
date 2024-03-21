@@ -2,8 +2,26 @@
 
 #include "lion.h"
 
+typedef enum {
+    RAX,
+    RDI,
+    RSI,
+    RDX,
+    RCX,
+    RBP,
+    RSP,
+    RBX,
+    R8,
+    R9,
+    R10,
+    R11,
+    R12,
+    R13,
+    R14,
+    R15
+} RegAlias64;
+
 static Function *func;
-static char *arg_regs[] = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"};
 
 static void gen_lval(Node *node);
 static void gen_stmt(Node *node);
@@ -15,6 +33,76 @@ static int count() {
 
 // align = 2^n の場合のみ有効
 static int align(int n, int align) { return (n + align - 1) & ~(align - 1); }
+
+static char *reg_alias(RegAlias64 reg, size_t size) {
+    static char *regs[16][4] = {
+        {"al", "ax", "eax", "rax"},      {"dil", "di", "edi", "rdi"},
+        {"sil", "si", "esi", "rsi"},     {"dl", "dx", "edx", "rdx"},
+        {"cl", "cx", "ecx", "rcx"},      {"bpl", "bp", "ebp", "rbp"},
+        {"spl", "sp", "esp", "rsp"},     {"bl", "bx", "ebx", "rbx"},
+        {"r8b", "r8w", "r8d", "r8"},     {"r9b", "r9w", "r9d", "r9"},
+        {"r10b", "r10w", "r10d", "r10"}, {"r11b", "r11w", "r11d", "r11"},
+        {"r12b", "r12w", "r12d", "r12"}, {"r13b", "r13w", "r13d", "r13"},
+        {"r14b", "r14w", "r14d", "r14"}, {"r15b", "r15w", "r15d", "r15"},
+    };
+
+    int idx;
+    switch (size) {
+        case 1:
+            idx = 0;
+            break;
+        case 2:
+            idx = 1;
+            break;
+        case 4:
+            idx = 2;
+            break;
+        case 8:
+            idx = 3;
+            break;
+        default:
+            error("不正なサイズです");
+    }
+
+    return regs[reg][idx];
+}
+
+static char *word_ptr(size_t size) {
+    switch (size) {
+        case 1:
+            return "BYTE PTR";
+        case 2:
+            return "WORD PTR";
+        case 4:
+            return "DWORD PTR";
+        case 8:
+            return "QWORD PTR";
+        default:
+            error("不正なサイズです");
+    }
+}
+
+static void mov_memReg(RegAlias64 dest, RegAlias64 src, Type *type) {
+    size_t size = get_sizeof(type);
+    printf("  mov %s [%s], %s\n", word_ptr(size), "rax", reg_alias(src, size));
+}
+
+static void mov_regMem(RegAlias64 dest, RegAlias64 src, Type *type) {
+    size_t size = get_sizeof(type);
+    printf("  mov %s, %s [%s]\n", reg_alias(dest, size), word_ptr(size), "rax");
+}
+
+static void mov_regOffset(RegAlias64 dest, int offset, Type *type) {
+    size_t size = get_sizeof(type);
+    printf("  mov %s, %s [rbp-%d]\n", reg_alias(dest, size), word_ptr(size),
+           offset);
+}
+
+static void mov_offsetReg(int offset, RegAlias64 src, Type *type) {
+    size_t size = get_sizeof(type);
+    printf("  mov %s [rbp-%d], %s\n", word_ptr(size), offset,
+           reg_alias(src, size));
+}
 
 static void call(const char *funcname) {
     int i = count();
@@ -35,8 +123,7 @@ static void call(const char *funcname) {
 
 static void gen_lval(Node *node) {
     if (node->kind == ND_LVAR) {
-        printf("  mov rax, rbp\n");
-        printf("  sub rax, %d\n", node->lvar->offset);
+        printf("  lea rax, [rbp-%d]\n", node->lvar->offset);
         printf("  push rax\n");
         return;
     }
@@ -59,11 +146,11 @@ static void gen_stmt(Node *node) {
         case ND_LVAR:
             puts("# ND_LVAR {");
             gen_lval(node);
-            printf("  pop rax\n");
             if (node->type->kind != TY_ARRAY) {
-                printf("  mov rax, [rax]\n");
+                printf("  pop rax\n");
+                mov_regMem(RAX, RAX, node->type);
+                printf("  push rax\n");
             }
-            printf("  push rax\n");
             puts("# } ND_LVAR");
             return;
         case ND_ASSIGN:
@@ -72,7 +159,7 @@ static void gen_stmt(Node *node) {
             gen_stmt(node->rhs);
             printf("  pop rdi\n");
             printf("  pop rax\n");
-            printf("  mov [rax], rdi\n");
+            mov_memReg(RAX, RDI, node->type);
             printf("  push rdi\n");
             puts("# } ND_ASSIGN");
             return;
@@ -138,6 +225,8 @@ static void gen_stmt(Node *node) {
         }
         case ND_CALL: {
             int argc = 0;
+            char *arg_regs[] = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"};
+
             puts("# ND_CALL {");
             for (Node *arg = node->args; arg; arg = arg->next) {
                 gen_stmt(arg);
@@ -158,11 +247,11 @@ static void gen_stmt(Node *node) {
         case ND_DEREF:
             puts("# ND_DEREF {");
             gen_stmt(node->lhs);
-            printf("  pop rax\n");
             if (node->type->kind != TY_ARRAY) {
-                printf("  mov rax, [rax]\n");
+                printf("  pop rax\n");
+                mov_regMem(RAX, RAX, node->type);
+                printf("  push rax\n");
             }
-            printf("  push rax\n");
             puts("# } ND_DEREF");
             return;
         case ND_RETURN:
@@ -238,6 +327,8 @@ static void gen_stmt(Node *node) {
 }
 
 void generate(Function *funcs) {
+    RegAlias64 arg_regs[] = {RDI, RSI, RDX, RCX, R8, R9};
+
     printf(".intel_syntax noprefix\n");
     for (func = funcs; func; func = func->next) {
         printf(".globl %s\n", func->name);
@@ -252,9 +343,7 @@ void generate(Function *funcs) {
         {  // 引数をローカル変数として代入
             LVar *arg = func->locals;
             for (int i = 0; i < func->arg_count; i++) {
-                printf("  mov rax, rbp\n");
-                printf("  sub rax, %d\n", arg->offset);
-                printf("  mov [rax], %s\n", arg_regs[i]);
+                mov_offsetReg(arg->offset, arg_regs[i], arg->type);
 
                 arg = arg->next;
             }
