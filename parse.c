@@ -3,7 +3,7 @@
 
 #include "lion.h"
 
-static Function *func_cur;
+static Object *func_cur;
 
 static Type *declspec();
 static Type *declarator(Type *type, Token **ident_tok);
@@ -19,15 +19,17 @@ static Node *mul();
 static Node *unary();
 static Node *primary();
 
-static Function *new_func(char *name) {
-    Function *func = calloc(1, sizeof(Function));
+static Object *new_func(char *name) {
+    Object *func = calloc(1, sizeof(Object));
     func->name = name;
+    func->is_func = true;
+    func->is_local = false;
     return func;
 }
 
 // 変数を名前で検索する。見つからなかった場合は NULL を返す。
-static LVar *find_lvar(Token *tok) {
-    for (LVar *var = func_cur->locals; var; var = var->next) {
+static Object *find_lvar(Token *tok) {
+    for (Object *var = func_cur->locals; var; var = var->next) {
         if (var->name != NULL && !strncmp(tok->str, var->name, tok->len)) {
             return var;
         }
@@ -36,10 +38,12 @@ static LVar *find_lvar(Token *tok) {
     return NULL;
 }
 
-static LVar *new_lvar(Type *type, char *name) {
-    LVar *lvar = calloc(1, sizeof(LVar));
+static Object *new_lvar(Type *type, char *name) {
+    Object *lvar = calloc(1, sizeof(Object));
     lvar->type = type;
     lvar->name = name;
+    lvar->is_func = false;
+    lvar->is_local = true;
 
     func_cur->stack_size += get_sizeof(type);
     lvar->offset = func_cur->stack_size;
@@ -47,8 +51,8 @@ static LVar *new_lvar(Type *type, char *name) {
     return lvar;
 }
 
-static void add_lvar(LVar *lvar) {
-    static LVar *cur = NULL;
+static void add_lvar(Object *lvar) {
+    static Object *cur = NULL;
 
     if (cur != NULL && cur->next == NULL) {
         cur->next = lvar;
@@ -138,7 +142,7 @@ static Node *new_node_sub(Node *lhs, Node *rhs) {
 static Node *new_node_lvar(Token *tok) {
     Node *node = new_node(ND_LVAR);
 
-    LVar *lvar = find_lvar(tok);
+    Object *lvar = find_lvar(tok);
 
     if (!lvar) {
         error_at(tok->str, "宣言されていない変数です");
@@ -150,8 +154,8 @@ static Node *new_node_lvar(Token *tok) {
 }
 
 // program = (declare ident "(" (declare ident ("," declare ident)*)? ")" stmt)*
-Function *program() {
-    Function func_head = {};
+Object *program() {
+    Object func_head = {};
     func_cur = &func_head;
 
     while (!at_eof()) {
@@ -163,16 +167,16 @@ Function *program() {
             Token *tok = NULL;
             Type *type = declarator(base_type, &tok);
 
-            if (type->kind != TY_FUNC) {
-                error_at(tok->str, "グローバル変数の宣言はできません");
-            }
-            type = type->ptr_to;
+            if (type->kind == TY_FUNC) {
+                type = type->ptr_to;
 
-            func_cur->next = new_func(strndup(tok->str, tok->len));
-            func_cur = func_cur->next;
+                func_cur->next = new_func(strndup(tok->str, tok->len));
+                func_cur = func_cur->next;
+            } else {
+            }
         }
 
-        LVar locals_head = {};
+        Object locals_head = {};
 
         {  // 引数
             func_cur->locals = &locals_head;
@@ -187,7 +191,7 @@ Function *program() {
                     Token *tok = NULL;
                     Type *type = declarator(base_type, &tok);
 
-                    LVar *param = new_lvar(type, strndup(tok->str, tok->len));
+                    Object *param = new_lvar(type, strndup(tok->str, tok->len));
 
                     if (find_lvar(tok) != NULL) {
                         error_at(tok->str, "引数の再定義はできません");
@@ -260,7 +264,7 @@ static Node *declaration() {
 
         Token *tok = NULL;
         Type *type = declarator(base_type, &tok);
-        LVar *var = new_lvar(type, strndup(tok->str, tok->len));
+        Object *var = new_lvar(type, strndup(tok->str, tok->len));
 
         if (find_lvar(tok) != NULL) {
             error_at(tok->str, "再定義です");
