@@ -11,7 +11,9 @@ static Object *gvar_cur;
 static Type *declspec();
 static Type *declarator(Type *type, Token **ident_tok);
 
-static Node *declaration();
+static Node *declaration_local();
+static void declaration_global();
+static void params();
 static Node *stmt();
 static Node *expr();
 static Node *assign();
@@ -207,73 +209,13 @@ static Node *new_node_var(Token *tok) {
     return node;
 }
 
-// program = (declare ident "(" (declare ident ("," declare ident)*)? ")" stmt)*
+// program = declaration*
 Object *program() {
     func_cur = &func_head;
     gvar_cur = &gvar_head;
 
     while (!at_eof()) {
-        {  // 関数またはグローバル変数の宣言
-            Type *base_type = declspec();
-            if (base_type == NULL) {
-                error("型がありません");
-            }
-            Token *tok = NULL;
-            Type *type = declarator(base_type, &tok);
-
-            if (type->kind == TY_FUNC) {
-                type = type->ptr_to;
-                if (find_func(tok) != NULL || find_gvar(tok) != NULL) {
-                    error_at(tok->str, "再定義です");
-                }
-                Object *func = new_func(strndup(tok->str, tok->len));
-                add_func(func);
-            } else {
-                expect(";");
-                // グローバル変数の再宣言は可能
-                if (find_func(tok) != NULL) {
-                    error_at(tok->str, "再定義です");
-                }
-                Object *gvar = new_gvar(type, strndup(tok->str, tok->len));
-                add_gvar(gvar);
-
-                continue;
-            }
-        }
-
-        Object locals_head = {};
-
-        {  // 引数
-            func_cur->locals = &locals_head;
-
-            expect("(");
-            if (!consume(")")) {
-                while (true) {
-                    Type *base_type = declspec();
-                    if (base_type == NULL) {
-                        error("型がありません");
-                    }
-
-                    Token *tok = NULL;
-                    Type *type = declarator(base_type, &tok);
-                    Object *param = new_lvar(type, strndup(tok->str, tok->len));
-
-                    if (find_lvar(tok) != NULL) {
-                        error_at(tok->str, "引数の再定義");
-                    }
-                    add_lvar(param);
-                    func_cur->param_count++;
-
-                    if (!consume(",")) {
-                        break;
-                    }
-                }
-                expect(")");
-            }
-        }
-
-        func_cur->body = stmt();
-        func_cur->locals = locals_head.next;
+        declaration_global();
     }
 
     gvar_cur->next = func_head.next;
@@ -305,7 +247,7 @@ static Type *declarator(Type *type, Token **ident_tok) {
         type = new_type_array(type, len);
     }
 
-    if (match("(")) {
+    if (consume("(")) {
         Type *base_type = type;
 
         type = new_type(TY_FUNC);
@@ -317,7 +259,7 @@ static Type *declarator(Type *type, Token **ident_tok) {
 
 // declaration = declspec
 //               (declarator ("=" expr)? ("," declarator ("=" expr)?)*)? ";"
-static Node *declaration() {
+static Node *declaration_local() {
     Type *base_type = declspec();
     if (base_type == NULL) {
         return NULL;
@@ -343,11 +285,75 @@ static Node *declaration() {
             cur = cur->next;
         }
     }
-
     Node *node = new_node(ND_BLOCK);
     node->body = head.next;
 
     return node;
+}
+
+static void declaration_global() {
+    Type *base_type = declspec();
+    if (base_type == NULL) {
+        error("型がありません");
+    }
+
+    for (int i = 0; !consume(";"); i++) {
+        if (i > 0) expect(",");
+
+        Token *tok = NULL;
+        Type *type = declarator(base_type, &tok);
+
+        if (type->kind == TY_FUNC) {
+            Object locals_head = {};
+
+            type = type->ptr_to;
+
+            if (find_func(tok) != NULL || find_gvar(tok) != NULL) {
+                error_at(tok->str, "再定義です");
+            }
+            add_func(new_func(strndup(tok->str, tok->len)));
+
+            func_cur->locals = &locals_head;
+
+            params();
+            func_cur->body = stmt();
+
+            func_cur->locals = locals_head.next;
+            return;
+        } else {
+            // グローバル変数の再宣言は可能
+            if (find_func(tok) != NULL) {
+                error_at(tok->str, "再定義です");
+            }
+            add_gvar(new_gvar(type, strndup(tok->str, tok->len)));
+        }
+
+        if (consume("=")) {
+            error("初期化式は未対応です");
+        }
+    }
+}
+
+// params = (declare ident ("," declare ident)*)? ")"
+static void params() {
+    if (consume(")")) return;
+
+    do {
+        Type *base_type = declspec();
+        if (base_type == NULL) {
+            error("型がありません");
+        }
+
+        Token *tok = NULL;
+        Type *type = declarator(base_type, &tok);
+
+        if (find_lvar(tok) != NULL) {
+            error_at(tok->str, "引数の再定義");
+        }
+        add_lvar(new_lvar(type, strndup(tok->str, tok->len)));
+        func_cur->param_count++;
+    } while (consume(","));
+    expect(")");
 }
 
 // stmt = expr? ";"
@@ -413,7 +419,7 @@ static Node *stmt() {
         node->then = stmt();
 
         return node;
-    } else if ((node = declaration())) {
+    } else if ((node = declaration_local())) {
         return node;
     }
 
