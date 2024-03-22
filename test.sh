@@ -76,5 +76,6 @@ assert 81 "int main() { int a, b; a = 7; b = 9; return (a + 2) * b; }"
 assert 3 "int main() { int a = 10, *b = &a, **c = &b; **c = **c - 5; return a - 2; }"
 assert 23 "int main() { int a[2][2]; a[0][0] = 5; a[1][1] = 18; return **a + *(*(a + 1) + 1); }"
 assert 56 "int a; int b[10]; int main(){ a = 7; b[9] = 8; return a * b[9]; }"
+assert 56 "int a, b[10]; int main(){ a = 7; b[9] = 8; return a * b[9]; }"
 
 echo OK
