@@ -35,6 +35,7 @@ typedef enum {
     ND_ADDR,    // &
     ND_DEREF,   // *
     ND_LVAR,    // ローカル変数
+    ND_GVAR,    // グローバル変数
     ND_NUM,     // 整数
     ND_RETURN,  // return
     ND_IF,      // if
@@ -75,7 +76,7 @@ struct Node {
     Node *upd;       // kind が ND_FOR の場合のみ
     Node *body;      // kind が ND_BLOCK の場合のみ
     int val;         // kind が ND_NUM の場合の数値
-    Object *lvar;    // kind が ND_LVAR の場合のみ
+    Object *var;     // kind が ND_LVAR, ND_GVAR の場合のみ
     char *funcname;  // kind が ND_CALL の場合のみ
     Node *args;      // kind が ND_CALL の場合のみ
     Type *type;      // 式の型
@@ -91,6 +92,9 @@ struct Object {
 
     // ローカル変数
     int offset;  // RBP からのオフセット
+
+    // グローバル変数
+    int init_val;
 
     // 関数
     int stack_size;
