@@ -21,7 +21,7 @@ typedef enum {
     R15
 } RegAlias64;
 
-static Object *func;
+static Object *obj;
 
 static void gen_lval(Node *node);
 static void gen_stmt(Node *node);
@@ -122,16 +122,21 @@ static void call(const char *funcname) {
 }
 
 static void gen_lval(Node *node) {
-    if (node->kind == ND_LVAR) {
-        printf("  lea rax, [rbp-%d]\n", node->lvar->offset);
-        printf("  push rax\n");
-        return;
+    switch (node->kind) {
+        case ND_LVAR:
+            printf("  lea rax, [rbp-%d]\n", node->var->offset);
+            printf("  push rax\n");
+            return;
+        case ND_GVAR:
+            printf("  lea rax, %s[rip]\n", node->var->name);
+            printf("  push rax\n");
+            return;
+        case ND_DEREF:
+            gen_stmt(node->lhs);
+            return;
+        default:
+            error("代入の左辺値が変数ではありません");
     }
-    if (node->kind == ND_DEREF) {
-        gen_stmt(node->lhs);
-        return;
-    }
-    error("代入の左辺値が変数ではありません");
 }
 
 static void gen_stmt(Node *node) {
@@ -143,6 +148,7 @@ static void gen_stmt(Node *node) {
             printf("  push %d\n", node->val);
             puts("# } ND_NUM");
             return;
+        case ND_GVAR:
         case ND_LVAR:
             puts("# ND_LVAR {");
             gen_lval(node);
@@ -258,7 +264,7 @@ static void gen_stmt(Node *node) {
             puts("# ND_RETURN {");
             gen_stmt(node->lhs);
             printf("  pop rax\n");
-            printf("  jmp .L.return.%s\n", func->name);
+            printf("  jmp .L.return.%s\n", obj->name);
             puts("# } ND_RETURN");
             return;
     }
@@ -326,23 +332,32 @@ static void gen_stmt(Node *node) {
     printf("  push rax\n");
 }
 
-void generate(Object *funcs) {
+void generate(Object *globals) {
     RegAlias64 param_regs[] = {RDI, RSI, RDX, RCX, R8, R9};
 
     printf(".intel_syntax noprefix\n");
-    for (func = funcs; func; func = func->next) {
-        printf(".globl %s\n", func->name);
-        printf("%s:\n", func->name);
+    for (obj = globals; obj; obj = obj->next) {
+        if (!obj->is_func) {
+            printf(".data\n");
+            printf(".globl %s\n", obj->name);
+            printf("%s:\n", obj->name);
+            printf("  .zero %d\n", (int)get_sizeof(obj->type));
+            continue;
+        }
+
+        printf(".text\n");
+        printf(".globl %s\n", obj->name);
+        printf("%s:\n", obj->name);
 
         // プロローグ
         printf("  push rbp\n");
         printf("  mov rbp, rsp\n");
         // 予めアラインしているので以降は無視できる
-        printf("  sub rsp, %d\n", align(func->stack_size, 16));
+        printf("  sub rsp, %d\n", align(obj->stack_size, 16));
 
         {  // 引数をローカル変数として代入
-            Object *param = func->locals;
-            for (int i = 0; i < func->param_count; i++) {
+            Object *param = obj->locals;
+            for (int i = 0; i < obj->param_count; i++) {
                 if (i >= 6) {
                     error("7個以上の引数はサポートしていません");
                 }
@@ -353,13 +368,13 @@ void generate(Object *funcs) {
         }
 
         // 先頭の式から順にコード生成
-        for (Node *s = func->body; s; s = s->next) {
+        for (Node *s = obj->body; s; s = s->next) {
             gen_stmt(s);
         }
 
         // エピローグ
         // 最後の式の結果が RAX に残っているのでそれが返り値になる
-        printf(".L.return.%s:\n", func->name);
+        printf(".L.return.%s:\n", obj->name);
         printf("  mov rsp, rbp\n");
         printf("  pop rbp\n");
         printf("  ret\n");

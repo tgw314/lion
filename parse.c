@@ -3,7 +3,10 @@
 
 #include "lion.h"
 
+static Object func_head = {};
 static Object *func_cur;
+static Object gvar_head = {};
+static Object *gvar_cur;
 
 static Type *declspec();
 static Type *declarator(Type *type, Token **ident_tok);
@@ -27,15 +30,14 @@ static Object *new_func(char *name) {
     return func;
 }
 
-// 変数を名前で検索する。見つからなかった場合は NULL を返す。
-static Object *find_lvar(Token *tok) {
-    for (Object *var = func_cur->locals; var; var = var->next) {
-        if (var->name != NULL && !strncmp(tok->str, var->name, tok->len)) {
-            return var;
-        }
-    }
+static Object *new_gvar(Type *type, char *name) {
+    Object *gvar = calloc(1, sizeof(Object));
+    gvar->type = type;
+    gvar->name = name;
+    gvar->is_func = false;
+    gvar->is_local = false;
 
-    return NULL;
+    return gvar;
 }
 
 static Object *new_lvar(Type *type, char *name) {
@@ -51,6 +53,45 @@ static Object *new_lvar(Type *type, char *name) {
     return lvar;
 }
 
+// グローバル変数を名前で検索する。見つからなかった場合は NULL を返す。
+static Object *find_gvar(Token *tok) {
+    for (Object *var = gvar_head.next; var; var = var->next) {
+        if (var->name != NULL && !strncmp(tok->str, var->name, tok->len)) {
+            return var;
+        }
+    }
+    return NULL;
+}
+
+// ローカル変数を名前で検索する。見つからなかった場合は NULL を返す。
+static Object *find_lvar(Token *tok) {
+    for (Object *var = func_cur->locals; var; var = var->next) {
+        if (var->name != NULL && !strncmp(tok->str, var->name, tok->len)) {
+            return var;
+        }
+    }
+
+    return NULL;
+}
+
+static Object *find_var(Token *tok) {
+    Object *lvar = find_lvar(tok);
+    if (lvar) {
+        return lvar;
+    }
+    return find_gvar(tok);
+}
+
+static Object *find_func(Token *tok) {
+    for (Object *func = func_head.next; func; func = func->next) {
+        if (func->name != NULL && !strncmp(tok->str, func->name, tok->len)) {
+            return func;
+        }
+    }
+    return NULL;
+}
+
+// lvar を func_cur->locals の末尾に追加する
 static void add_lvar(Object *lvar) {
     static Object *cur = NULL;
 
@@ -61,11 +102,20 @@ static void add_lvar(Object *lvar) {
     }
     for (cur = func_cur->locals; cur; cur = cur->next) {
         if (cur->next == NULL) {
-            cur->next = lvar;
-            cur = cur->next;
+            add_lvar(lvar);
             return;
         }
     }
+}
+
+static void add_gvar(Object *gvar) {
+    gvar_cur->next = gvar;
+    gvar_cur = gvar_cur->next;
+}
+
+static void add_func(Object *func) {
+    func_cur->next = func;
+    func_cur = func_cur->next;
 }
 
 static Node *new_node(NodeKind kind) {
@@ -139,27 +189,31 @@ static Node *new_node_sub(Node *lhs, Node *rhs) {
     error("誤ったオペランドです");
 }
 
-static Node *new_node_lvar(Token *tok) {
-    Node *node = new_node(ND_LVAR);
+static Node *new_node_var(Token *tok) {
+    Node *node = NULL;
 
-    Object *lvar = find_lvar(tok);
-
-    if (!lvar) {
+    Object *var = find_var(tok);
+    if (!var) {
         error_at(tok->str, "宣言されていない変数です");
     }
 
-    node->lvar = lvar;
+    if (var->is_local) {
+        node = new_node(ND_LVAR);
+    } else {
+        node = new_node(ND_GVAR);
+    }
+    node->var = var;
 
     return node;
 }
 
 // program = (declare ident "(" (declare ident ("," declare ident)*)? ")" stmt)*
 Object *program() {
-    Object func_head = {};
     func_cur = &func_head;
+    gvar_cur = &gvar_head;
 
     while (!at_eof()) {
-        {  // 関数名
+        {  // 関数またはグローバル変数の宣言
             Type *base_type = declspec();
             if (base_type == NULL) {
                 error("型がありません");
@@ -169,10 +223,21 @@ Object *program() {
 
             if (type->kind == TY_FUNC) {
                 type = type->ptr_to;
-
-                func_cur->next = new_func(strndup(tok->str, tok->len));
-                func_cur = func_cur->next;
+                if (find_func(tok) != NULL || find_gvar(tok) != NULL) {
+                    error_at(tok->str, "再定義です");
+                }
+                Object *func = new_func(strndup(tok->str, tok->len));
+                add_func(func);
             } else {
+                expect(";");
+                // グローバル変数の再宣言は可能
+                if (find_func(tok) != NULL) {
+                    error_at(tok->str, "再定義です");
+                }
+                Object *gvar = new_gvar(type, strndup(tok->str, tok->len));
+                add_gvar(gvar);
+
+                continue;
             }
         }
 
@@ -188,13 +253,13 @@ Object *program() {
                     if (base_type == NULL) {
                         error("型がありません");
                     }
+
                     Token *tok = NULL;
                     Type *type = declarator(base_type, &tok);
-
                     Object *param = new_lvar(type, strndup(tok->str, tok->len));
 
                     if (find_lvar(tok) != NULL) {
-                        error_at(tok->str, "引数の再定義はできません");
+                        error_at(tok->str, "引数の再定義");
                     }
                     add_lvar(param);
                     func_cur->param_count++;
@@ -210,7 +275,9 @@ Object *program() {
         func_cur->body = stmt();
         func_cur->locals = locals_head.next;
     }
-    return func_head.next;
+
+    gvar_cur->next = func_head.next;
+    return gvar_head.next;
 }
 
 // declspec = "int"
@@ -272,7 +339,7 @@ static Node *declaration() {
         add_lvar(var);
 
         if (consume("=")) {
-            cur->next = new_node_expr(ND_ASSIGN, new_node_lvar(tok), expr());
+            cur->next = new_node_expr(ND_ASSIGN, new_node_var(tok), expr());
             cur = cur->next;
         }
     }
@@ -500,7 +567,7 @@ static Node *primary() {
             return node;
         }
 
-        node = new_node_lvar(tok);
+        node = new_node_var(tok);
         while (consume("[")) {
             int index = expect_number();
             expect("]");

@@ -85,7 +85,8 @@ void set_expr_type(Node *node) {
             node->type = node->lhs->type->ptr_to;
             return;
         case ND_LVAR:
-            node->type = node->lvar->type;
+        case ND_GVAR:
+            node->type = node->var->type;
             return;
     }
 }
