@@ -514,8 +514,7 @@ static Node *mul() {
 }
 
 // unary = "sizeof" unary
-//       | ("+" | "-")? primary
-//       | ("*" | "&") unary
+//       | ("+" | "-" | "*" | "&") unary
 static Node *unary() {
     if (consume("sizeof")) {
         Node *node = unary();
@@ -523,10 +522,10 @@ static Node *unary() {
         return new_node_num(get_sizeof(node->type));
     }
     if (consume("+")) {
-        return primary();
+        return unary();
     }
     if (consume("-")) {
-        return new_node_expr(ND_SUB, new_node_num(0), primary());
+        return new_node_expr(ND_SUB, new_node_num(0), unary());
     }
     if (consume("*")) {
         return new_node_expr(ND_DEREF, unary(), NULL);
