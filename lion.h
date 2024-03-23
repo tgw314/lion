@@ -135,6 +135,8 @@ Type *new_type_array(Type *type, size_t size);
 
 size_t get_sizeof(Type *type);
 
+bool is_pointer(Type *type);
+
 void set_expr_type(Node *node);
 
 Object *program();
