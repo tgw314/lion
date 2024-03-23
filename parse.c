@@ -233,7 +233,26 @@ static Type *declspec() {
     return type;
 }
 
-// declarator = "*"* ident ( ("[" num "]")* | "(" )?
+static Type *declsuffix(Type *type) {
+    if (consume("(")) {
+        Type *base_type = type;
+
+        type = new_type(TY_FUNC);
+        type->ptr_to = base_type;
+        return type;
+    }
+
+    if (consume("[")) {
+        int len = expect_number();
+        expect("]");
+        type = declsuffix(type);
+        return new_type_array(type, len);
+    }
+
+    return type;
+}
+
+// declarator = "*"* ident declsuffix
 static Type *declarator(Type *type, Token **ident_tok) {
     while (consume("*")) {
         type = new_type_ptr(type);
@@ -241,20 +260,7 @@ static Type *declarator(Type *type, Token **ident_tok) {
 
     *ident_tok = expect_ident();
 
-    while (consume("[")) {
-        int len = expect_number();
-        expect("]");
-        type = new_type_array(type, len);
-    }
-
-    if (consume("(")) {
-        Type *base_type = type;
-
-        type = new_type(TY_FUNC);
-        type->ptr_to = base_type;
-    }
-
-    return type;
+    return declsuffix(type);
 }
 
 // declaration = declspec
