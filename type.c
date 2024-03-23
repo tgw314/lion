@@ -32,6 +32,10 @@ size_t get_sizeof(Type *type) {
     }
 }
 
+bool is_pointer(Type *type) {
+    return type->kind == TY_PTR || type->kind == TY_ARRAY;
+}
+
 void set_expr_type(Node *node) {
     if (!node || node->type) return;
 

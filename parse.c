@@ -148,13 +148,13 @@ static Node *new_node_add(Node *lhs, Node *rhs) {
     }
 
     // 左右の入れ替え
-    if (lhs->type->kind == TY_INT && rhs->type->kind == TY_PTR) {
+    if (lhs->type->kind == TY_INT && is_pointer(rhs->type)) {
         Node *tmp = lhs;
         lhs = rhs;
         rhs = tmp;
     }
 
-    if (lhs->type->kind == TY_PTR && rhs->type->kind == TY_PTR) {
+    if (is_pointer(lhs->type) && is_pointer(rhs->type)) {
         error("ポインタ同士の加算はできません");
     }
 
@@ -172,7 +172,7 @@ static Node *new_node_sub(Node *lhs, Node *rhs) {
         return new_node_expr(ND_SUB, lhs, rhs);
     }
 
-    if (lhs->type->kind == TY_PTR && rhs->type->kind == TY_INT) {
+    if (is_pointer(lhs->type) && rhs->type->kind == TY_INT) {
         rhs = new_node_expr(ND_MUL, rhs,
                             new_node_num(get_sizeof(lhs->type->ptr_to)));
         set_expr_type(rhs);
@@ -181,7 +181,7 @@ static Node *new_node_sub(Node *lhs, Node *rhs) {
         return node;
     }
 
-    if (lhs->type->kind == TY_PTR && rhs->type->kind == TY_PTR) {
+    if (is_pointer(lhs->type) && is_pointer(rhs->type)) {
         Node *node = new_node_expr(ND_SUB, lhs, rhs);
         node->type = new_type(TY_INT);
         return new_node_expr(ND_DIV, node,
@@ -590,5 +590,14 @@ static Node *primary() {
         return node;
     }
 
-    return new_node_num(expect_number());
+    node = new_node_num(expect_number());
+    while (consume("[")) {
+        Token *tok = expect_ident();
+        expect("]");
+        Node *lhs = new_node_add(node, new_node_var(tok));
+
+        node = new_node_expr(ND_DEREF, lhs, NULL);
+    }
+
+    return node;
 }
