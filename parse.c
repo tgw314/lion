@@ -49,9 +49,6 @@ static Object *new_lvar(Type *type, char *name) {
     lvar->is_func = false;
     lvar->is_local = true;
 
-    func_cur->stack_size += get_sizeof(type);
-    lvar->offset = func_cur->stack_size;
-
     return lvar;
 }
 
@@ -96,6 +93,8 @@ static Object *find_func(Token *tok) {
 // lvar を func_cur->locals の末尾に追加する
 static void add_lvar(Object *lvar) {
     static Object *cur = NULL;
+
+    func_cur->stack_size += get_sizeof(lvar->type);
 
     if (cur != NULL && cur->next == NULL) {
         cur->next = lvar;
