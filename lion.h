@@ -16,6 +16,7 @@ typedef enum {
 
 typedef enum {
     TY_INT,
+    TY_CHAR,
     TY_PTR,
     TY_ARRAY,
     TY_FUNC,
@@ -136,6 +137,8 @@ Type *new_type_array(Type *type, size_t size);
 size_t get_sizeof(Type *type);
 
 bool is_pointer(Type *type);
+
+bool is_number(Type *type);
 
 void set_expr_type(Node *node);
 

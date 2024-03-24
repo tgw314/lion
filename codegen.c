@@ -84,12 +84,12 @@ static char *word_ptr(size_t size) {
 
 static void mov_memReg(RegAlias64 dest, RegAlias64 src, Type *type) {
     size_t size = get_sizeof(type);
-    printf("  mov %s [%s], %s\n", word_ptr(size), "rax", reg_alias(src, size));
+    printf("  mov %s [rax], %s\n", word_ptr(size), reg_alias(src, size));
 }
 
 static void mov_regMem(RegAlias64 dest, RegAlias64 src, Type *type) {
     size_t size = get_sizeof(type);
-    printf("  mov %s, %s [%s]\n", reg_alias(dest, size), word_ptr(size), "rax");
+    printf("  mov %s, %s [rax]\n", reg_alias(dest, size), word_ptr(size));
 }
 
 static void mov_regOffset(RegAlias64 dest, int offset, Type *type) {
