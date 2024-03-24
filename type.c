@@ -23,6 +23,8 @@ Type *new_type_array(Type *type, size_t size) {
 
 size_t get_sizeof(Type *type) {
     switch (type->kind) {
+        case TY_CHAR:
+            return 1;
         case TY_INT:
             return 4;
         case TY_PTR:
@@ -34,6 +36,10 @@ size_t get_sizeof(Type *type) {
 
 bool is_pointer(Type *type) {
     return type->kind == TY_PTR || type->kind == TY_ARRAY;
+}
+
+bool is_number(Type *type) {
+    return type->kind == TY_INT || type->kind == TY_CHAR;
 }
 
 void set_expr_type(Node *node) {

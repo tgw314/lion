@@ -143,12 +143,12 @@ static Node *new_node_add(Node *lhs, Node *rhs) {
     set_expr_type(lhs);
     set_expr_type(rhs);
 
-    if (lhs->type->kind == TY_INT && rhs->type->kind == TY_INT) {
+    if (is_number(lhs->type) && is_number(rhs->type)) {
         return new_node_expr(ND_ADD, lhs, rhs);
     }
 
     // 左右の入れ替え
-    if (lhs->type->kind == TY_INT && is_pointer(rhs->type)) {
+    if (is_number(lhs->type) && is_pointer(rhs->type)) {
         Node *tmp = lhs;
         lhs = rhs;
         rhs = tmp;
@@ -158,7 +158,7 @@ static Node *new_node_add(Node *lhs, Node *rhs) {
         error("ポインタ同士の加算はできません");
     }
 
-    // lhs: PTR, rhs: INT
+    // lhs: pointer, rhs: number
     rhs =
         new_node_expr(ND_MUL, rhs, new_node_num(get_sizeof(lhs->type->ptr_to)));
     return new_node_expr(ND_ADD, lhs, rhs);
@@ -168,11 +168,11 @@ static Node *new_node_sub(Node *lhs, Node *rhs) {
     set_expr_type(lhs);
     set_expr_type(rhs);
 
-    if (lhs->type->kind == TY_INT && rhs->type->kind == TY_INT) {
+    if (is_number(lhs->type) && is_number(rhs->type)) {
         return new_node_expr(ND_SUB, lhs, rhs);
     }
 
-    if (is_pointer(lhs->type) && rhs->type->kind == TY_INT) {
+    if (is_pointer(lhs->type) && is_number(rhs->type)) {
         rhs = new_node_expr(ND_MUL, rhs,
                             new_node_num(get_sizeof(lhs->type->ptr_to)));
         set_expr_type(rhs);
@@ -188,6 +188,7 @@ static Node *new_node_sub(Node *lhs, Node *rhs) {
                              new_node_num(get_sizeof(lhs->type->ptr_to)));
     }
 
+    // lhs: number, rhs: pointer
     error("誤ったオペランドです");
 }
 
@@ -222,12 +223,14 @@ Object *program() {
     return gvar_head.next;
 }
 
-// declspec = "int"
+// declspec = "int" | "char"
 static Type *declspec() {
     Type *type = NULL;
 
     if (consume("int")) {
         type = new_type(TY_INT);
+    } else if (consume("char")) {
+        type = new_type(TY_CHAR);
     }
 
     return type;
