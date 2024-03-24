@@ -94,13 +94,13 @@ static void mov_regMem(RegAlias64 dest, RegAlias64 src, Type *type) {
 
 static void mov_regOffset(RegAlias64 dest, int offset, Type *type) {
     size_t size = get_sizeof(type);
-    printf("  mov %s, %s [rbp-%d]\n", reg_alias(dest, size), word_ptr(size),
+    printf("  mov %s, %s [rbp%+d]\n", reg_alias(dest, size), word_ptr(size),
            offset);
 }
 
 static void mov_offsetReg(int offset, RegAlias64 src, Type *type) {
     size_t size = get_sizeof(type);
-    printf("  mov %s [rbp-%d], %s\n", word_ptr(size), offset,
+    printf("  mov %s [rbp%+d], %s\n", word_ptr(size), offset,
            reg_alias(src, size));
 }
 
@@ -124,7 +124,7 @@ static void call(const char *funcname) {
 static void gen_lval(Node *node) {
     switch (node->kind) {
         case ND_LVAR:
-            printf("  lea rax, [rbp-%d]\n", node->var->offset);
+            printf("  lea rax, [rbp%+d]\n", node->var->offset);
             printf("  push rax\n");
             return;
         case ND_GVAR:
@@ -343,6 +343,14 @@ void generate(Object *globals) {
             printf("%s:\n", obj->name);
             printf("  .zero %d\n", (int)get_sizeof(obj->type));
             continue;
+        }
+
+        {  // ローカル変数のオフセットを計算
+            int size = -obj->stack_size;
+            for (Object *lv = obj->locals; lv; lv = lv->next) {
+                lv->offset = size;
+                size += get_sizeof(lv->type);
+            }
         }
 
         printf(".text\n");
