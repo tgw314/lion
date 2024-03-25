@@ -11,6 +11,7 @@ typedef enum {
     TK_RESERVED,  // 記号
     TK_IDENT,     // 識別子
     TK_NUM,       // 数字
+    TK_STR,       // 文字列
     TK_EOF,       // EOF
 } TokenKind;
 
@@ -95,7 +96,7 @@ struct Object {
     int offset;  // RBP からのオフセット
 
     // グローバル変数
-    int init_val;
+    char *init_data;
 
     // 関数
     int stack_size;
@@ -120,6 +121,8 @@ void expect(char *op);
 Token *consume_ident();
 
 Token *expect_ident();
+
+Token *consume_string();
 
 int expect_number();
 

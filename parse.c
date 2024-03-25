@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -40,6 +41,15 @@ static Object *new_gvar(Type *type, char *name) {
     gvar->is_local = false;
 
     return gvar;
+}
+
+static Object *new_anon_gvar(Type *type) {
+    static int index = 0;
+
+    char *name = calloc(1, 20);
+    sprintf(name, ".LC%d", index++);
+
+    return new_gvar(type, name);
 }
 
 static Object *new_lvar(Type *type, char *name) {
@@ -556,11 +566,11 @@ static Node *primary() {
         return node;
     }
 
-    Token *tok = consume_ident();
-    if (tok) {
+    Token *ident_tok = consume_ident();
+    if (ident_tok) {
         if (consume("(")) {
             node = new_node(ND_CALL);
-            node->funcname = strndup(tok->str, tok->len);
+            node->funcname = strndup(ident_tok->str, ident_tok->len);
 
             if (!consume(")")) {
                 Node head = {};
@@ -580,7 +590,7 @@ static Node *primary() {
             return node;
         }
 
-        node = new_node_var(tok);
+        node = new_node_var(ident_tok);
         while (consume("[")) {
             int index = expect_number();
             expect("]");
@@ -589,6 +599,27 @@ static Node *primary() {
             node = new_node_expr(ND_DEREF, lhs, NULL);
         }
 
+        return node;
+    }
+
+    Token *str_tok = consume_string();
+    if (str_tok) {
+        Type *type = new_type_array(new_type(TY_CHAR),
+                                    str_tok->len + 1);  // +1 for '\0'
+        Object *str_obj = new_anon_gvar(type);
+        str_obj->init_data = strndup(str_tok->str, str_tok->len);
+        add_gvar(str_obj);
+
+        node = new_node(ND_GVAR);
+        node->var = str_obj;
+
+        while (consume("[")) {
+            int index = expect_number();
+            expect("]");
+            Node *lhs = new_node_add(node, new_node_num(index));
+
+            node = new_node_expr(ND_DEREF, lhs, NULL);
+        }
         return node;
     }
 

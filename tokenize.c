@@ -60,6 +60,17 @@ Token *expect_ident() {
     return tmp;
 }
 
+// 次のトークンの kind が TK_STR のときには、トークンを1つ読み進めて
+// そのトークンを返す。それ以外の場合には NULL を返す。
+Token *consume_string() {
+    if (token->kind != TK_STR) {
+        return NULL;
+    }
+    Token *tmp = token;
+    token = token->next;
+    return tmp;
+}
+
 // 次のトークンが数値の場合、トークンを1つ読み進めてその数値を返す。
 // それ以外の場合にはエラーを報告する。
 int expect_number() {
@@ -137,6 +148,20 @@ void tokenize(char *p) {
 
             cur->len = 1;
             p += cur->len;
+            continue;
+        }
+
+        if (*p == '"') {
+            p++;
+            cur = new_token(TK_STR, cur, p);
+
+            for (; *p != '"'; p++) {
+                if (*p == '\n' || *p == '\0')
+                    error_at(p, "文字列が閉じられていません");
+                cur->len++;
+            }
+            p++;
+
             continue;
         }
 

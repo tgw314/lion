@@ -341,7 +341,15 @@ void generate(Object *globals) {
             printf(".data\n");
             printf(".globl %s\n", obj->name);
             printf("%s:\n", obj->name);
-            printf("  .zero %d\n", (int)get_sizeof(obj->type));
+
+            if (obj->init_data) {
+                if (!is_number(obj->type)) {
+                    printf("  .string \"%s\"\n", obj->init_data);
+                }
+            } else {
+                printf("  .zero %d\n", (int)get_sizeof(obj->type));
+            }
+
             continue;
         }
 

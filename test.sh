@@ -190,6 +190,15 @@ assert 1 'int main() { char x; return sizeof(x); }'
 assert 10 'int main() { char x[10]; return sizeof(x); }'
 assert 1 'int main() { return sub_char(7, 3, 3); } int sub_char(char a, char b, char c) { return a-b-c; }'
 
+assert 0 'int main() { return ""[0]; }'
+assert 1 'int main() { return sizeof(""); }'
+
+assert 97 'int main() { return "abc"[0]; }'
+assert 98 'int main() { return "abc"[1]; }'
+assert 99 'int main() { return "abc"[2]; }'
+assert 0 'int main() { return "abc"[3]; }'
+assert 4 'int main() { return sizeof("abc"); }'
+
 # my tests
 assert 0  "int main() { return 0; }"
 assert 42 "int main() { return 42; }"
@@ -235,5 +244,6 @@ assert 3 "int main() { int a = 10, *b = &a, **c = &b; **c = **c - 5; return a - 
 assert 23 "int main() { int a[2][2]; a[0][0] = 5; a[1][1] = 18; return **a + *(*(a + 1) + 1); }"
 assert 56 "int a; int b[10]; int main(){ a = 7; b[9] = 8; return a * b[9]; }"
 assert 56 "int a, b[10]; int main(){ a = 7; b[9] = 8; return a * b[9]; }"
+assert 13 'int main() { int num = 13; printf("num: %d ", num); return num; }'
 
 echo OK
