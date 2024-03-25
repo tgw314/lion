@@ -12,7 +12,6 @@ static Object *gvar_cur;
 static Type *declspec();
 static Type *declarator(Type *type, Token **ident_tok);
 
-static Node *declaration_local();
 static void declaration_global();
 static void params();
 static Node *stmt();
@@ -23,6 +22,7 @@ static Node *relational();
 static Node *add();
 static Node *mul();
 static Node *unary();
+static Node *postfix();
 static Node *primary();
 
 static Object *new_func(char *name) {
@@ -50,6 +50,13 @@ static Object *new_anon_gvar(Type *type) {
     sprintf(name, ".LC%d", index++);
 
     return new_gvar(type, name);
+}
+
+static Object *new_string_literal(char *str) {
+    Type *type = new_type_array(new_type(TY_CHAR), strlen(str) + 1);
+    Object *gvar = new_anon_gvar(type);
+    gvar->init_data = str;
+    return gvar;
 }
 
 static Object *new_lvar(Type *type, char *name) {
@@ -533,6 +540,7 @@ static Node *mul() {
 
 // unary = "sizeof" unary
 //       | ("+" | "-" | "*" | "&") unary
+//       | postfix
 static Node *unary() {
     if (consume("sizeof")) {
         Node *node = unary();
@@ -551,86 +559,82 @@ static Node *unary() {
     if (consume("&")) {
         return new_node_expr(ND_ADDR, unary(), NULL);
     }
-    return primary();
+    return postfix();
 }
 
-// primary = num
-//         | ident ( "(" expr ("," expr)* ")" | "[" num "]" )?
-//         | "(" expr ")"
+// postfix = primary ("[" num "]")*
+static Node *postfix() {
+    Node *lhs = primary();
+    Node *rhs;
+
+    while (consume("[")) {
+        Token *tok;
+        if ((tok = consume_ident())) {
+            rhs = new_node_var(tok);
+        } else {
+            rhs = new_node_num(expect_number());
+        }
+        expect("]");
+        Node *addr = new_node_add(lhs, rhs);
+
+        lhs = new_node_expr(ND_DEREF, addr, NULL);
+    }
+
+    return lhs;
+}
+
+// callfunc = ident "(" (expr ("," expr)*)? ")"
+static Node *callfunc(Token *tok) {
+    Node *node = new_node(ND_CALL);
+    node->funcname = strndup(tok->str, tok->len);
+
+    if (!consume(")")) {
+        Node head = {};
+        Node *cur = &head;
+
+        cur->next = expr();
+        cur = cur->next;
+        while (!consume(")")) {
+            expect(",");
+
+            cur->next = expr();
+            cur = cur->next;
+        }
+        node->args = head.next;
+    }
+
+    return node;
+}
+
+// primary = num | ident | callfunc
+//         | string | "(" expr ")"
 static Node *primary() {
-    Node *node;
+    Token *tok;
 
     if (consume("(")) {
-        node = expr();
+        Node *node = expr();
         expect(")");
         return node;
     }
 
-    Token *ident_tok = consume_ident();
-    if (ident_tok) {
+    if ((tok = consume_ident())) {
         if (consume("(")) {
-            node = new_node(ND_CALL);
-            node->funcname = strndup(ident_tok->str, ident_tok->len);
-
-            if (!consume(")")) {
-                Node head = {};
-                Node *cur = &head;
-
-                cur->next = expr();
-                cur = cur->next;
-                while (!consume(")")) {
-                    expect(",");
-
-                    cur->next = expr();
-                    cur = cur->next;
-                }
-                node->args = head.next;
-            }
-
-            return node;
+            return callfunc(tok);
         }
 
-        node = new_node_var(ident_tok);
-        while (consume("[")) {
-            int index = expect_number();
-            expect("]");
-            Node *lhs = new_node_add(node, new_node_num(index));
-
-            node = new_node_expr(ND_DEREF, lhs, NULL);
-        }
-
-        return node;
+        return new_node_var(tok);
     }
 
-    Token *str_tok = consume_string();
-    if (str_tok) {
-        Type *type = new_type_array(new_type(TY_CHAR),
-                                    str_tok->len + 1);  // +1 for '\0'
-        Object *str_obj = new_anon_gvar(type);
-        str_obj->init_data = strndup(str_tok->str, str_tok->len);
+    if ((tok = consume_string())) {
+        char *str = strndup(tok->str, tok->len);
+        Object *str_obj = new_string_literal(str);
+        str_obj->init_data = str;
         add_gvar(str_obj);
 
-        node = new_node(ND_GVAR);
+        Node *node = new_node(ND_GVAR);
         node->var = str_obj;
-
-        while (consume("[")) {
-            int index = expect_number();
-            expect("]");
-            Node *lhs = new_node_add(node, new_node_num(index));
-
-            node = new_node_expr(ND_DEREF, lhs, NULL);
-        }
         return node;
     }
 
-    node = new_node_num(expect_number());
-    while (consume("[")) {
-        Token *tok = expect_ident();
-        expect("]");
-        Node *lhs = new_node_add(node, new_node_var(tok));
-
-        node = new_node_expr(ND_DEREF, lhs, NULL);
-    }
-
-    return node;
+    return new_node_num(expect_number());
 }
