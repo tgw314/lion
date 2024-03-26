@@ -353,14 +353,6 @@ void generate(Object *globals) {
             continue;
         }
 
-        {  // ローカル変数のオフセットを計算
-            int size = -obj->stack_size;
-            for (Object *lv = obj->locals; lv; lv = lv->next) {
-                lv->offset = size;
-                size += get_sizeof(lv->type);
-            }
-        }
-
         printf(".text\n");
         printf(".globl %s\n", obj->name);
         printf("%s:\n", obj->name);
@@ -370,6 +362,14 @@ void generate(Object *globals) {
         printf("  mov rbp, rsp\n");
         // 予めアラインしているので以降は無視できる
         printf("  sub rsp, %d\n", align(obj->stack_size, 16));
+
+        {  // ローカル変数のオフセットを計算
+            int size = -obj->stack_size;
+            for (Object *lv = obj->locals; lv; lv = lv->next) {
+                lv->offset = size;
+                size += get_sizeof(lv->type);
+            }
+        }
 
         {  // 引数をローカル変数として代入
             Object *param = obj->locals;
