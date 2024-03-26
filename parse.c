@@ -13,6 +13,7 @@ static Type *declspec();
 static Type *declarator(Type *type, Token **ident_tok);
 
 static void declaration_global();
+static void function(Type *type, Token *tok);
 static void params();
 static Node *stmt();
 static Node *expr();
@@ -111,16 +112,11 @@ static Object *find_func(Token *tok) {
 static void add_lvar(Object *lvar) {
     static Object *cur = NULL;
 
-    func_cur->stack_size += get_sizeof(lvar->type);
-
-    if (cur != NULL && cur->next == NULL) {
-        cur->next = lvar;
-        cur = cur->next;
-        return;
-    }
     for (cur = func_cur->locals; cur; cur = cur->next) {
         if (cur->next == NULL) {
-            add_lvar(lvar);
+            cur->next = lvar;
+            cur = cur->next;
+            func_cur->stack_size += get_sizeof(cur->type);
             return;
         }
     }
@@ -129,11 +125,6 @@ static void add_lvar(Object *lvar) {
 static void add_gvar(Object *gvar) {
     gvar_cur->next = gvar;
     gvar_cur = gvar_cur->next;
-}
-
-static void add_func(Object *func) {
-    func_cur->next = func;
-    func_cur = func_cur->next;
 }
 
 static Node *new_node(NodeKind kind) {
@@ -329,34 +320,36 @@ static void declaration_global() {
         Type *type = declarator(base_type, &tok);
 
         if (type->kind == TY_FUNC) {
-            Object locals_head = {};
-
-            type = type->ptr_to;
-
-            if (find_func(tok) != NULL || find_gvar(tok) != NULL) {
-                error_at(tok->str, "再定義です");
-            }
-            add_func(new_func(strndup(tok->str, tok->len)));
-
-            func_cur->locals = &locals_head;
-
-            params();
-            func_cur->body = stmt();
-
-            func_cur->locals = locals_head.next;
-            return;
+            function(type->ptr_to, tok);
+            break;
         } else {
             // グローバル変数の再宣言は可能
             if (find_func(tok) != NULL) {
                 error_at(tok->str, "再定義です");
             }
             add_gvar(new_gvar(type, strndup(tok->str, tok->len)));
-        }
-
-        if (consume("=")) {
-            error("初期化式は未対応です");
+            if (consume("=")) {
+                error("初期化式は未対応です");
+            }
         }
     }
+}
+
+static void function(Type *type, Token *tok) {
+    Object locals_head = {};
+
+    if (find_func(tok) != NULL || find_gvar(tok) != NULL) {
+        error_at(tok->str, "再定義です");
+    }
+
+    func_cur->next = new_func(strndup(tok->str, tok->len));
+    func_cur = func_cur->next;
+
+    func_cur->locals = &locals_head;
+
+    params();
+    func_cur->body = stmt();
+    func_cur->locals = locals_head.next;
 }
 
 // params = (declare ident ("," declare ident)*)? ")"
@@ -389,10 +382,8 @@ static void params() {
 //      | declaration
 //      | "return" expr ";"
 static Node *stmt() {
-    Node *node;
-
     if (consume("{")) {
-        node = new_node(ND_BLOCK);
+        Node *node = new_node(ND_BLOCK);
 
         Node head = {};
         Node *cur = &head;
@@ -404,8 +395,10 @@ static Node *stmt() {
 
         node->body = head.next;
         return node;
-    } else if (consume("if")) {
-        node = new_node(ND_IF);
+    }
+
+    if (consume("if")) {
+        Node *node = new_node(ND_IF);
 
         expect("(");
         node->cond = expr();
@@ -416,8 +409,10 @@ static Node *stmt() {
         }
 
         return node;
-    } else if (consume("while")) {
-        node = new_node(ND_WHILE);
+    }
+
+    if (consume("while")) {
+        Node *node = new_node(ND_WHILE);
 
         expect("(");
         node->cond = expr();
@@ -425,8 +420,10 @@ static Node *stmt() {
         node->then = stmt();
 
         return node;
-    } else if (consume("for")) {
-        node = new_node(ND_FOR);
+    }
+
+    if (consume("for")) {
+        Node *node = new_node(ND_FOR);
 
         expect("(");
         if (!consume(";")) {
@@ -444,22 +441,29 @@ static Node *stmt() {
         node->then = stmt();
 
         return node;
-    } else if ((node = declaration_local())) {
-        return node;
     }
 
     if (consume("return")) {
-        node = new_node_expr(ND_RETURN, expr(), NULL);
-    } else {
-        if (consume(";")) {
-            return new_node(ND_BLOCK);
-        }
-        node = expr();
+        Node *node = new_node_expr(ND_RETURN, expr(), NULL);
+        expect(";");
+        return node;
     }
 
-    expect(";");
+    if (consume(";")) {
+        return new_node(ND_BLOCK);
+    }
 
-    return node;
+    {
+        Node *node;
+        if ((node = declaration_local())) {
+            return node;
+        }
+
+        node = expr();
+        expect(";");
+
+        return node;
+    }
 }
 
 // expr = assign
@@ -575,9 +579,8 @@ static Node *postfix() {
             rhs = new_node_num(expect_number());
         }
         expect("]");
-        Node *addr = new_node_add(lhs, rhs);
 
-        lhs = new_node_expr(ND_DEREF, addr, NULL);
+        lhs = new_node_expr(ND_DEREF, new_node_add(lhs, rhs), NULL);
     }
 
     return lhs;
@@ -592,17 +595,25 @@ static Node *callfunc(Token *tok) {
         Node head = {};
         Node *cur = &head;
 
-        cur->next = expr();
-        cur = cur->next;
-        while (!consume(")")) {
-            expect(",");
-
+        do {
             cur->next = expr();
             cur = cur->next;
-        }
+        } while (consume(","));
+        expect(")");
+
         node->args = head.next;
     }
 
+    return node;
+}
+
+static Node *string_literal(Token *tok) {
+    char *str = strndup(tok->str, tok->len);
+    Object *str_obj = new_string_literal(str);
+    str_obj->init_data = str;
+    add_gvar(str_obj);
+    Node *node = new_node(ND_GVAR);
+    node->var = str_obj;
     return node;
 }
 
@@ -626,14 +637,7 @@ static Node *primary() {
     }
 
     if ((tok = consume_string())) {
-        char *str = strndup(tok->str, tok->len);
-        Object *str_obj = new_string_literal(str);
-        str_obj->init_data = str;
-        add_gvar(str_obj);
-
-        Node *node = new_node(ND_GVAR);
-        node->var = str_obj;
-        return node;
+        return string_literal(tok);
     }
 
     return new_node_num(expect_number());
