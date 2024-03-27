@@ -184,8 +184,7 @@ static char *string_literal_end(char *p) {
     return p;
 }
 
-static char *read_string_literal(char **pos, char *start) {
-    char *end = string_literal_end(start + 1);
+static char *read_string_literal(char *start, char *end) {
     char *buf = calloc(1, end - start);
     int len = 0;
 
@@ -196,7 +195,6 @@ static char *read_string_literal(char **pos, char *start) {
             buf[len++] = *p++;
         }
     }
-    *pos = end + 1;
 
     return buf;
 }
@@ -252,7 +250,9 @@ void tokenize(char *p) {
 
         if (*p == '"') {
             cur = new_token(TK_STR, cur, p);
-            cur->str = read_string_literal(&p, p);
+            char *end = string_literal_end(p + 1);
+            cur->str = read_string_literal(p, end);
+            p = end + 1;
             continue;
         }
 

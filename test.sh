@@ -1,16 +1,15 @@
 #!/bin/bash
 objname="tmp"
+src_file="$(mktemp --suffix=.c)"
 assert() {
     expected="$1"
     input="$2"
-    src_file="$(mktemp)"
 
     echo -n "$input" > "$src_file"
     ./lion "$src_file" > tmp.s
     cc -o tmp tmp.s $objname.o
     ./tmp
     actual="$?"
-    rm $src_file
 
     if [ "$actual" = "$expected" ]; then
         echo "$input => $actual"
