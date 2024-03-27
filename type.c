@@ -42,21 +42,21 @@ bool is_number(Type *type) {
     return type->kind == TY_INT || type->kind == TY_CHAR;
 }
 
-void set_expr_type(Node *node) {
+void set_node_type(Node *node) {
     if (!node || node->type) return;
 
-    set_expr_type(node->lhs);
-    set_expr_type(node->rhs);
-    set_expr_type(node->cond);
-    set_expr_type(node->then);
-    set_expr_type(node->els);
-    set_expr_type(node->init);
-    set_expr_type(node->upd);
+    set_node_type(node->lhs);
+    set_node_type(node->rhs);
+    set_node_type(node->cond);
+    set_node_type(node->then);
+    set_node_type(node->els);
+    set_node_type(node->init);
+    set_node_type(node->upd);
     for (Node *cur = node->body; cur; cur = cur->next) {
-        set_expr_type(cur);
+        set_node_type(cur);
     }
     for (Node *cur = node->args; cur; cur = cur->next) {
-        set_expr_type(cur);
+        set_node_type(cur);
     }
 
     switch (node->kind) {

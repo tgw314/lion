@@ -24,6 +24,7 @@ typedef enum {
 static Object *obj;
 
 static void gen_lval(Node *node);
+static void gen_expr(Node *node);
 static void gen_stmt(Node *node);
 
 static int count() {
@@ -132,16 +133,14 @@ static void gen_lval(Node *node) {
             printf("  push rax\n");
             return;
         case ND_DEREF:
-            gen_stmt(node->lhs);
+            gen_expr(node->lhs);
             return;
         default:
             error("代入の左辺値が変数ではありません");
     }
 }
 
-static void gen_stmt(Node *node) {
-    set_expr_type(node);
-
+static void gen_expr(Node *node) {
     switch (node->kind) {
         case ND_NUM:
             puts("# ND_NUM {");
@@ -162,80 +161,35 @@ static void gen_stmt(Node *node) {
         case ND_ASSIGN:
             puts("# ND_ASSIGN {");
             gen_lval(node->lhs);
-            gen_stmt(node->rhs);
+            gen_expr(node->rhs);
             printf("  pop rdi\n");
             printf("  pop rax\n");
             mov_memReg(RAX, RDI, node->type);
             printf("  push rdi\n");
             puts("# } ND_ASSIGN");
             return;
-        case ND_BLOCK:
-            puts("# ND_BLOCK {");
-            for (Node *n = node->body; n; n = n->next) {
-                gen_stmt(n);
-            }
-            puts("# } ND_BLOCK");
+        case ND_ADDR:
+            puts("# ND_ADDR {");
+            gen_lval(node->lhs);
+            puts("# } ND_ADDR");
             return;
-        case ND_IF: {
-            int i = count();
-            puts("# ND_IF {");
-            gen_stmt(node->cond);
-            printf("  pop rax\n");
-            printf("  cmp rax, 0\n");
-            printf("  je  .L.else.%03d\n", i);
-            gen_stmt(node->then);
-            printf("  jmp .L.end.%03d\n", i);
-            printf(".L.else.%03d:\n", i);
-            if (node->els) {
-                gen_stmt(node->els);
-            }
-            printf(".L.end.%03d:\n", i);
-            puts("# } ND_IF");
-            return;
-        }
-        case ND_WHILE: {
-            int i = count();
-            puts("# ND_WHILE {");
-            printf(".L.begin.%03d:\n", i);
-            gen_stmt(node->cond);
-            printf("  pop rax\n");
-            printf("  cmp rax, 0\n");
-            printf("  je  .L.end.%03d\n", i);
-            gen_stmt(node->then);
-            printf("  jmp .L.begin.%03d\n", i);
-            printf(".L.end.%03d:\n", i);
-            puts("# } ND_WHILE");
-            return;
-        }
-        case ND_FOR: {
-            int i = count();
-            puts("# ND_FOR {");
-            if (node->init) {
-                gen_stmt(node->init);
-            }
-            printf(".L.begin.%03d:\n", i);
-            if (node->cond) {
-                gen_stmt(node->cond);
+        case ND_DEREF:
+            puts("# ND_DEREF {");
+            gen_expr(node->lhs);
+            if (node->type->kind != TY_ARRAY) {
                 printf("  pop rax\n");
-                printf("  cmp rax, 0\n");
-                printf("  je  .L.end.%03d\n", i);
+                mov_regMem(RAX, RAX, node->type);
+                printf("  push rax\n");
             }
-            gen_stmt(node->then);
-            if (node->upd) {
-                gen_stmt(node->upd);
-            }
-            printf("  jmp .L.begin.%03d\n", i);
-            printf(".L.end.%03d:\n", i);
-            puts("# } ND_FOR");
+            puts("# } ND_DEREF");
             return;
-        }
         case ND_CALL: {
             int argc = 0;
             char *arg_regs[] = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"};
 
             puts("# ND_CALL {");
             for (Node *arg = node->args; arg; arg = arg->next) {
-                gen_stmt(arg);
+                gen_expr(arg);
                 argc++;
             }
             for (int i = argc - 1; i >= 0; i--) {
@@ -245,32 +199,10 @@ static void gen_stmt(Node *node) {
             puts("# } ND_CALL");
             return;
         }
-        case ND_ADDR:
-            puts("# ND_ADDR {");
-            gen_lval(node->lhs);
-            puts("# } ND_ADDR");
-            return;
-        case ND_DEREF:
-            puts("# ND_DEREF {");
-            gen_stmt(node->lhs);
-            if (node->type->kind != TY_ARRAY) {
-                printf("  pop rax\n");
-                mov_regMem(RAX, RAX, node->type);
-                printf("  push rax\n");
-            }
-            puts("# } ND_DEREF");
-            return;
-        case ND_RETURN:
-            puts("# ND_RETURN {");
-            gen_stmt(node->lhs);
-            printf("  pop rax\n");
-            printf("  jmp .L.return.%s\n", obj->name);
-            puts("# } ND_RETURN");
-            return;
     }
 
-    gen_stmt(node->lhs);
-    gen_stmt(node->rhs);
+    gen_expr(node->lhs);
+    gen_expr(node->rhs);
 
     puts("# {");
     printf("  pop rdi\n");
@@ -330,6 +262,85 @@ static void gen_stmt(Node *node) {
     }
 
     printf("  push rax\n");
+}
+
+static void gen_stmt(Node *node) {
+    switch (node->kind) {
+        case ND_EXPR_STMT:
+            puts("# ND_EXPR_STMT {");
+            gen_expr(node->lhs);
+            puts("# } ND_EXPR_STMT");
+            return;
+        case ND_BLOCK:
+            puts("# ND_BLOCK {");
+            for (Node *n = node->body; n; n = n->next) {
+                gen_stmt(n);
+            }
+            puts("# } ND_BLOCK");
+            return;
+        case ND_IF: {
+            int i = count();
+            puts("# ND_IF {");
+            gen_expr(node->cond);
+            printf("  pop rax\n");
+            printf("  cmp rax, 0\n");
+            printf("  je  .L.else.%03d\n", i);
+            gen_stmt(node->then);
+            printf("  jmp .L.end.%03d\n", i);
+            printf(".L.else.%03d:\n", i);
+            if (node->els) {
+                gen_stmt(node->els);
+            }
+            printf(".L.end.%03d:\n", i);
+            puts("# } ND_IF");
+            return;
+        }
+        case ND_WHILE: {
+            int i = count();
+            puts("# ND_WHILE {");
+            printf(".L.begin.%03d:\n", i);
+            gen_expr(node->cond);
+            printf("  pop rax\n");
+            printf("  cmp rax, 0\n");
+            printf("  je  .L.end.%03d\n", i);
+            gen_stmt(node->then);
+            printf("  jmp .L.begin.%03d\n", i);
+            printf(".L.end.%03d:\n", i);
+            puts("# } ND_WHILE");
+            return;
+        }
+        case ND_FOR: {
+            int i = count();
+            puts("# ND_FOR {");
+            if (node->init) {
+                gen_expr(node->init);
+            }
+            printf(".L.begin.%03d:\n", i);
+            if (node->cond) {
+                gen_expr(node->cond);
+                printf("  pop rax\n");
+                printf("  cmp rax, 0\n");
+                printf("  je  .L.end.%03d\n", i);
+            }
+            gen_stmt(node->then);
+            if (node->upd) {
+                gen_expr(node->upd);
+            }
+            printf("  jmp .L.begin.%03d\n", i);
+            printf(".L.end.%03d:\n", i);
+            puts("# } ND_FOR");
+            return;
+        }
+        case ND_RETURN:
+            puts("# ND_RETURN {");
+            gen_expr(node->lhs);
+            printf("  pop rax\n");
+            printf("  jmp .L.return.%s\n", obj->name);
+            puts("# } ND_RETURN");
+            return;
+    }
+
+    error("不正な文です");
 }
 
 void generate(Object *globals) {

@@ -16,6 +16,8 @@ static void declaration_global();
 static void function(Type *type, Token *tok);
 static void params();
 static Node *stmt();
+static Node *compound_stmt();
+static Node *expr_stmt();
 static Node *expr();
 static Node *assign();
 static Node *equality();
@@ -147,8 +149,8 @@ static Node *new_node_expr(NodeKind kind, Node *lhs, Node *rhs) {
 }
 
 static Node *new_node_add(Node *lhs, Node *rhs) {
-    set_expr_type(lhs);
-    set_expr_type(rhs);
+    set_node_type(lhs);
+    set_node_type(rhs);
 
     if (is_number(lhs->type) && is_number(rhs->type)) {
         return new_node_expr(ND_ADD, lhs, rhs);
@@ -172,8 +174,8 @@ static Node *new_node_add(Node *lhs, Node *rhs) {
 }
 
 static Node *new_node_sub(Node *lhs, Node *rhs) {
-    set_expr_type(lhs);
-    set_expr_type(rhs);
+    set_node_type(lhs);
+    set_node_type(rhs);
 
     if (is_number(lhs->type) && is_number(rhs->type)) {
         return new_node_expr(ND_SUB, lhs, rhs);
@@ -182,7 +184,7 @@ static Node *new_node_sub(Node *lhs, Node *rhs) {
     if (is_pointer(lhs->type) && is_number(rhs->type)) {
         rhs = new_node_expr(ND_MUL, rhs,
                             new_node_num(get_sizeof(lhs->type->ptr_to)));
-        set_expr_type(rhs);
+        set_node_type(rhs);
         Node *node = new_node_expr(ND_SUB, lhs, rhs);
         node->type = lhs->type;
         return node;
@@ -297,7 +299,9 @@ static Node *declaration_local() {
         add_lvar(var);
 
         if (consume("=")) {
-            cur->next = new_node_expr(ND_ASSIGN, new_node_var(tok), expr());
+            cur->next = new_node(ND_EXPR_STMT);
+            cur->next->lhs =
+                new_node_expr(ND_ASSIGN, new_node_var(tok), expr());
             cur = cur->next;
         }
     }
@@ -374,27 +378,15 @@ static void params() {
     expect(")");
 }
 
-// stmt = expr? ";"
-//      | "{" stmt* "}"
+// stmt = expr_stmt
+//      | "{" compound_stmt
 //      | "if" "(" expr ")" stmt ("else" stmt)?
 //      | "while" "(" expr ")" stmt
 //      | "for" "(" expr? ";" expr? ";" expr? ")" stmt
-//      | declaration
 //      | "return" expr ";"
 static Node *stmt() {
     if (consume("{")) {
-        Node *node = new_node(ND_BLOCK);
-
-        Node head = {};
-        Node *cur = &head;
-        while (!consume("}")) {
-            cur->next = stmt();
-            cur = cur->next;
-        }
-        cur->next = NULL;
-
-        node->body = head.next;
-        return node;
+        return compound_stmt();
     }
 
     if (consume("if")) {
@@ -449,21 +441,38 @@ static Node *stmt() {
         return node;
     }
 
+    return expr_stmt();
+}
+
+// compound_stmt = (declaration_local | stmt)* "}"
+static Node *compound_stmt() {
+    Node *node = new_node(ND_BLOCK);
+
+    Node head = {};
+    Node *cur = &head;
+
+    while (!consume("}")) {
+        cur->next = declaration_local();
+        if (!cur->next) {
+            cur->next = stmt();
+        }
+        cur = cur->next;
+        set_node_type(cur);
+    }
+
+    node->body = head.next;
+    return node;
+}
+
+// expr_stmt = expr? ";"
+static Node *expr_stmt() {
     if (consume(";")) {
         return new_node(ND_BLOCK);
     }
 
-    {
-        Node *node;
-        if ((node = declaration_local())) {
-            return node;
-        }
-
-        node = expr();
-        expect(";");
-
-        return node;
-    }
+    Node *node = new_node_expr(ND_EXPR_STMT, expr(), NULL);
+    expect(";");
+    return node;
 }
 
 // expr = assign
@@ -548,7 +557,7 @@ static Node *mul() {
 static Node *unary() {
     if (consume("sizeof")) {
         Node *node = unary();
-        set_expr_type(node);
+        set_node_type(node);
         return new_node_num(get_sizeof(node->type));
     }
     if (consume("+")) {
