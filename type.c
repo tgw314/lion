@@ -98,5 +98,18 @@ void set_node_type(Node *node) {
         case ND_GVAR:
             node->type = node->var->type;
             return;
+        case ND_STMT_EXPR:
+            if (node->body) {
+                Node *stmt = node->body;
+                while (stmt->next) {
+                    stmt = stmt->next;
+                }
+                if (stmt->kind == ND_EXPR_STMT) {
+                    node->type = stmt->lhs->type;
+                    return;
+                }
+            }
+            error("void 値を返すことはできません");
+            return;
     }
 }
