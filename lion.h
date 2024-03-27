@@ -40,6 +40,7 @@ typedef enum {
     ND_GVAR,       // グローバル変数
     ND_NUM,        // 整数
     ND_CALL,       // 関数呼び出し
+    ND_STMT_EXPR,  // ステートメント式
     ND_EXPR_STMT,  // 式文
     ND_RETURN,     // return
     ND_IF,         // if
@@ -77,7 +78,7 @@ struct Node {
     Node *els;       // kind が ND_IF の場合のみ
     Node *init;      // kind が ND_FOR の場合のみ
     Node *upd;       // kind が ND_FOR の場合のみ
-    Node *body;      // kind が ND_BLOCK の場合のみ
+    Node *body;      // kind が ND_BLOCK, ND_EXPR_STMT の場合のみ
     int val;         // kind が ND_NUM の場合の数値
     Object *var;     // kind が ND_LVAR, ND_GVAR の場合のみ
     char *funcname;  // kind が ND_CALL の場合のみ

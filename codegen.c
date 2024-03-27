@@ -199,6 +199,13 @@ static void gen_expr(Node *node) {
             puts("# } ND_CALL");
             return;
         }
+        case ND_STMT_EXPR:
+            puts("# ND_STMT_EXPR {");
+            for (Node *n = node->body; n; n = n->next) {
+                gen_stmt(n);
+            }
+            puts("# } ND_STMT_EXPR");
+            return;
     }
 
     gen_expr(node->lhs);

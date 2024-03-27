@@ -628,11 +628,18 @@ static Node *string_literal(Token *tok) {
 
 // primary = num | ident | callfunc
 //         | string | "(" expr ")"
+//         | "(" "{" stmt+ "}" ")"
 static Node *primary() {
     Token *tok;
 
     if (consume("(")) {
-        Node *node = expr();
+        Node *node;
+        if (consume("{")) {
+            node = new_node(ND_STMT_EXPR);
+            node->body = compound_stmt()->body;
+        } else {
+            node = expr();
+        }
         expect(")");
         return node;
     }
