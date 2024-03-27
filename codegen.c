@@ -362,7 +362,9 @@ void generate(Object *globals) {
 
             if (obj->init_data) {
                 if (!is_number(obj->type)) {
-                    printf("  .string \"%s\"\n", obj->init_data);
+                    for (char *p = obj->init_data; *p; p++) {
+                        printf("  .byte %d\n", *p);
+                    }
                 }
             } else {
                 printf("  .zero %d\n", (int)get_sizeof(obj->type));

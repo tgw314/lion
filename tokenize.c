@@ -11,7 +11,7 @@ static Token *token;
 // 真を返す。それ以外の場合には偽を返す。
 bool match(char *op) {
     if (token->kind != TK_RESERVED || strlen(op) != token->len ||
-        memcmp(token->str, op, token->len)) {
+        memcmp(token->loc, op, token->len)) {
         return false;
     }
     return true;
@@ -21,7 +21,7 @@ bool match(char *op) {
 // 真を返す。それ以外の場合には偽を返す。
 bool consume(char *op) {
     if (token->kind != TK_RESERVED || strlen(op) != token->len ||
-        memcmp(token->str, op, token->len)) {
+        memcmp(token->loc, op, token->len)) {
         return false;
     }
     token = token->next;
@@ -32,8 +32,8 @@ bool consume(char *op) {
 // それ以外の場合にはエラーを報告する。
 void expect(char *op) {
     if (token->kind != TK_RESERVED || strlen(op) != token->len ||
-        memcmp(token->str, op, token->len)) {
-        error_at(token->str, "'%s'ではありません", op);
+        memcmp(token->loc, op, token->len)) {
+        error_at(token->loc, "'%s'ではありません", op);
     }
     token = token->next;
 }
@@ -53,7 +53,7 @@ Token *consume_ident() {
 // そのトークンを返す。それ以外の場合にはエラーを報告する。
 Token *expect_ident() {
     if (token->kind != TK_IDENT) {
-        error_at(token->str, "識別子ではありません");
+        error_at(token->loc, "識別子ではありません");
     }
     Token *tmp = token;
     token = token->next;
@@ -75,7 +75,7 @@ Token *consume_string() {
 // それ以外の場合にはエラーを報告する。
 int expect_number() {
     if (token->kind != TK_NUM) {
-        error_at(token->str, "数ではありません");
+        error_at(token->loc, "数ではありません");
     }
     int val = token->val;
     token = token->next;
@@ -85,14 +85,14 @@ int expect_number() {
 bool at_eof() { return token->kind == TK_EOF; }
 
 static bool equal(Token *tok, char *op) {
-    return strlen(op) == tok->len && !memcmp(tok->str, op, tok->len);
+    return strlen(op) == tok->len && !memcmp(tok->loc, op, tok->len);
 }
 
 // 新しいトークンを作成して cur に繋げる
 static Token *new_token(TokenKind kind, Token *cur, char *str) {
     Token *tok = calloc(1, sizeof(Token));
     tok->kind = kind;
-    tok->str = str;
+    tok->loc = str;
 
     cur->next = tok;
 
@@ -119,6 +119,86 @@ static bool is_keyword(Token *tok) {
         }
     }
     return false;
+}
+
+static int read_escaped_char(char **pos, char *p) {
+    if ('0' <= *p && *p <= '7') {
+        int c = *p++ - '0';
+        if ('0' <= *p && *p <= '7') {
+            c = (c << 3) + (*p++ - '0');
+            if ('0' <= *p && *p <= '7') {
+                c = (c << 3) + (*p++ - '0');
+            }
+        }
+        *pos = p;
+        return c;
+    }
+
+    if (*p == 'x') {
+        p++;
+        if (!isxdigit(*p)) {
+            error_at(p, "16進数の数字ではありません");
+        }
+        int c = 0;
+        for (; isxdigit(*p); p++) {
+            c = (c << 4) + (*p - (isdigit(*p) ? '0' : 'a' - 10));
+        }
+        *pos = p;
+        return c;
+    }
+
+    *pos = p + 1;
+    switch (*p) {
+        case 'a':
+            return '\a';
+        case 'b':
+            return '\b';
+        case 't':
+            return '\t';
+        case 'n':
+            return '\n';
+        case 'v':
+            return '\v';
+        case 'f':
+            return '\f';
+        case 'r':
+            return '\r';
+        case 'e':
+            return 27;
+        default:
+            return *p;
+    }
+}
+
+static char *string_literal_end(char *p) {
+    char *start = p;
+    while (*p != '"') {
+        if (*p == '\n' || *p == '\0') {
+            error_at(start, "文字列が閉じられていません");
+        }
+        if (*p == '\\') {
+            p++;
+        }
+        p++;
+    }
+    return p;
+}
+
+static char *read_string_literal(char **pos, char *start) {
+    char *end = string_literal_end(start + 1);
+    char *buf = calloc(1, end - start);
+    int len = 0;
+
+    for (char *p = start + 1; p < end;) {
+        if (*p == '\\') {
+            buf[len++] = read_escaped_char(&p, p + 1);
+        } else {
+            buf[len++] = *p++;
+        }
+    }
+    *pos = end + 1;
+
+    return buf;
 }
 
 // 入力文字列 p をトークナイズする
@@ -171,16 +251,8 @@ void tokenize(char *p) {
         }
 
         if (*p == '"') {
-            p++;
             cur = new_token(TK_STR, cur, p);
-
-            for (; *p != '"'; p++) {
-                if (*p == '\n' || *p == '\0')
-                    error_at(p, "文字列が閉じられていません");
-                cur->len++;
-            }
-            p++;
-
+            cur->str = read_string_literal(&p, p);
             continue;
         }
 

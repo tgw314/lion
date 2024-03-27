@@ -75,7 +75,7 @@ static Object *new_lvar(Type *type, char *name) {
 // グローバル変数を名前で検索する。見つからなかった場合は NULL を返す。
 static Object *find_gvar(Token *tok) {
     for (Object *var = gvar_head.next; var; var = var->next) {
-        if (var->name != NULL && !strncmp(tok->str, var->name, tok->len)) {
+        if (var->name != NULL && !strncmp(tok->loc, var->name, tok->len)) {
             return var;
         }
     }
@@ -85,7 +85,7 @@ static Object *find_gvar(Token *tok) {
 // ローカル変数を名前で検索する。見つからなかった場合は NULL を返す。
 static Object *find_lvar(Token *tok) {
     for (Object *var = func_cur->locals; var; var = var->next) {
-        if (var->name != NULL && !strncmp(tok->str, var->name, tok->len)) {
+        if (var->name != NULL && !strncmp(tok->loc, var->name, tok->len)) {
             return var;
         }
     }
@@ -103,7 +103,7 @@ static Object *find_var(Token *tok) {
 
 static Object *find_func(Token *tok) {
     for (Object *func = func_head.next; func; func = func->next) {
-        if (func->name != NULL && !strncmp(tok->str, func->name, tok->len)) {
+        if (func->name != NULL && !strncmp(tok->loc, func->name, tok->len)) {
             return func;
         }
     }
@@ -206,7 +206,7 @@ static Node *new_node_var(Token *tok) {
 
     Object *var = find_var(tok);
     if (!var) {
-        error_at(tok->str, "宣言されていない変数です");
+        error_at(tok->loc, "宣言されていない変数です");
     }
 
     if (var->is_local) {
@@ -291,10 +291,10 @@ static Node *declaration_local() {
 
         Token *tok = NULL;
         Type *type = declarator(base_type, &tok);
-        Object *var = new_lvar(type, strndup(tok->str, tok->len));
+        Object *var = new_lvar(type, strndup(tok->loc, tok->len));
 
         if (find_lvar(tok) != NULL) {
-            error_at(tok->str, "再定義です");
+            error_at(tok->loc, "再定義です");
         }
         add_lvar(var);
 
@@ -329,9 +329,9 @@ static void declaration_global() {
         } else {
             // グローバル変数の再宣言は可能
             if (find_func(tok) != NULL) {
-                error_at(tok->str, "再定義です");
+                error_at(tok->loc, "再定義です");
             }
-            add_gvar(new_gvar(type, strndup(tok->str, tok->len)));
+            add_gvar(new_gvar(type, strndup(tok->loc, tok->len)));
             if (consume("=")) {
                 error("初期化式は未対応です");
             }
@@ -343,10 +343,10 @@ static void function(Type *type, Token *tok) {
     Object locals_head = {};
 
     if (find_func(tok) != NULL || find_gvar(tok) != NULL) {
-        error_at(tok->str, "再定義です");
+        error_at(tok->loc, "再定義です");
     }
 
-    func_cur->next = new_func(strndup(tok->str, tok->len));
+    func_cur->next = new_func(strndup(tok->loc, tok->len));
     func_cur = func_cur->next;
 
     func_cur->locals = &locals_head;
@@ -370,9 +370,9 @@ static void params() {
         Type *type = declarator(base_type, &tok);
 
         if (find_lvar(tok) != NULL) {
-            error_at(tok->str, "引数の再定義");
+            error_at(tok->loc, "引数の再定義");
         }
-        add_lvar(new_lvar(type, strndup(tok->str, tok->len)));
+        add_lvar(new_lvar(type, strndup(tok->loc, tok->len)));
         func_cur->param_count++;
     } while (consume(","));
     expect(")");
@@ -598,7 +598,7 @@ static Node *postfix() {
 // callfunc = ident "(" (expr ("," expr)*)? ")"
 static Node *callfunc(Token *tok) {
     Node *node = new_node(ND_CALL);
-    node->funcname = strndup(tok->str, tok->len);
+    node->funcname = strndup(tok->loc, tok->len);
 
     if (!consume(")")) {
         Node head = {};
@@ -617,9 +617,8 @@ static Node *callfunc(Token *tok) {
 }
 
 static Node *string_literal(Token *tok) {
-    char *str = strndup(tok->str, tok->len);
-    Object *str_obj = new_string_literal(str);
-    str_obj->init_data = str;
+    Object *str_obj = new_string_literal(tok->str);
+    str_obj->init_data = tok->str;
     add_gvar(str_obj);
     Node *node = new_node(ND_GVAR);
     node->var = str_obj;
