@@ -377,29 +377,25 @@ void generate(Object *globals) {
         printf(".globl %s\n", obj->name);
         printf("%s:\n", obj->name);
 
+        {  // ローカル変数のオフセットを計算
+            int offset = 0;
+            for (Object *v = obj->locals; v; v = v->next) {
+                offset -= get_sizeof(v->type);
+                v->offset = offset;
+            }
+            obj->stack_size = -offset;
+        }
+
         // プロローグ
         printf("  push rbp\n");
         printf("  mov rbp, rsp\n");
         // 予めアラインしているので以降は無視できる
         printf("  sub rsp, %d\n", align(obj->stack_size, 16));
 
-        {  // ローカル変数のオフセットを計算
-            int size = -obj->stack_size;
-            for (Object *lv = obj->locals; lv; lv = lv->next) {
-                lv->offset = size;
-                size += get_sizeof(lv->type);
-            }
-        }
-
         {  // 引数をローカル変数として代入
-            Object *param = obj->locals;
-            for (int i = 0; i < obj->param_count; i++) {
-                if (i >= 6) {
-                    error("7個以上の引数はサポートしていません");
-                }
-                mov_offsetReg(param->offset, param_regs[i], param->type);
-
-                param = param->next;
+            int i = 0;
+            for (Object *p = obj->params; p; p = p->next) {
+                mov_offsetReg(p->offset, param_regs[i++], p->type);
             }
         }
 
