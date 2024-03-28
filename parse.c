@@ -121,8 +121,7 @@ static void add_global(Object *global) {
 
     for (cur = globals; cur; cur = cur->next) {
         if (cur->next == NULL) {
-            cur->next = global;
-            cur = cur->next;
+            cur = cur->next = global;
             return;
         }
     }
@@ -294,10 +293,8 @@ static Node *declaration_local() {
         add_lvar(var);
 
         if (consume("=")) {
-            cur->next = new_node(ND_EXPR_STMT);
-            cur->next->lhs =
-                new_node_expr(ND_ASSIGN, new_node_var(tok), expr());
-            cur = cur->next;
+            cur = cur->next = new_node(ND_EXPR_STMT);
+            cur->lhs = new_node_expr(ND_ASSIGN, new_node_var(tok), expr());
         }
     }
     Node *node = new_node(ND_BLOCK);
@@ -604,8 +601,7 @@ static Node *callfunc(Token *tok) {
         Node *cur = &head;
 
         do {
-            cur->next = expr();
-            cur = cur->next;
+            cur = cur->next = expr();
         } while (consume(","));
         expect(")");
 
