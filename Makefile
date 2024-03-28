@@ -1,5 +1,5 @@
 CFLAGS=-std=gnu11 -g -static
-SRCS=$(wildcard *.c)
+SRCS=$(filter-out test.c, $(wildcard *.c))
 OBJS=$(SRCS:.c=.o)
 
 lion: $(OBJS)
