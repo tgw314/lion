@@ -238,6 +238,10 @@ assert 119 'int main() { return "\x77"[0]; }'
 assert 165 'int main() { return "\xA5"[0]; }'
 assert 255 'int main() { return "\x00ff"[0]; }'
 
+assert 2 'int main() { int x=2; { int x=3; } return x; }'
+assert 2 'int main() { int x=2; { int x=3; } { int y=4; return x; }}'
+assert 3 'int main() { int x=2; { x=3; } return x; }'
+
 # my tests
 assert 0  "int main() { return 0; }"
 assert 42 "int main() { return 42; }"
