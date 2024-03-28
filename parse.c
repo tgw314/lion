@@ -4,11 +4,8 @@
 
 #include "lion.h"
 
-static Object func_head = {};
-static Object *func_cur;
 static Object *locals;
-static Object gvar_head = {};
-static Object *globals;
+static Object *globals = &(Object){};
 
 static Type *declspec();
 static Type *declarator(Type *type, Token **ident_tok);
@@ -75,8 +72,9 @@ static Object *new_lvar(Type *type, char *name) {
 
 // グローバル変数を名前で検索する。見つからなかった場合は NULL を返す。
 static Object *find_gvar(Token *tok) {
-    for (Object *var = gvar_head.next; var; var = var->next) {
-        if (var->name != NULL && !strncmp(tok->loc, var->name, tok->len)) {
+    for (Object *var = globals; var; var = var->next) {
+        if (!var->is_func && var->name != NULL &&
+            !strncmp(tok->loc, var->name, tok->len)) {
             return var;
         }
     }
@@ -103,8 +101,9 @@ static Object *find_var(Token *tok) {
 }
 
 static Object *find_func(Token *tok) {
-    for (Object *func = func_head.next; func; func = func->next) {
-        if (func->name != NULL && !strncmp(tok->loc, func->name, tok->len)) {
+    for (Object *func = globals; func; func = func->next) {
+        if (func->is_func && func->name != NULL &&
+            !strncmp(tok->loc, func->name, tok->len)) {
             return func;
         }
     }
@@ -117,9 +116,16 @@ static void add_lvar(Object *lvar) {
     locals = lvar;
 }
 
-static void add_gvar(Object *gvar) {
-    globals->next = gvar;
-    globals = globals->next;
+static void add_global(Object *global) {
+    static Object *cur = NULL;
+
+    for (cur = globals; cur; cur = cur->next) {
+        if (cur->next == NULL) {
+            cur->next = global;
+            cur = cur->next;
+            return;
+        }
+    }
 }
 
 static Node *new_node(NodeKind kind) {
@@ -214,15 +220,11 @@ static Node *new_node_var(Token *tok) {
 
 // program = declaration*
 Object *program() {
-    func_cur = &func_head;
-    globals = &gvar_head;
-
     while (!at_eof()) {
         declaration_global();
     }
 
-    globals->next = func_head.next;
-    return gvar_head.next;
+    return globals->next;
 }
 
 // declspec = "int" | "char"
@@ -324,7 +326,7 @@ static void declaration_global() {
             if (find_func(tok) != NULL) {
                 error_at(tok->loc, "再定義です");
             }
-            add_gvar(new_gvar(type, strndup(tok->loc, tok->len)));
+            add_global(new_gvar(type, strndup(tok->loc, tok->len)));
             if (consume("=")) {
                 error("初期化式は未対応です");
             }
@@ -344,7 +346,7 @@ static void function(Type *type, Token *tok) {
     func->body = stmt();
     func->locals = locals;
 
-    func_cur = func_cur->next = func;
+    add_global(func);
 }
 
 // params = (declare ident ("," declare ident)*)? ")"
@@ -616,7 +618,7 @@ static Node *callfunc(Token *tok) {
 static Node *string_literal(Token *tok) {
     Object *str_obj = new_string_literal(tok->str);
     str_obj->init_data = tok->str;
-    add_gvar(str_obj);
+    add_global(str_obj);
     Node *node = new_node(ND_GVAR);
     node->var = str_obj;
     return node;
