@@ -101,28 +101,6 @@ static Object *new_lvar(Type *type, Token *tok) {
     return lvar;
 }
 
-// グローバル変数を名前で検索する。見つからなかった場合は NULL を返す。
-static Object *find_gvar(Token *tok) {
-    for (Object *var = globals; var; var = var->next) {
-        if (!var->is_func && var->name != NULL &&
-            !strncmp(tok->loc, var->name, tok->len)) {
-            return var;
-        }
-    }
-    return NULL;
-}
-
-// ローカル変数を名前で検索する。見つからなかった場合は NULL を返す。
-static Object *find_lvar(Token *tok) {
-    for (Object *var = locals; var; var = var->next) {
-        if (var->name != NULL && !strncmp(tok->loc, var->name, tok->len)) {
-            return var;
-        }
-    }
-
-    return NULL;
-}
-
 static Object *find_var(Token *tok) {
     for (Scope *sc = scope; sc; sc = sc->next) {
         for (VarScope *sc2 = sc->vars; sc2; sc2 = sc2->next) {
