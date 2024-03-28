@@ -4,8 +4,22 @@
 
 #include "lion.h"
 
+typedef struct VarScope VarScope;
+struct VarScope {
+    VarScope *next;
+    Object *var;
+};
+
+typedef struct Scope Scope;
+struct Scope {
+    Scope *next;
+    VarScope *vars;
+};
+
 static Object *locals;
 static Object *globals = &(Object){};
+
+static Scope *scope = &(Scope){};
 
 static Type *declspec();
 static Type *declarator(Type *type, Token **ident_tok);
@@ -26,21 +40,42 @@ static Node *unary();
 static Node *postfix();
 static Node *primary();
 
-static Object *new_func(Token *tok) {
+static void enter_scope() {
+    Scope *sc = calloc(1, sizeof(Scope));
+    sc->next = scope;
+    scope = sc;
+}
+
+static void leave_scope() { scope = scope->next; }
+
+static VarScope *push_scope(Object *var) {
+    VarScope *sc = calloc(1, sizeof(VarScope));
+    sc->var = var;
+    sc->next = scope->vars;
+    scope->vars = sc;
+    return sc;
+}
+
+static Object *new_func(Type *type, Token *tok) {
     Object *func = calloc(1, sizeof(Object));
+    func->type = type;
     func->name = strndup(tok->loc, tok->len);
     func->is_func = true;
     func->is_local = false;
     return func;
 }
 
-static Object *new_gvar(Type *type, Token *tok) {
-    Object *gvar = calloc(1, sizeof(Object));
-    gvar->type = type;
-    gvar->name = strndup(tok->loc, tok->len);
-    gvar->is_func = false;
-    gvar->is_local = false;
+static Object *new_var(Type *type, Token *tok) {
+    Object *var = calloc(1, sizeof(Object));
+    var->type = type;
+    var->name = strndup(tok->loc, tok->len);
+    var->is_func = false;
+    return var;
+}
 
+static Object *new_gvar(Type *type, Token *tok) {
+    Object *gvar = new_var(type, tok);
+    gvar->is_local = false;
     return gvar;
 }
 
@@ -61,12 +96,8 @@ static Object *new_string_literal(char *str) {
 }
 
 static Object *new_lvar(Type *type, Token *tok) {
-    Object *lvar = calloc(1, sizeof(Object));
-    lvar->type = type;
-    lvar->name = strndup(tok->loc, tok->len);
-    lvar->is_func = false;
+    Object *lvar = new_var(type, tok);
     lvar->is_local = true;
-
     return lvar;
 }
 
@@ -93,11 +124,25 @@ static Object *find_lvar(Token *tok) {
 }
 
 static Object *find_var(Token *tok) {
-    Object *lvar = find_lvar(tok);
-    if (lvar) {
-        return lvar;
+    for (Scope *sc = scope; sc; sc = sc->next) {
+        for (VarScope *sc2 = sc->vars; sc2; sc2 = sc2->next) {
+            if (sc2->var->name != NULL &&
+                !strncmp(tok->loc, sc2->var->name, tok->len)) {
+                return sc2->var;
+            }
+        }
     }
-    return find_gvar(tok);
+    return NULL;
+}
+
+static Object *find_var_scope(Token *tok) {
+    for (VarScope *sc = scope->vars; sc; sc = sc->next) {
+        if (sc->var->name != NULL &&
+            !strncmp(tok->loc, sc->var->name, tok->len)) {
+            return sc->var;
+        }
+    }
+    return NULL;
 }
 
 static Object *find_func(Token *tok) {
@@ -110,18 +155,21 @@ static Object *find_func(Token *tok) {
     return NULL;
 }
 
-// lvar を locals の先頭に追加する
+// ローカル変数を locals の先頭に追加する
 static void add_lvar(Object *lvar) {
     lvar->next = locals;
     locals = lvar;
+    push_scope(lvar);
 }
 
+// 関数とグローバル変数を globals の末尾に追加する
 static void add_global(Object *global) {
     static Object *cur = NULL;
 
     for (cur = globals; cur; cur = cur->next) {
         if (cur->next == NULL) {
             cur = cur->next = global;
+            push_scope(global);
             return;
         }
     }
@@ -287,7 +335,7 @@ static Node *declaration_local() {
         Type *type = declarator(base_type, &tok);
         Object *var = new_lvar(type, tok);
 
-        if (find_lvar(tok) != NULL) {
+        if (find_var_scope(tok) != NULL) {
             error_at(tok->loc, "再定義です");
         }
         add_lvar(var);
@@ -332,16 +380,20 @@ static void declaration_global() {
 }
 
 static void function(Type *type, Token *tok) {
-    if (find_func(tok) != NULL || find_gvar(tok) != NULL) {
+    if (find_func(tok) != NULL || find_var_scope(tok) != NULL) {
         error_at(tok->loc, "再定義です");
     }
-    Object *func = new_func(tok);
+    Object *func = new_func(type, tok);
 
     locals = NULL;
+
+    enter_scope();
 
     params(func);
     func->body = stmt();
     func->locals = locals;
+
+    leave_scope();
 
     add_global(func);
 }
@@ -363,9 +415,10 @@ static void params(Object *func) {
         Type *type = declarator(base_type, &tok);
         Object *var = new_lvar(type, tok);
 
-        if (find_lvar(tok) != NULL) {
+        if (find_var_scope(tok) != NULL) {
             error_at(tok->loc, "引数の再定義");
         }
+        push_scope(var);
 
         cur = cur->next = var;
         locals = head.next;
@@ -447,6 +500,8 @@ static Node *compound_stmt() {
     Node head = {};
     Node *cur = &head;
 
+    enter_scope();
+
     while (!consume("}")) {
         cur->next = declaration_local();
         if (!cur->next) {
@@ -455,6 +510,8 @@ static Node *compound_stmt() {
         cur = cur->next;
         set_node_type(cur);
     }
+
+    leave_scope();
 
     node->body = head.next;
     return node;

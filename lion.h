@@ -97,6 +97,7 @@ struct Object {
 
     // ローカル変数
     int offset;  // RBP からのオフセット
+    int depth;   // スコープの深さ
 
     // グローバル変数
     char *init_data;
