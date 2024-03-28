@@ -103,8 +103,8 @@ struct Object {
 
     // 関数
     int stack_size;
-    Object *locals;   // ローカル変数
-    int param_count;  // 引数の数
+    Object *locals;  // ローカル変数
+    Object *params;  // 引数
     Node *body;
 };
 
