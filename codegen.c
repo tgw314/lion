@@ -373,10 +373,6 @@ void generate(Object *globals) {
             continue;
         }
 
-        printf(".text\n");
-        printf(".globl %s\n", obj->name);
-        printf("%s:\n", obj->name);
-
         {  // ローカル変数のオフセットを計算
             int offset = 0;
             for (Object *v = obj->locals; v; v = v->next) {
@@ -385,6 +381,10 @@ void generate(Object *globals) {
             }
             obj->stack_size = -offset;
         }
+
+        printf(".text\n");
+        printf(".globl %s\n", obj->name);
+        printf("%s:\n", obj->name);
 
         // プロローグ
         printf("  push rbp\n");
