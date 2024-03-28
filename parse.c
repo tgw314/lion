@@ -26,18 +26,18 @@ static Node *unary();
 static Node *postfix();
 static Node *primary();
 
-static Object *new_func(char *name) {
+static Object *new_func(Token *tok) {
     Object *func = calloc(1, sizeof(Object));
-    func->name = name;
+    func->name = strndup(tok->loc, tok->len);
     func->is_func = true;
     func->is_local = false;
     return func;
 }
 
-static Object *new_gvar(Type *type, char *name) {
+static Object *new_gvar(Type *type, Token *tok) {
     Object *gvar = calloc(1, sizeof(Object));
     gvar->type = type;
-    gvar->name = name;
+    gvar->name = strndup(tok->loc, tok->len);
     gvar->is_func = false;
     gvar->is_local = false;
 
@@ -50,7 +50,7 @@ static Object *new_anon_gvar(Type *type) {
     char *name = calloc(1, 20);
     sprintf(name, ".LC%d", index++);
 
-    return new_gvar(type, name);
+    return new_gvar(type, &(Token){.loc = name, .len = strlen(name)});
 }
 
 static Object *new_string_literal(char *str) {
@@ -60,10 +60,10 @@ static Object *new_string_literal(char *str) {
     return gvar;
 }
 
-static Object *new_lvar(Type *type, char *name) {
+static Object *new_lvar(Type *type, Token *tok) {
     Object *lvar = calloc(1, sizeof(Object));
     lvar->type = type;
-    lvar->name = name;
+    lvar->name = strndup(tok->loc, tok->len);
     lvar->is_func = false;
     lvar->is_local = true;
 
@@ -285,7 +285,7 @@ static Node *declaration_local() {
 
         Token *tok = NULL;
         Type *type = declarator(base_type, &tok);
-        Object *var = new_lvar(type, strndup(tok->loc, tok->len));
+        Object *var = new_lvar(type, tok);
 
         if (find_lvar(tok) != NULL) {
             error_at(tok->loc, "再定義です");
@@ -323,7 +323,7 @@ static void declaration_global() {
             if (find_func(tok) != NULL) {
                 error_at(tok->loc, "再定義です");
             }
-            add_global(new_gvar(type, strndup(tok->loc, tok->len)));
+            add_global(new_gvar(type, tok));
             if (consume("=")) {
                 error("初期化式は未対応です");
             }
@@ -335,7 +335,7 @@ static void function(Type *type, Token *tok) {
     if (find_func(tok) != NULL || find_gvar(tok) != NULL) {
         error_at(tok->loc, "再定義です");
     }
-    Object *func = new_func(strndup(tok->loc, tok->len));
+    Object *func = new_func(tok);
 
     locals = NULL;
 
@@ -361,7 +361,7 @@ static void params(Object *func) {
 
         Token *tok = NULL;
         Type *type = declarator(base_type, &tok);
-        Object *var = new_lvar(type, strndup(tok->loc, tok->len));
+        Object *var = new_lvar(type, tok);
 
         if (find_lvar(tok) != NULL) {
             error_at(tok->loc, "引数の再定義");
