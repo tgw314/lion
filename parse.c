@@ -629,6 +629,9 @@ static Node *postfix() {
 // callfunc = ident "(" (expr ("," expr)*)? ")"
 static Node *callfunc(Token *tok) {
     Node *node = new_node(ND_CALL);
+    if (find_func(tok) == NULL) {
+        error_at(tok->loc, "宣言されていない関数です");
+    }
     node->funcname = strndup(tok->loc, tok->len);
 
     if (!consume(")")) {
