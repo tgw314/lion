@@ -362,8 +362,8 @@ void generate(Object *globals) {
 
             if (obj->init_data) {
                 if (!is_number(obj->type)) {
-                    for (char *p = obj->init_data; *p; p++) {
-                        printf("  .byte %d\n", *p);
+                    for (int i = 0; i < obj->type->array_size; i++) {
+                        printf("  .byte %d\n", obj->init_data[i]);
                     }
                 }
             } else {
