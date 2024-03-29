@@ -91,8 +91,13 @@ static void mov_memReg(RegAlias64 dest, RegAlias64 src, Type *type) {
 
 static void mov_regMem(RegAlias64 dest, RegAlias64 src, Type *type) {
     size_t size = get_sizeof(type);
-    printf("  mov %s, %s [%s]\n", reg_alias(dest, size), word_ptr(size),
-           reg_alias(src, 8));
+    if (size == 1) {
+        printf("  movsx %s, %s [%s]\n", reg_alias(dest, 8), word_ptr(size),
+               reg_alias(src, 8));
+    } else {
+        printf("  mov %s, %s [%s]\n", reg_alias(dest, size), word_ptr(size),
+               reg_alias(src, 8));
+    }
 }
 
 static void mov_regOffset(RegAlias64 dest, int offset, Type *type) {
