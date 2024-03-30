@@ -329,7 +329,7 @@ void generate(Object *globals) {
                 offset -= get_sizeof(v->type);
                 v->offset = offset;
             }
-            obj->stack_size = -offset;
+            obj->stack_size = align(-offset, 16);
         }
 
         printf(".text\n");
@@ -339,8 +339,9 @@ void generate(Object *globals) {
         // プロローグ
         printf("  push rbp\n");
         printf("  mov rbp, rsp\n");
-        // 予めアラインしているので以降は無視できる
-        printf("  sub rsp, %d\n", align(obj->stack_size, 16));
+        if (obj->stack_size > 0) {
+            printf("  sub rsp, %d\n", obj->stack_size);
+        }
 
         {  // 引数をローカル変数として代入
             int i = 0;
