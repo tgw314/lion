@@ -54,6 +54,7 @@ typedef enum {
 // トークン型
 struct Token {
     TokenKind kind;  // トークンの型
+    Token *prev;     // 前の入力トークン
     Token *next;     // 次の入力トークン
     int val;         // kind が TK_NUM の場合の数値
     char *str;       // kind が TK_STR の場合の文字列
@@ -115,6 +116,8 @@ void error(char *fmt, ...);
 
 // エラー箇所を報告する
 void error_at(char *loc, char *fmt, ...);
+
+Token *getok();
 
 bool match(char *op);
 

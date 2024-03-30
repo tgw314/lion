@@ -153,31 +153,32 @@ static void add_global(Object *global) {
     }
 }
 
-static Node *new_node(NodeKind kind) {
+static Node *new_node(NodeKind kind, Token *tok) {
     Node *node = calloc(1, sizeof(Node));
     node->kind = kind;
+    node->tok = tok;
     return node;
 }
 
-static Node *new_node_num(int val) {
-    Node *node = new_node(ND_NUM);
+static Node *new_node_num(Token *tok, int val) {
+    Node *node = new_node(ND_NUM, tok);
     node->val = val;
     return node;
 }
 
-static Node *new_node_expr(NodeKind kind, Node *lhs, Node *rhs) {
-    Node *node = new_node(kind);
+static Node *new_node_expr(NodeKind kind, Token *tok, Node *lhs, Node *rhs) {
+    Node *node = new_node(kind, tok);
     node->lhs = lhs;
     node->rhs = rhs;
     return node;
 }
 
-static Node *new_node_add(Node *lhs, Node *rhs) {
+static Node *new_node_add(Token *tok, Node *lhs, Node *rhs) {
     set_node_type(lhs);
     set_node_type(rhs);
 
     if (is_number(lhs->type) && is_number(rhs->type)) {
-        return new_node_expr(ND_ADD, lhs, rhs);
+        return new_node_expr(ND_ADD, tok, lhs, rhs);
     }
 
     // 左右の入れ替え
@@ -188,41 +189,41 @@ static Node *new_node_add(Node *lhs, Node *rhs) {
     }
 
     if (is_pointer(lhs->type) && is_pointer(rhs->type)) {
-        error("ポインタ同士の加算はできません");
+        error_at(tok->loc, "ポインタ同士の加算はできません");
     }
 
     // lhs: pointer, rhs: number
-    rhs =
-        new_node_expr(ND_MUL, rhs, new_node_num(get_sizeof(lhs->type->ptr_to)));
-    return new_node_expr(ND_ADD, lhs, rhs);
+    rhs = new_node_expr(ND_MUL, tok, rhs,
+                        new_node_num(tok, get_sizeof(lhs->type->ptr_to)));
+    return new_node_expr(ND_ADD, tok, lhs, rhs);
 }
 
-static Node *new_node_sub(Node *lhs, Node *rhs) {
+static Node *new_node_sub(Token *tok, Node *lhs, Node *rhs) {
     set_node_type(lhs);
     set_node_type(rhs);
 
     if (is_number(lhs->type) && is_number(rhs->type)) {
-        return new_node_expr(ND_SUB, lhs, rhs);
+        return new_node_expr(ND_SUB, tok, lhs, rhs);
     }
 
     if (is_pointer(lhs->type) && is_number(rhs->type)) {
-        rhs = new_node_expr(ND_MUL, rhs,
-                            new_node_num(get_sizeof(lhs->type->ptr_to)));
+        rhs = new_node_expr(ND_MUL, tok, rhs,
+                            new_node_num(tok, get_sizeof(lhs->type->ptr_to)));
         set_node_type(rhs);
-        Node *node = new_node_expr(ND_SUB, lhs, rhs);
+        Node *node = new_node_expr(ND_SUB, tok, lhs, rhs);
         node->type = lhs->type;
         return node;
     }
 
     if (is_pointer(lhs->type) && is_pointer(rhs->type)) {
-        Node *node = new_node_expr(ND_SUB, lhs, rhs);
+        Node *node = new_node_expr(ND_SUB, tok, lhs, rhs);
         node->type = new_type(TY_INT);
-        return new_node_expr(ND_DIV, node,
-                             new_node_num(get_sizeof(lhs->type->ptr_to)));
+        return new_node_expr(ND_DIV, tok, node,
+                             new_node_num(tok, get_sizeof(lhs->type->ptr_to)));
     }
 
     // lhs: number, rhs: pointer
-    error("誤ったオペランドです");
+    error_at(tok->loc, "誤ったオペランドです");
 }
 
 static Node *new_node_var(Token *tok) {
@@ -234,9 +235,9 @@ static Node *new_node_var(Token *tok) {
     }
 
     if (var->is_local) {
-        node = new_node(ND_LVAR);
+        node = new_node(ND_LVAR, tok);
     } else {
-        node = new_node(ND_GVAR);
+        node = new_node(ND_GVAR, tok);
     }
     node->var = var;
 
@@ -303,6 +304,7 @@ static Node *declaration_local() {
         return NULL;
     }
 
+    Token *tok = getok();
     Node head = {};
     Node *cur = &head;
 
@@ -319,11 +321,12 @@ static Node *declaration_local() {
         add_lvar(var);
 
         if (consume("=")) {
-            cur = cur->next = new_node(ND_EXPR_STMT);
-            cur->lhs = new_node_expr(ND_ASSIGN, new_node_var(tok), assign());
+            cur = cur->next = new_node(ND_EXPR_STMT, getok());
+            cur->lhs = new_node_expr(ND_ASSIGN, getok()->prev,
+                                     new_node_var(tok), assign());
         }
     }
-    Node *node = new_node(ND_BLOCK);
+    Node *node = new_node(ND_BLOCK, tok);
     node->body = head.next;
 
     return node;
@@ -332,7 +335,7 @@ static Node *declaration_local() {
 static void declaration_global() {
     Type *base_type = declspec();
     if (base_type == NULL) {
-        error("型がありません");
+        error_at(getok()->loc, "型がありません");
     }
 
     for (int i = 0; !consume(";"); i++) {
@@ -351,7 +354,7 @@ static void declaration_global() {
             }
             add_global(new_gvar(type, tok));
             if (consume("=")) {
-                error("初期化式は未対応です");
+                error_at(getok()->prev->loc, "初期化式は未対応です");
             }
         }
     }
@@ -386,7 +389,7 @@ static void params(Object *func) {
     do {
         Type *base_type = declspec();
         if (base_type == NULL) {
-            error("型がありません");
+            error_at(getok()->prev->loc, "型がありません");
         }
 
         Token *tok = NULL;
@@ -417,7 +420,7 @@ static Node *stmt() {
     }
 
     if (consume("if")) {
-        Node *node = new_node(ND_IF);
+        Node *node = new_node(ND_IF, getok()->prev);
 
         expect("(");
         node->cond = expr();
@@ -431,7 +434,7 @@ static Node *stmt() {
     }
 
     if (consume("while")) {
-        Node *node = new_node(ND_WHILE);
+        Node *node = new_node(ND_WHILE, getok()->prev);
 
         expect("(");
         node->cond = expr();
@@ -442,7 +445,7 @@ static Node *stmt() {
     }
 
     if (consume("for")) {
-        Node *node = new_node(ND_FOR);
+        Node *node = new_node(ND_FOR, getok()->prev);
 
         expect("(");
         if (!consume(";")) {
@@ -463,7 +466,7 @@ static Node *stmt() {
     }
 
     if (consume("return")) {
-        Node *node = new_node_expr(ND_RETURN, expr(), NULL);
+        Node *node = new_node_expr(ND_RETURN, getok()->prev, expr(), NULL);
         expect(";");
         return node;
     }
@@ -473,7 +476,7 @@ static Node *stmt() {
 
 // compound_stmt = (declaration_local | stmt)* "}"
 static Node *compound_stmt() {
-    Node *node = new_node(ND_BLOCK);
+    Node *node = new_node(ND_BLOCK, getok()->prev);
 
     Node head = {};
     Node *cur = &head;
@@ -498,10 +501,10 @@ static Node *compound_stmt() {
 // expr_stmt = expr? ";"
 static Node *expr_stmt() {
     if (consume(";")) {
-        return new_node(ND_BLOCK);
+        return new_node(ND_BLOCK, getok()->prev);
     }
 
-    Node *node = new_node_expr(ND_EXPR_STMT, expr(), NULL);
+    Node *node = new_node_expr(ND_EXPR_STMT, getok(), expr(), NULL);
     expect(";");
     return node;
 }
@@ -510,7 +513,7 @@ static Node *expr_stmt() {
 static Node *expr() {
     Node *node = assign();
     if (consume(",")) {
-        node = new_node_expr(ND_COMMA, node, expr());
+        node = new_node_expr(ND_COMMA, getok()->prev, node, expr());
     }
     return node;
 }
@@ -519,7 +522,7 @@ static Node *expr() {
 static Node *assign() {
     Node *node = equality();
     if (consume("=")) {
-        node = new_node_expr(ND_ASSIGN, node, assign());
+        node = new_node_expr(ND_ASSIGN, getok()->prev, node, assign());
     }
     return node;
 }
@@ -530,9 +533,9 @@ static Node *equality() {
 
     while (true) {
         if (consume("==")) {
-            node = new_node_expr(ND_EQ, node, relational());
+            node = new_node_expr(ND_EQ, getok()->prev, node, relational());
         } else if (consume("!=")) {
-            node = new_node_expr(ND_NEQ, node, relational());
+            node = new_node_expr(ND_NEQ, getok()->prev, node, relational());
         } else {
             return node;
         }
@@ -545,13 +548,13 @@ static Node *relational() {
 
     while (true) {
         if (consume("<=")) {
-            node = new_node_expr(ND_LEQ, node, add());
+            node = new_node_expr(ND_LEQ, getok()->prev, node, add());
         } else if (consume("<")) {
-            node = new_node_expr(ND_LS, node, add());
+            node = new_node_expr(ND_LS, getok()->prev, node, add());
         } else if (consume(">=")) {
-            node = new_node_expr(ND_LEQ, add(), node);
+            node = new_node_expr(ND_LEQ, getok()->prev, add(), node);
         } else if (consume(">")) {
-            node = new_node_expr(ND_LS, add(), node);
+            node = new_node_expr(ND_LS, getok()->prev, add(), node);
         } else {
             return node;
         }
@@ -564,9 +567,9 @@ static Node *add() {
 
     while (true) {
         if (consume("+")) {
-            node = new_node_add(node, mul());
+            node = new_node_add(getok()->prev, node, mul());
         } else if (consume("-")) {
-            node = new_node_sub(node, mul());
+            node = new_node_sub(getok()->prev, node, mul());
         } else {
             return node;
         }
@@ -579,9 +582,9 @@ static Node *mul() {
 
     while (true) {
         if (consume("*")) {
-            node = new_node_expr(ND_MUL, node, unary());
+            node = new_node_expr(ND_MUL, getok()->prev, node, unary());
         } else if (consume("/")) {
-            node = new_node_expr(ND_DIV, node, unary());
+            node = new_node_expr(ND_DIV, getok()->prev, node, unary());
         } else {
             return node;
         }
@@ -595,19 +598,20 @@ static Node *unary() {
     if (consume("sizeof")) {
         Node *node = unary();
         set_node_type(node);
-        return new_node_num(get_sizeof(node->type));
+        return new_node_num(getok()->prev, get_sizeof(node->type));
     }
     if (consume("+")) {
         return unary();
     }
     if (consume("-")) {
-        return new_node_expr(ND_SUB, new_node_num(0), unary());
+        return new_node_expr(ND_SUB, getok()->prev,
+                             new_node_num(getok()->prev, 0), unary());
     }
     if (consume("*")) {
-        return new_node_expr(ND_DEREF, unary(), NULL);
+        return new_node_expr(ND_DEREF, getok()->prev, unary(), NULL);
     }
     if (consume("&")) {
-        return new_node_expr(ND_ADDR, unary(), NULL);
+        return new_node_expr(ND_ADDR, getok()->prev, unary(), NULL);
     }
     return postfix();
 }
@@ -618,15 +622,16 @@ static Node *postfix() {
     Node *rhs;
 
     while (consume("[")) {
-        Token *tok;
+        Token *tok = NULL;
         if ((tok = consume_ident())) {
             rhs = new_node_var(tok);
         } else {
-            rhs = new_node_num(expect_number());
+            rhs = new_node_num(getok(), expect_number());
         }
         expect("]");
 
-        lhs = new_node_expr(ND_DEREF, new_node_add(lhs, rhs), NULL);
+        tok = getok()->prev->prev->prev->prev;
+        lhs = new_node_expr(ND_DEREF, tok, new_node_add(tok, lhs, rhs), NULL);
     }
 
     return lhs;
@@ -634,7 +639,7 @@ static Node *postfix() {
 
 // callfunc = ident "(" (assign ("," assign)*)? ")"
 static Node *callfunc(Token *tok) {
-    Node *node = new_node(ND_CALL);
+    Node *node = new_node(ND_CALL, tok);
     node->funcname = strndup(tok->loc, tok->len);
 
     if (!consume(")")) {
@@ -656,7 +661,7 @@ static Node *string_literal(Token *tok) {
     Object *str_obj = new_string_literal(tok->str);
     str_obj->init_data = tok->str;
     add_global(str_obj);
-    Node *node = new_node(ND_GVAR);
+    Node *node = new_node(ND_GVAR, tok);
     node->var = str_obj;
     return node;
 }
@@ -670,7 +675,7 @@ static Node *primary() {
     if (consume("(")) {
         Node *node;
         if (consume("{")) {
-            node = new_node(ND_STMT_EXPR);
+            node = new_node(ND_STMT_EXPR, getok()->prev);
             node->body = compound_stmt()->body;
         } else {
             node = expr();
@@ -691,5 +696,5 @@ static Node *primary() {
         return string_literal(tok);
     }
 
-    return new_node_num(expect_number());
+    return new_node_num(getok(), expect_number());
 }

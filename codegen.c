@@ -62,7 +62,7 @@ static char *reg_alias(RegAlias64 reg, size_t size) {
             idx = 3;
             break;
         default:
-            error("不正なサイズです");
+            error("reg_alias: 不正なサイズです");
     }
 
     return regs[reg][idx];
@@ -79,7 +79,7 @@ static char *word_ptr(size_t size) {
         case 8:
             return "QWORD PTR";
         default:
-            error("不正なサイズです");
+            error("word_ptr: 不正なサイズです");
     }
 }
 
@@ -144,7 +144,7 @@ static void gen_lval(Node *node) {
             gen_lval(node->rhs);
             return;
         default:
-            error("左辺値ではありません");
+            error_at(node->tok->loc, "左辺値ではありません");
     }
 }
 
@@ -305,7 +305,7 @@ static void gen_stmt(Node *node) {
             return;
     }
 
-    error("不正な文です");
+    error_at(node->tok->loc, "不正な文です");
 }
 
 void generate(Object *globals) {

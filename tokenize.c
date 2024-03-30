@@ -7,6 +7,8 @@
 
 static Token *token;
 
+Token *getok() { return token; }
+
 // 次のトークンが期待している記号のときには、
 // 真を返す。それ以外の場合には偽を返す。
 bool match(char *op) {
@@ -95,6 +97,7 @@ static Token *new_token(TokenKind kind, Token *cur, char *str) {
     tok->loc = str;
 
     cur->next = tok;
+    tok->prev = cur;
 
     return tok;
 }
