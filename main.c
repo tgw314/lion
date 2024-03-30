@@ -53,29 +53,38 @@ void error_at(char *loc, char *fmt, ...) {
 }
 
 char *read_file(char *path) {
-    FILE *fp = fopen(path, "r");
-    if (!fp) {
-        error("'%s' を開けません: %s", path, strerror(errno));
+    FILE *fp;
+
+    if (strcmp(path, "-") == 0) {
+        fp = stdin;
+    } else {
+        fp = fopen(path, "r");
+        if (!fp) {
+            error("'%s' を開けません: %s", path, strerror(errno));
+        }
     }
 
-    // ファイルの長さを調べる
-    if (fseek(fp, 0, SEEK_END) == -1) {
-        error("%s: fseek: %s", path, strerror(errno));
-    }
-    size_t size = ftell(fp);
-    if (fseek(fp, 0, SEEK_SET) == -1) {
-        error("%s: fseek: %s", path, strerror(errno));
+    char *buf;
+    size_t buflen;
+    FILE *out = open_memstream(&buf, &buflen);
+
+    // ファイルを読む
+    while (true) {
+        char buf2[4096];
+        int n = fread(buf2, 1, sizeof(buf2), fp);
+        if (n == 0) break;
+        fwrite(buf2, 1, n, out);
     }
 
-    char *buf = calloc(1, size + 2);
-    fread(buf, size, 1, fp);
+    if (fp != stdin) fclose(fp);
 
     // 便利のために "\n\0" で終わらせる
-    if (size == 0 || buf[size - 1] != '\n') {
-        buf[size++] = '\n';
+    fflush(out);
+    if (buflen == 0 || buf[buflen - 1] != '\n') {
+        fputc('\n', out);
     }
-    buf[size] = '\0';
-    fclose(fp);
+    fputc('\0', out);
+    fclose(out);
     return buf;
 }
 

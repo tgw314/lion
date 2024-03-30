@@ -8,12 +8,9 @@ lion: $(OBJS)
 $(OBJS): lion.h
 
 test: lion test.c test_common.o
-	TEST=$$(mktemp --suffix=.c) && \
-	cc -o $$TEST -E -P -C test.c && \
-	./lion $$TEST > tmp.s && \
-	cc -o tmp tmp.s test_common.o && \
-	./tmp && \
-	rm -f $$TEST
+	cc -o- -E -P -C test.c | ./lion - > tmp.s
+	cc -o tmp tmp.s test_common.o
+	./tmp
 
 clean:
 	rm -f lion *.o *~ tmp*
