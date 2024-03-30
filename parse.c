@@ -296,7 +296,7 @@ static Type *declarator(Type *type, Token **ident_tok) {
 }
 
 // declaration = declspec
-//               (declarator ("=" expr)? ("," declarator ("=" expr)?)*)? ";"
+//               (declarator ("=" assign)? ("," declarator ("=" assign)?)*)? ";"
 static Node *declaration_local() {
     Type *base_type = declspec();
     if (base_type == NULL) {
@@ -320,7 +320,7 @@ static Node *declaration_local() {
 
         if (consume("=")) {
             cur = cur->next = new_node(ND_EXPR_STMT);
-            cur->lhs = new_node_expr(ND_ASSIGN, new_node_var(tok), expr());
+            cur->lhs = new_node_expr(ND_ASSIGN, new_node_var(tok), assign());
         }
     }
     Node *node = new_node(ND_BLOCK);
@@ -506,8 +506,14 @@ static Node *expr_stmt() {
     return node;
 }
 
-// expr = assign
-static Node *expr() { return assign(); }
+// expr = assign ("," expr)?
+static Node *expr() {
+    Node *node = assign();
+    if (consume(",")) {
+        node = new_node_expr(ND_COMMA, node, expr());
+    }
+    return node;
+}
 
 // assign = equality ("=" assign)?
 static Node *assign() {
@@ -626,7 +632,7 @@ static Node *postfix() {
     return lhs;
 }
 
-// callfunc = ident "(" (expr ("," expr)*)? ")"
+// callfunc = ident "(" (assign ("," assign)*)? ")"
 static Node *callfunc(Token *tok) {
     Node *node = new_node(ND_CALL);
     node->funcname = strndup(tok->loc, tok->len);
@@ -636,7 +642,7 @@ static Node *callfunc(Token *tok) {
         Node *cur = &head;
 
         do {
-            cur = cur->next = expr();
+            cur = cur->next = assign();
         } while (consume(","));
         expect(")");
 

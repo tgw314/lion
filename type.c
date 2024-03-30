@@ -81,6 +81,9 @@ void set_node_type(Node *node) {
         case ND_CALL:
             node->type = new_type(TY_INT);
             return;
+        case ND_COMMA:
+            node->type = node->rhs->type;
+            return;
         case ND_ADDR:
             if (node->lhs->type->kind == TY_ARRAY) {
                 node->type = new_type_ptr(node->lhs->type->ptr_to);

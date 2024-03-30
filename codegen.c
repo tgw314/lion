@@ -139,8 +139,12 @@ static void gen_lval(Node *node) {
         case ND_DEREF:
             gen_expr(node->lhs);
             return;
+        case ND_COMMA:
+            gen_expr(node->lhs);
+            gen_lval(node->rhs);
+            return;
         default:
-            error("代入の左辺値が変数ではありません");
+            error("左辺値ではありません");
     }
 }
 
@@ -162,6 +166,10 @@ static void gen_expr(Node *node) {
             gen_expr(node->rhs);
             printf("  pop rdi\n");
             mov_memReg(RDI, RAX, node->type);
+            return;
+        case ND_COMMA:
+            gen_expr(node->lhs);
+            gen_expr(node->rhs);
             return;
         case ND_ADDR:
             gen_lval(node->lhs);

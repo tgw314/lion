@@ -34,6 +34,7 @@ typedef enum {
     ND_LS,         // <
     ND_LEQ,        // <=
     ND_ASSIGN,     // =
+    ND_COMMA,      // ,
     ND_ADDR,       // &
     ND_DEREF,      // *
     ND_LVAR,       // ローカル変数

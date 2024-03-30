@@ -208,6 +208,10 @@ int main() {
     ASSERT(2, ({ int x=2; { int x=3; } int y=4; x; }));
     ASSERT(3, ({ int x=2; { x=3; } x; }));
 
+    ASSERT(3, (1,2,3));
+    ASSERT(5, ({ int i=2, j=3; (i=5,j)=6; i; }));
+    ASSERT(6, ({ int i=2, j=3; (i=5,j)=6; j; }));
+
     printf("OK\n");
     return 0;
 }
