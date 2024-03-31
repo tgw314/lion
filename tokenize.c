@@ -35,7 +35,7 @@ bool consume(char *op) {
 void expect(char *op) {
     if (token->kind != TK_RESERVED || strlen(op) != token->len ||
         memcmp(token->loc, op, token->len)) {
-        error_at(token->loc, "'%s'ではありません", op);
+        error_tok(token, "'%s'ではありません", op);
     }
     token = token->next;
 }
@@ -55,7 +55,7 @@ Token *consume_ident() {
 // そのトークンを返す。それ以外の場合にはエラーを報告する。
 Token *expect_ident() {
     if (token->kind != TK_IDENT) {
-        error_at(token->loc, "識別子ではありません");
+        error_tok(token, "識別子ではありません");
     }
     Token *tmp = token;
     token = token->next;
@@ -77,7 +77,7 @@ Token *consume_string() {
 // それ以外の場合にはエラーを報告する。
 int expect_number() {
     if (token->kind != TK_NUM) {
-        error_at(token->loc, "数ではありません");
+        error_tok(token, "数ではありません");
     }
     int val = token->val;
     token = token->next;

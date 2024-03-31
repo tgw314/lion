@@ -69,7 +69,7 @@ void set_node_type(Node *node) {
             return;
         case ND_ASSIGN:
             if (node->lhs->type->kind == TY_ARRAY) {
-                error_at(node->tok->loc, "配列への代入はできません");
+                error_tok(node->tok, "配列への代入はできません");
             }
             node->type = node->lhs->type;
             return;
@@ -93,7 +93,7 @@ void set_node_type(Node *node) {
             return;
         case ND_DEREF:
             if (node->lhs->type->ptr_to == NULL) {
-                error_at(node->tok->loc, "無効なポインタの参照です");
+                error_tok(node->tok, "無効なポインタの参照です");
             }
             node->type = node->lhs->type->ptr_to;
             return;
@@ -112,7 +112,7 @@ void set_node_type(Node *node) {
                     return;
                 }
             }
-            error_at(node->tok->loc, "void 値を返すことはできません");
+            error_tok(node->tok, "void 値を返すことはできません");
             return;
     }
 }

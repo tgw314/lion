@@ -144,7 +144,7 @@ static void gen_lval(Node *node) {
             gen_lval(node->rhs);
             return;
         default:
-            error_at(node->tok->loc, "左辺値ではありません");
+            error_tok(node->tok, "左辺値ではありません");
     }
 }
 
@@ -305,7 +305,7 @@ static void gen_stmt(Node *node) {
             return;
     }
 
-    error_at(node->tok->loc, "不正な文です");
+    error_tok(node->tok, "不正な文です");
 }
 
 void generate(Object *globals) {

@@ -189,7 +189,7 @@ static Node *new_node_add(Token *tok, Node *lhs, Node *rhs) {
     }
 
     if (is_pointer(lhs->type) && is_pointer(rhs->type)) {
-        error_at(tok->loc, "ポインタ同士の加算はできません");
+        error_tok(tok, "ポインタ同士の加算はできません");
     }
 
     // lhs: pointer, rhs: number
@@ -223,7 +223,7 @@ static Node *new_node_sub(Token *tok, Node *lhs, Node *rhs) {
     }
 
     // lhs: number, rhs: pointer
-    error_at(tok->loc, "誤ったオペランドです");
+    error_tok(tok, "誤ったオペランドです");
 }
 
 static Node *new_node_var(Token *tok) {
@@ -231,7 +231,7 @@ static Node *new_node_var(Token *tok) {
 
     Object *var = find_var(tok);
     if (!var) {
-        error_at(tok->loc, "宣言されていない変数です");
+        error_tok(tok, "宣言されていない変数です");
     }
 
     if (var->is_local) {
@@ -316,7 +316,7 @@ static Node *declaration_local() {
         Object *var = new_lvar(type, tok);
 
         if (find_var_scope(tok) != NULL) {
-            error_at(tok->loc, "再定義です");
+            error_tok(tok, "再定義です");
         }
         add_lvar(var);
 
@@ -335,7 +335,7 @@ static Node *declaration_local() {
 static void declaration_global() {
     Type *base_type = declspec();
     if (base_type == NULL) {
-        error_at(getok()->loc, "型がありません");
+        error_tok(getok(), "型がありません");
     }
 
     for (int i = 0; !consume(";"); i++) {
@@ -350,11 +350,11 @@ static void declaration_global() {
         } else {
             // グローバル変数の再宣言は可能
             if (find_func(tok) != NULL) {
-                error_at(tok->loc, "再定義です");
+                error_tok(tok, "再定義です");
             }
             add_global(new_gvar(type, tok));
             if (consume("=")) {
-                error_at(getok()->prev->loc, "初期化式は未対応です");
+                error_tok(getok()->prev, "初期化式は未対応です");
             }
         }
     }
@@ -362,7 +362,7 @@ static void declaration_global() {
 
 static void function(Type *type, Token *tok) {
     if (find_func(tok) != NULL || find_var_scope(tok) != NULL) {
-        error_at(tok->loc, "再定義です");
+        error_tok(tok, "再定義です");
     }
     Object *func = new_func(type, tok);
 
@@ -389,7 +389,7 @@ static void params(Object *func) {
     do {
         Type *base_type = declspec();
         if (base_type == NULL) {
-            error_at(getok()->prev->loc, "型がありません");
+            error_tok(getok()->prev, "型がありません");
         }
 
         Token *tok = NULL;
@@ -397,7 +397,7 @@ static void params(Object *func) {
         Object *var = new_lvar(type, tok);
 
         if (find_var_scope(tok) != NULL) {
-            error_at(tok->loc, "引数の再定義");
+            error_tok(tok, "引数の再定義");
         }
         push_scope(var);
 

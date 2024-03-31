@@ -118,6 +118,8 @@ void error(char *fmt, ...);
 // エラー箇所を報告する
 void error_at(char *loc, char *fmt, ...);
 
+void error_tok(Token *tok, char *fmt, ...);
+
 Token *getok();
 
 bool match(char *op);
