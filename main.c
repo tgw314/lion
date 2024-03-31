@@ -18,10 +18,7 @@ void error(char *fmt, ...) {
     exit(1);
 }
 
-void error_at(char *loc, char *fmt, ...) {
-    va_list ap;
-    va_start(ap, fmt);
-
+static void verror_at(int line_no, char *loc, char *fmt, va_list ap) {
     // loc が含まれている行の開始地点と終了地点を取得
     char *line = loc;
     while (user_input < line && line[-1] != '\n') {
@@ -31,18 +28,13 @@ void error_at(char *loc, char *fmt, ...) {
     while (*end != '\n') {
         end++;
     }
-    // 見つかった行が全体の何行目なのかを調べる
-    int line_num = 1;
-    for (char *p = user_input; p < line; p++) {
-        if (*p == '\n') {
-            line_num++;
-        }
-    }
+
     // 見つかった行を、ファイル名と行番号と一緒に表示
-    int indent = fprintf(stderr, "%s:%d: ", filename, line_num);
+    int indent = fprintf(stderr, "%s:%d: ", filename, line_no);
     fprintf(stderr, "%.*s\n", (int)(end - line), line);
 
     int pos = loc - line + indent;
+
     if (pos > 0) {
         fprintf(stderr, "%*s", pos, " ");  // pos 個の空白を出力
     }
@@ -50,6 +42,25 @@ void error_at(char *loc, char *fmt, ...) {
     vfprintf(stderr, fmt, ap);
     fprintf(stderr, "\n");
     exit(1);
+}
+
+void error_at(char *loc, char *fmt, ...) {
+    int line_no = 1;
+    for (char *p = user_input; p < loc; p++) {
+        if (*p == '\n') {
+            line_no++;
+        }
+    }
+
+    va_list ap;
+    va_start(ap, fmt);
+    verror_at(line_no, loc, fmt, ap);
+}
+
+void error_tok(Token *tok, char *fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    verror_at(tok->line_no, tok->loc, fmt, ap);
 }
 
 char *read_file(char *path) {

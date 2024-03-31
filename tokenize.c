@@ -202,8 +202,24 @@ static char *read_string_literal(char *start, char *end) {
     return buf;
 }
 
+static void add_line_nums(char *input, Token *tok) {
+    char *p = input;
+    int n = 1;
+
+    do {
+        if (p == tok->loc) {
+            tok->line_no = n;
+            tok = tok->next;
+        }
+        if (*p == '\n') {
+            n++;
+        }
+    } while (*p++);
+}
+
 // 入力文字列 p をトークナイズする
 void tokenize(char *p) {
+    char *input = p;
     Token head;
     head.next = NULL;
     Token *cur = &head;
@@ -283,5 +299,6 @@ void tokenize(char *p) {
     }
 
     new_token(TK_EOF, cur, p);
+    add_line_nums(input, head.next);
     token = head.next;
 }
