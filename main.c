@@ -107,7 +107,10 @@ int main(int argc, char **argv) {
     filename = argv[1];
 
     tokenize(user_input = read_file(filename));
-    generate(program());
+
+    Object *prog = program();
+    printf(".file 1 \"%s\"\n", filename);
+    generate(prog);
 
     return 0;
 }

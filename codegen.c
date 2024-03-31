@@ -158,6 +158,8 @@ static void gen_lval(Node *node) {
 }
 
 static void gen_expr(Node *node) {
+    println("  .loc 1 %d", node->tok->line_no);
+
     switch (node->kind) {
         case ND_NUM:
             println("  mov rax, %d", node->val);
@@ -255,6 +257,8 @@ static void gen_expr(Node *node) {
 }
 
 static void gen_stmt(Node *node) {
+    println("  .loc 1 %d", node->tok->line_no);
+
     switch (node->kind) {
         case ND_EXPR_STMT:
             gen_expr(node->lhs);
