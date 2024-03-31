@@ -344,7 +344,7 @@ static void declaration_global() {
         Token *tok = NULL;
         Type *type = declarator(base_type, &tok);
 
-        if (type->kind == TY_FUNC) {
+        if (type->kind == TY_FUNC && i == 0) {
             function(type->ptr_to, tok);
             break;
         } else {
