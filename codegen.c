@@ -1,3 +1,4 @@
+#include <stdarg.h>
 #include <stdio.h>
 
 #include "lion.h"
@@ -30,6 +31,14 @@ static void gen_stmt(Node *node);
 static int count() {
     static int i = 0;
     return i++;
+}
+
+static void println(const char *fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    vprintf(fmt, ap);
+    va_end(ap);
+    printf("\n");
 }
 
 // align = 2^n の場合のみ有効
@@ -85,56 +94,56 @@ static char *word_ptr(size_t size) {
 
 static void mov_memReg(RegAlias64 dest, RegAlias64 src, Type *type) {
     size_t size = get_sizeof(type);
-    printf("  mov %s [%s], %s\n", word_ptr(size), reg_alias(dest, 8),
-           reg_alias(src, size));
+    println("  mov %s [%s], %s", word_ptr(size), reg_alias(dest, 8),
+            reg_alias(src, size));
 }
 
 static void mov_regMem(RegAlias64 dest, RegAlias64 src, Type *type) {
     size_t size = get_sizeof(type);
     if (size == 1) {
-        printf("  movsx %s, %s [%s]\n", reg_alias(dest, 8), word_ptr(size),
-               reg_alias(src, 8));
+        println("  movsx %s, %s [%s]", reg_alias(dest, 8), word_ptr(size),
+                reg_alias(src, 8));
     } else {
-        printf("  mov %s, %s [%s]\n", reg_alias(dest, size), word_ptr(size),
-               reg_alias(src, 8));
+        println("  mov %s, %s [%s]", reg_alias(dest, size), word_ptr(size),
+                reg_alias(src, 8));
     }
 }
 
 static void mov_regOffset(RegAlias64 dest, int offset, Type *type) {
     size_t size = get_sizeof(type);
-    printf("  mov %s, %s [rbp%+d]\n", reg_alias(dest, size), word_ptr(size),
-           offset);
+    println("  mov %s, %s [rbp%+d]", reg_alias(dest, size), word_ptr(size),
+            offset);
 }
 
 static void mov_offsetReg(int offset, RegAlias64 src, Type *type) {
     size_t size = get_sizeof(type);
-    printf("  mov %s [rbp%+d], %s\n", word_ptr(size), offset,
-           reg_alias(src, size));
+    println("  mov %s [rbp%+d], %s", word_ptr(size), offset,
+            reg_alias(src, size));
 }
 
 static void call(const char *funcname) {
     int i = count();
-    printf("  mov rax, rsp\n");
-    printf("  and rax, 15\n");
-    printf("  jnz .L.call.%s.%03d\n", funcname, i);
-    printf("  mov rax, 0\n");
-    printf("  call %s\n", funcname);
-    printf("  jmp .L.end.%s.%03d\n", funcname, i);
-    printf(".L.call.%s.%03d:\n", funcname, i);
-    printf("  sub rsp, 8\n");
-    printf("  mov rax, 0\n");
-    printf("  call %s\n", funcname);
-    printf("  add rsp, 8\n");
-    printf(".L.end.%s.%03d:\n", funcname, i);
+    println("  mov rax, rsp");
+    println("  and rax, 15");
+    println("  jnz .L.call.%s.%03d", funcname, i);
+    println("  mov rax, 0");
+    println("  call %s", funcname);
+    println("  jmp .L.end.%s.%03d", funcname, i);
+    println(".L.call.%s.%03d:", funcname, i);
+    println("  sub rsp, 8");
+    println("  mov rax, 0");
+    println("  call %s", funcname);
+    println("  add rsp, 8");
+    println(".L.end.%s.%03d:", funcname, i);
 }
 
 static void gen_lval(Node *node) {
     switch (node->kind) {
         case ND_LVAR:
-            printf("  lea rax, [rbp%+d]\n", node->var->offset);
+            println("  lea rax, [rbp%+d]", node->var->offset);
             return;
         case ND_GVAR:
-            printf("  lea rax, %s[rip]\n", node->var->name);
+            println("  lea rax, %s[rip]", node->var->name);
             return;
         case ND_DEREF:
             gen_expr(node->lhs);
@@ -151,7 +160,7 @@ static void gen_lval(Node *node) {
 static void gen_expr(Node *node) {
     switch (node->kind) {
         case ND_NUM:
-            printf("  mov rax, %d\n", node->val);
+            println("  mov rax, %d", node->val);
             return;
         case ND_GVAR:
         case ND_LVAR:
@@ -162,9 +171,9 @@ static void gen_expr(Node *node) {
             return;
         case ND_ASSIGN:
             gen_lval(node->lhs);
-            printf("  push rax\n");
+            println("  push rax");
             gen_expr(node->rhs);
-            printf("  pop rdi\n");
+            println("  pop rdi");
             mov_memReg(RDI, RAX, node->type);
             return;
         case ND_COMMA:
@@ -186,11 +195,11 @@ static void gen_expr(Node *node) {
 
             for (Node *arg = node->args; arg; arg = arg->next) {
                 gen_expr(arg);
-                printf("  push rax\n");
+                println("  push rax");
                 argc++;
             }
             for (int i = argc - 1; i >= 0; i--) {
-                printf("  pop %s\n", arg_regs[i]);
+                println("  pop %s", arg_regs[i]);
             }
             call(node->funcname);
             return;
@@ -203,44 +212,44 @@ static void gen_expr(Node *node) {
     }
 
     gen_expr(node->lhs);
-    printf("  push rax\n");
+    println("  push rax");
     gen_expr(node->rhs);
-    printf("  mov rdi, rax\n");
-    printf("  pop rax\n");
+    println("  mov rdi, rax");
+    println("  pop rax");
 
     switch (node->kind) {
         case ND_ADD:
-            printf("  add rax, rdi\n");
+            println("  add rax, rdi");
             break;
         case ND_SUB:
-            printf("  sub rax, rdi\n");
+            println("  sub rax, rdi");
             break;
         case ND_MUL:
-            printf("  imul rax, rdi\n");
+            println("  imul rax, rdi");
             break;
         case ND_DIV:
-            printf("  cqo\n");
-            printf("  idiv rdi\n");
+            println("  cqo");
+            println("  idiv rdi");
             break;
         case ND_EQ:
-            printf("  cmp rax, rdi\n");
-            printf("  sete al\n");
-            printf("  movzb rax, al\n");
+            println("  cmp rax, rdi");
+            println("  sete al");
+            println("  movzb rax, al");
             break;
         case ND_NEQ:
-            printf("  cmp rax, rdi\n");
-            printf("  setne al\n");
-            printf("  movzb rax, al\n");
+            println("  cmp rax, rdi");
+            println("  setne al");
+            println("  movzb rax, al");
             break;
         case ND_LS:
-            printf("  cmp rax, rdi\n");
-            printf("  setl al\n");
-            printf("  movzb rax, al\n");
+            println("  cmp rax, rdi");
+            println("  setl al");
+            println("  movzb rax, al");
             break;
         case ND_LEQ:
-            printf("  cmp rax, rdi\n");
-            printf("  setle al\n");
-            printf("  movzb rax, al\n");
+            println("  cmp rax, rdi");
+            println("  setle al");
+            println("  movzb rax, al");
             break;
     }
 }
@@ -258,26 +267,26 @@ static void gen_stmt(Node *node) {
         case ND_IF: {
             int i = count();
             gen_expr(node->cond);
-            printf("  cmp rax, 0\n");
-            printf("  je  .L.else.%03d\n", i);
+            println("  cmp rax, 0");
+            println("  je  .L.else.%03d", i);
             gen_stmt(node->then);
-            printf("  jmp .L.end.%03d\n", i);
-            printf(".L.else.%03d:\n", i);
+            println("  jmp .L.end.%03d", i);
+            println(".L.else.%03d:", i);
             if (node->els) {
                 gen_stmt(node->els);
             }
-            printf(".L.end.%03d:\n", i);
+            println(".L.end.%03d:", i);
             return;
         }
         case ND_WHILE: {
             int i = count();
-            printf(".L.begin.%03d:\n", i);
+            println(".L.begin.%03d:", i);
             gen_expr(node->cond);
-            printf("  cmp rax, 0\n");
-            printf("  je  .L.end.%03d\n", i);
+            println("  cmp rax, 0");
+            println("  je  .L.end.%03d", i);
             gen_stmt(node->then);
-            printf("  jmp .L.begin.%03d\n", i);
-            printf(".L.end.%03d:\n", i);
+            println("  jmp .L.begin.%03d", i);
+            println(".L.end.%03d:", i);
             return;
         }
         case ND_FOR: {
@@ -285,23 +294,23 @@ static void gen_stmt(Node *node) {
             if (node->init) {
                 gen_expr(node->init);
             }
-            printf(".L.begin.%03d:\n", i);
+            println(".L.begin.%03d:", i);
             if (node->cond) {
                 gen_expr(node->cond);
-                printf("  cmp rax, 0\n");
-                printf("  je  .L.end.%03d\n", i);
+                println("  cmp rax, 0");
+                println("  je  .L.end.%03d", i);
             }
             gen_stmt(node->then);
             if (node->upd) {
                 gen_expr(node->upd);
             }
-            printf("  jmp .L.begin.%03d\n", i);
-            printf(".L.end.%03d:\n", i);
+            println("  jmp .L.begin.%03d", i);
+            println(".L.end.%03d:", i);
             return;
         }
         case ND_RETURN:
             gen_expr(node->lhs);
-            printf("  jmp .L.return.%s\n", obj->name);
+            println("  jmp .L.return.%s", obj->name);
             return;
     }
 
@@ -311,21 +320,21 @@ static void gen_stmt(Node *node) {
 void generate(Object *globals) {
     RegAlias64 param_regs[] = {RDI, RSI, RDX, RCX, R8, R9};
 
-    printf(".intel_syntax noprefix\n");
+    println(".intel_syntax noprefix");
     for (obj = globals; obj; obj = obj->next) {
         if (!obj->is_func) {
-            printf(".data\n");
-            printf(".globl %s\n", obj->name);
-            printf("%s:\n", obj->name);
+            println(".data");
+            println(".globl %s", obj->name);
+            println("%s:", obj->name);
 
             if (obj->init_data) {
                 if (!is_number(obj->type)) {
                     for (int i = 0; i < obj->type->array_size; i++) {
-                        printf("  .byte %d\n", obj->init_data[i]);
+                        println("  .byte %d", obj->init_data[i]);
                     }
                 }
             } else {
-                printf("  .zero %d\n", (int)get_sizeof(obj->type));
+                println("  .zero %d", (int)get_sizeof(obj->type));
             }
 
             continue;
@@ -340,15 +349,15 @@ void generate(Object *globals) {
             obj->stack_size = align(-offset, 16);
         }
 
-        printf(".text\n");
-        printf(".globl %s\n", obj->name);
-        printf("%s:\n", obj->name);
+        println(".text");
+        println(".globl %s", obj->name);
+        println("%s:", obj->name);
 
         // プロローグ
-        printf("  push rbp\n");
-        printf("  mov rbp, rsp\n");
+        println("  push rbp");
+        println("  mov rbp, rsp");
         if (obj->stack_size > 0) {
-            printf("  sub rsp, %d\n", obj->stack_size);
+            println("  sub rsp, %d", obj->stack_size);
         }
 
         {  // 引数をローカル変数として代入
@@ -365,9 +374,9 @@ void generate(Object *globals) {
 
         // エピローグ
         // 最後の式の結果が RAX に残っているのでそれが返り値になる
-        printf(".L.return.%s:\n", obj->name);
-        printf("  mov rsp, rbp\n");
-        printf("  pop rbp\n");
-        printf("  ret\n");
+        println(".L.return.%s:", obj->name);
+        println("  mov rsp, rbp");
+        println("  pop rbp");
+        println("  ret");
     }
 }
