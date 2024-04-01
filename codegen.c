@@ -145,6 +145,10 @@ static void gen_lval(Node *node) {
         case ND_GVAR:
             println("  lea rax, %s[rip]", node->var->name);
             return;
+        case ND_MEMBER:
+            gen_lval(node->lhs);
+            println("  lea rax, [rax%+d]", node->member->offset);
+            return;
         case ND_DEREF:
             gen_expr(node->lhs);
             return;
@@ -166,6 +170,7 @@ static void gen_expr(Node *node) {
             return;
         case ND_GVAR:
         case ND_LVAR:
+        case ND_MEMBER:
             gen_lval(node);
             if (node->type->kind != TY_ARRAY) {
                 mov_regMem(RAX, RAX, node->type);

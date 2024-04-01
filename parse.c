@@ -23,6 +23,7 @@ static Scope *scope = &(Scope){};
 
 static Type *declspec();
 static Type *declarator(Type *type, Token **ident_tok);
+static Type *struct_decl();
 
 static void declaration_global();
 static void function(Type *type, Token *tok);
@@ -131,6 +132,15 @@ static Object *find_func(Token *tok) {
         }
     }
     return NULL;
+}
+
+static Member *get_member(Type *type, Token *tok) {
+    for (Member *mem = type->members; mem; mem = mem->next) {
+        if (!strncmp(tok->loc, mem->name, tok->len)) {
+            return mem;
+        }
+    }
+    error_tok(tok, "存在しないメンバです");
 }
 
 // ローカル変数を locals の先頭に追加する
@@ -253,17 +263,29 @@ Object *program() {
     return globals->next;
 }
 
-// declspec = "int" | "char"
-static Type *declspec() {
-    Type *type = NULL;
+static bool is_decl() {
+    return match("int") || match("char") || match("struct");
+}
 
+static void push_tag_scope(Token *tok, Type *type) {
+    TagScope *sc = calloc(1, sizeof(TagScope));
+    sc->name = strndup(tok->loc, tok->len);
+    sc->type = type;
+    sc->next = scope->tags;
+    scope->tags = sc;
+}
+
+// declspec = "int" | "char" | "struct" struct-decl
+static Type *declspec() {
     if (consume("int")) {
-        type = new_type(TY_INT);
+        return new_type(TY_INT);
     } else if (consume("char")) {
-        type = new_type(TY_CHAR);
+        return new_type(TY_CHAR);
+    } else if (consume("struct")) {
+        return struct_decl();
     }
 
-    return type;
+    error_tok(getok(), "型がありません");
 }
 
 static Type *declsuffix(Type *type) {
@@ -300,9 +322,6 @@ static Type *declarator(Type *type, Token **ident_tok) {
 //               (declarator ("=" assign)? ("," declarator ("=" assign)?)*)? ";"
 static Node *declaration_local() {
     Type *base_type = declspec();
-    if (base_type == NULL) {
-        return NULL;
-    }
 
     Token *tok = getok();
     Node head = {};
@@ -334,9 +353,6 @@ static Node *declaration_local() {
 
 static void declaration_global() {
     Type *base_type = declspec();
-    if (base_type == NULL) {
-        error_tok(getok(), "型がありません");
-    }
 
     for (int i = 0; !consume(";"); i++) {
         if (i > 0) expect(",");
@@ -388,9 +404,6 @@ static void params(Object *func) {
 
     do {
         Type *base_type = declspec();
-        if (base_type == NULL) {
-            error_tok(getok()->prev, "型がありません");
-        }
 
         Token *tok = NULL;
         Type *type = declarator(base_type, &tok);
@@ -406,6 +419,58 @@ static void params(Object *func) {
     } while (consume(","));
     func->params = head.next;
     expect(")");
+}
+
+// struct-members = (declspec declarator ("," declarator)* ";")*
+static void struct_members(Type *type) {
+    Member head = {};
+    Member *cur = &head;
+
+    while (!consume("}")) {
+        Type *base_type = declspec();
+
+        for (int i = 0; !consume(";"); i++) {
+            if (i > 0) expect(",");
+
+            Token *tok = NULL;
+            Member *mem = calloc(1, sizeof(Member));
+            mem->type = declarator(base_type, &tok);
+            mem->name = strndup(tok->loc, tok->len);
+            cur = cur->next = mem;
+        }
+    }
+
+    type->members = head.next;
+}
+
+// struct-decl = "{" struct-members
+static Type *struct_decl() {
+    expect("{");
+
+    Type *type = new_type(TY_STRUCT);
+    struct_members(type);
+
+    int offset = 0;
+    for (Member *mem = type->members; mem; mem = mem->next) {
+        mem->offset = offset;
+        offset += get_sizeof(mem->type);
+    }
+    type->size = offset;
+
+    return type;
+}
+
+static Node *struct_ref(Node *lhs) {
+    set_node_type(lhs);
+    if (lhs->type->kind != TY_STRUCT) {
+        error_tok(lhs->tok, "構造体ではありません");
+    }
+    Token *tok = expect_ident();
+
+    Node *node = new_node_expr(ND_MEMBER, tok, lhs, NULL);
+    node->member = get_member(lhs->type, tok);
+
+    return node;
 }
 
 // stmt = expr_stmt
@@ -484,8 +549,9 @@ static Node *compound_stmt() {
     enter_scope();
 
     while (!consume("}")) {
-        cur->next = declaration_local();
-        if (!cur->next) {
+        if (is_decl()) {
+            cur->next = declaration_local();
+        } else {
             cur->next = stmt();
         }
         cur = cur->next;
@@ -616,21 +682,28 @@ static Node *unary() {
     return postfix();
 }
 
-// postfix = primary ("[" expr "]")*
+// postfix = primary ("[" expr "]" | "." ident)*
 static Node *postfix() {
-    Node *lhs = primary();
-    Node *rhs;
+    Node *node = primary();
 
-    while (consume("[")) {
-        Token *tok = NULL;
-        rhs = expr();
-        expect("]");
+    while (true) {
+        if (consume("[")) {
+            Node *idx = expr();
+            expect("]");
 
-        tok = getok()->prev;
-        lhs = new_node_expr(ND_DEREF, tok, new_node_add(tok, lhs, rhs), NULL);
+            Token *tok = getok()->prev;
+            node = new_node_expr(ND_DEREF, tok, new_node_add(tok, node, idx),
+                                 NULL);
+            continue;
+        }
+
+        if (consume(".")) {
+            node = struct_ref(node);
+            continue;
+        }
+
+        return node;
     }
-
-    return lhs;
 }
 
 // callfunc = ident "(" (assign ("," assign)*)? ")"

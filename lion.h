@@ -5,6 +5,7 @@ typedef struct Token Token;
 typedef struct Node Node;
 typedef struct Object Object;
 typedef struct Type Type;
+typedef struct Member Member;
 
 // トークンの種類
 typedef enum {
@@ -21,6 +22,7 @@ typedef enum {
     TY_PTR,
     TY_ARRAY,
     TY_FUNC,
+    TY_STRUCT,
 } TypeKind;
 
 // 抽象構文木のノードの種類
@@ -35,6 +37,7 @@ typedef enum {
     ND_LEQ,        // <=
     ND_ASSIGN,     // =
     ND_COMMA,      // ,
+    ND_MEMBER,     // .
     ND_ADDR,       // &
     ND_DEREF,      // *
     ND_LVAR,       // ローカル変数
@@ -69,12 +72,14 @@ struct Type {
     Type *ptr_to;
     size_t size;
     size_t array_size;
+    Member *members;
 };
 
 // 抽象構文木のノードの型
 struct Node {
     NodeKind kind;   // ノードの型
     Token *tok;      // トークン
+    Type *type;      // 式の型
     Node *next;      // 次のステートメント
     Node *lhs;       // 左辺
     Node *rhs;       // 右辺
@@ -88,7 +93,7 @@ struct Node {
     Object *var;     // kind が ND_LVAR, ND_GVAR の場合のみ
     char *funcname;  // kind が ND_CALL の場合のみ
     Node *args;      // kind が ND_CALL の場合のみ
-    Type *type;      // 式の型
+    Member *member;  // kind が ND_MEMBER の場合のみ
 };
 
 // 関数
@@ -110,6 +115,14 @@ struct Object {
     Object *locals;  // ローカル変数
     Object *params;  // 引数
     Node *body;
+};
+
+// 構造体のメンバ
+struct Member {
+    Member *next;
+    Type *type;
+    char *name;
+    int offset;
 };
 
 // エラーを報告するための関数

@@ -113,8 +113,8 @@ static bool is_al(char c) {
 static bool is_alnum(char c) { return is_al(c) || ('0' <= c && c <= '9'); }
 
 static bool is_keyword(Token *tok) {
-    static char *keywords[] = {"return", "if",  "else",   "while",
-                               "for",    "int", "sizeof", "char"};
+    static char *keywords[] = {"return", "if",     "else", "while", "for",
+                               "int",    "sizeof", "char", "struct"};
     static int len = sizeof(keywords) / sizeof(*keywords);
     for (int i = 0; i < len; i++) {
         if (equal(tok, keywords[i])) {
@@ -259,7 +259,7 @@ void tokenize(char *p) {
             continue;
         }
 
-        if (strchr("+-*/()<>=;{},&*[]", *p)) {
+        if (strchr("+-*/()<>=;{},&*[].", *p)) {
             cur = new_token(TK_RESERVED, cur, p);
 
             cur->len = 1;

@@ -33,6 +33,11 @@ size_t get_sizeof(Type *type) {
             return type->size = 8;
         case TY_ARRAY:
             return type->size = type->array_size * get_sizeof(type->ptr_to);
+        case TY_STRUCT:
+            for (Member *mem = type->members; mem; mem = mem->next) {
+                type->size += get_sizeof(mem->type);
+            }
+            return type->size;
     }
 }
 
@@ -85,6 +90,9 @@ void set_node_type(Node *node) {
             return;
         case ND_COMMA:
             node->type = node->rhs->type;
+            return;
+        case ND_MEMBER:
+            node->type = node->member->type;
             return;
         case ND_ADDR:
             if (node->lhs->type->kind == TY_ARRAY) {
