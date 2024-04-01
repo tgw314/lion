@@ -67,6 +67,7 @@ struct Token {
 struct Type {
     TypeKind kind;
     Type *ptr_to;
+    size_t size;
     size_t array_size;
 };
 

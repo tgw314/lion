@@ -22,15 +22,17 @@ Type *new_type_array(Type *type, size_t size) {
 }
 
 size_t get_sizeof(Type *type) {
+    if (type->size) return type->size;
+
     switch (type->kind) {
         case TY_CHAR:
-            return 1;
+            return type->size = 1;
         case TY_INT:
-            return 4;
+            return type->size = 4;
         case TY_PTR:
-            return 8;
+            return type->size = 8;
         case TY_ARRAY:
-            return type->array_size * get_sizeof(type->ptr_to);
+            return type->size = type->array_size * get_sizeof(type->ptr_to);
     }
 }
 
