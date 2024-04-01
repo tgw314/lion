@@ -616,21 +616,17 @@ static Node *unary() {
     return postfix();
 }
 
-// postfix = primary ("[" num "]")*
+// postfix = primary ("[" expr "]")*
 static Node *postfix() {
     Node *lhs = primary();
     Node *rhs;
 
     while (consume("[")) {
         Token *tok = NULL;
-        if ((tok = consume_ident())) {
-            rhs = new_node_var(tok);
-        } else {
-            rhs = new_node_num(getok(), expect_number());
-        }
+        rhs = expr();
         expect("]");
 
-        tok = getok()->prev->prev->prev->prev;
+        tok = getok()->prev;
         lhs = new_node_expr(ND_DEREF, tok, new_node_add(tok, lhs, rhs), NULL);
     }
 
