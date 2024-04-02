@@ -350,12 +350,13 @@ void generate(Object *globals) {
         }
 
         {  // ローカル変数のオフセットを計算
-            int offset = 0;
+            int stack_size = 0;
             for (Object *v = obj->locals; v; v = v->next) {
-                offset -= v->type->size;
-                v->offset = offset;
+                stack_size += v->type->size;
+                stack_size = align(stack_size, v->type->align);
+                v->offset = -stack_size;
             }
-            obj->stack_size = align(-offset, 16);
+            obj->stack_size = align(stack_size, 16);
         }
 
         println(".text");

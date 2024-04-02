@@ -238,6 +238,9 @@ int main() {
     ASSERT(0, ({ struct {} x; sizeof(x); }));
     ASSERT(8, ({ struct {char a; int b;} x; sizeof(x); }));
     ASSERT(8, ({ struct {int b; char a;} x; sizeof(x); }));
+
+    ASSERT(7, ({ int x; int y; char z; char *a=&y; char *b=&z; b-a; }));
+    ASSERT(1, ({ int x; char y; int z; char *a=&y; char *b=&z; b-a; }));
     
     printf("OK\n");
     return 0;
