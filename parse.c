@@ -204,7 +204,7 @@ static Node *new_node_add(Token *tok, Node *lhs, Node *rhs) {
 
     // lhs: pointer, rhs: number
     rhs = new_node_expr(ND_MUL, tok, rhs,
-                        new_node_num(tok, get_sizeof(lhs->type->ptr_to)));
+                        new_node_num(tok, lhs->type->ptr_to->size));
     return new_node_expr(ND_ADD, tok, lhs, rhs);
 }
 
@@ -218,7 +218,7 @@ static Node *new_node_sub(Token *tok, Node *lhs, Node *rhs) {
 
     if (is_pointer(lhs->type) && is_number(rhs->type)) {
         rhs = new_node_expr(ND_MUL, tok, rhs,
-                            new_node_num(tok, get_sizeof(lhs->type->ptr_to)));
+                            new_node_num(tok, lhs->type->ptr_to->size));
         set_node_type(rhs);
         Node *node = new_node_expr(ND_SUB, tok, lhs, rhs);
         node->type = lhs->type;
@@ -229,7 +229,7 @@ static Node *new_node_sub(Token *tok, Node *lhs, Node *rhs) {
         Node *node = new_node_expr(ND_SUB, tok, lhs, rhs);
         node->type = new_type_num(TY_INT);
         return new_node_expr(ND_DIV, tok, node,
-                             new_node_num(tok, get_sizeof(lhs->type->ptr_to)));
+                             new_node_num(tok, lhs->type->ptr_to->size));
     }
 
     // lhs: number, rhs: pointer
@@ -449,18 +449,6 @@ static Type *struct_decl() {
 
     Type *type = new_type_struct(struct_members());
 
-    int offset = 0;
-    for (Member *mem = type->members; mem; mem = mem->next) {
-        offset = align(offset, mem->type->align);
-        mem->offset = offset;
-        offset += get_sizeof(mem->type);
-
-        if (type->align < mem->type->align) {
-            type->align = mem->type->align;
-        }
-    }
-    type->size = align(offset, type->align);
-
     return type;
 }
 
@@ -668,7 +656,7 @@ static Node *unary() {
     if (consume("sizeof")) {
         Node *node = unary();
         set_node_type(node);
-        return new_node_num(getok()->prev, get_sizeof(node->type));
+        return new_node_num(getok()->prev, node->type->size);
     }
     if (consume("+")) {
         return unary();

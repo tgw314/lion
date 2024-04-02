@@ -2,6 +2,26 @@
 
 #include "lion.h"
 
+static size_t get_sizeof(Type *type) {
+    if (type->size) return type->size;
+
+    switch (type->kind) {
+        case TY_CHAR:
+            return type->size = 1;
+        case TY_INT:
+            return type->size = 4;
+        case TY_PTR:
+            return type->size = 8;
+        case TY_ARRAY:
+            return type->size = type->array_size * get_sizeof(type->ptr_to);
+        case TY_STRUCT:
+            for (Member *mem = type->members; mem; mem = mem->next) {
+                type->size += get_sizeof(mem->type);
+            }
+            return type->size;
+    }
+}
+
 static Type *new_type(TypeKind kind) {
     Type *type = calloc(1, sizeof(Type));
     type->kind = kind;
@@ -46,29 +66,21 @@ Type *new_type_array(Type *base_type, size_t size) {
 Type *new_type_struct(Member *members) {
     Type *type = new_type(TY_STRUCT);
     type->members = members;
-
     type->align = 1;
-    return type;
-}
 
-size_t get_sizeof(Type *type) {
-    if (type->size) return type->size;
+    int offset = 0;
+    for (Member *mem = type->members; mem; mem = mem->next) {
+        offset = align(offset, mem->type->align);
+        mem->offset = offset;
+        offset += get_sizeof(mem->type);
 
-    switch (type->kind) {
-        case TY_CHAR:
-            return type->size = 1;
-        case TY_INT:
-            return type->size = 4;
-        case TY_PTR:
-            return type->size = 8;
-        case TY_ARRAY:
-            return type->size = type->array_size * get_sizeof(type->ptr_to);
-        case TY_STRUCT:
-            for (Member *mem = type->members; mem; mem = mem->next) {
-                type->size += get_sizeof(mem->type);
-            }
-            return type->size;
+        if (type->align < mem->type->align) {
+            type->align = mem->type->align;
+        }
     }
+    type->size = align(offset, type->align);
+
+    return type;
 }
 
 bool is_pointer(Type *type) {

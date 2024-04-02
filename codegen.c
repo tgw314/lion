@@ -93,13 +93,13 @@ static char *word_ptr(size_t size) {
 }
 
 static void mov_memReg(RegAlias64 dest, RegAlias64 src, Type *type) {
-    size_t size = get_sizeof(type);
+    size_t size = type->size;
     println("  mov %s [%s], %s", word_ptr(size), reg_alias(dest, 8),
             reg_alias(src, size));
 }
 
 static void mov_regMem(RegAlias64 dest, RegAlias64 src, Type *type) {
-    size_t size = get_sizeof(type);
+    size_t size = type->size;
     if (size == 1) {
         println("  movsx %s, %s [%s]", reg_alias(dest, 8), word_ptr(size),
                 reg_alias(src, 8));
@@ -110,13 +110,13 @@ static void mov_regMem(RegAlias64 dest, RegAlias64 src, Type *type) {
 }
 
 static void mov_regOffset(RegAlias64 dest, int offset, Type *type) {
-    size_t size = get_sizeof(type);
+    size_t size = type->size;
     println("  mov %s, %s [rbp%+d]", reg_alias(dest, size), word_ptr(size),
             offset);
 }
 
 static void mov_offsetReg(int offset, RegAlias64 src, Type *type) {
-    size_t size = get_sizeof(type);
+    size_t size = type->size;
     println("  mov %s [rbp%+d], %s", word_ptr(size), offset,
             reg_alias(src, size));
 }
@@ -343,7 +343,7 @@ void generate(Object *globals) {
                     }
                 }
             } else {
-                println("  .zero %d", (int)get_sizeof(obj->type));
+                println("  .zero %d", (int)obj->type->size);
             }
 
             continue;
@@ -352,7 +352,7 @@ void generate(Object *globals) {
         {  // ローカル変数のオフセットを計算
             int offset = 0;
             for (Object *v = obj->locals; v; v = v->next) {
-                offset -= get_sizeof(v->type);
+                offset -= v->type->size;
                 v->offset = offset;
             }
             obj->stack_size = align(-offset, 16);

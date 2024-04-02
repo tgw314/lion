@@ -166,8 +166,6 @@ Type *new_type_array(Type *type, size_t size);
 
 Type *new_type_struct(Member *member);
 
-size_t get_sizeof(Type *type);
-
 bool is_pointer(Type *type);
 
 bool is_number(Type *type);
