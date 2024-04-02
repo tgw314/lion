@@ -90,7 +90,7 @@ static Object *new_anon_gvar(Type *type) {
 }
 
 static Object *new_string_literal(char *str) {
-    Type *type = new_type_array(new_type(TY_CHAR), strlen(str) + 1);
+    Type *type = new_type_array(new_type_num(TY_CHAR), strlen(str) + 1);
     Object *gvar = new_anon_gvar(type);
     gvar->init_data = str;
     return gvar;
@@ -227,7 +227,7 @@ static Node *new_node_sub(Token *tok, Node *lhs, Node *rhs) {
 
     if (is_pointer(lhs->type) && is_pointer(rhs->type)) {
         Node *node = new_node_expr(ND_SUB, tok, lhs, rhs);
-        node->type = new_type(TY_INT);
+        node->type = new_type_num(TY_INT);
         return new_node_expr(ND_DIV, tok, node,
                              new_node_num(tok, get_sizeof(lhs->type->ptr_to)));
     }
@@ -278,9 +278,9 @@ static void push_tag_scope(Token *tok, Type *type) {
 // declspec = "int" | "char" | "struct" struct-decl
 static Type *declspec() {
     if (consume("int")) {
-        return new_type(TY_INT);
+        return new_type_num(TY_INT);
     } else if (consume("char")) {
-        return new_type(TY_CHAR);
+        return new_type_num(TY_CHAR);
     } else if (consume("struct")) {
         return struct_decl();
     }
@@ -292,7 +292,7 @@ static Type *declsuffix(Type *type) {
     if (consume("(")) {
         Type *base_type = type;
 
-        type = new_type(TY_FUNC);
+        type = new_type_func(TY_FUNC);
         type->ptr_to = base_type;
         return type;
     }
@@ -422,7 +422,7 @@ static void params(Object *func) {
 }
 
 // struct-members = (declspec declarator ("," declarator)* ";")*
-static void struct_members(Type *type) {
+static Member *struct_members() {
     Member head = {};
     Member *cur = &head;
 
@@ -440,15 +440,14 @@ static void struct_members(Type *type) {
         }
     }
 
-    type->members = head.next;
+    return head.next;
 }
 
 // struct-decl = "{" struct-members
 static Type *struct_decl() {
     expect("{");
 
-    Type *type = new_type(TY_STRUCT);
-    struct_members(type);
+    Type *type = new_type_struct(struct_members());
 
     int offset = 0;
     for (Member *mem = type->members; mem; mem = mem->next) {

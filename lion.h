@@ -155,11 +155,15 @@ bool at_eof();
 // 入力文字列 p をトークナイズしてそれを返す
 void tokenize(char *p);
 
-Type *new_type(TypeKind kind);
+Type *new_type_num(TypeKind kind);
+
+Type *new_type_func();
 
 Type *new_type_ptr(Type *type);
 
 Type *new_type_array(Type *type, size_t size);
+
+Type *new_type_struct(Member *member);
 
 size_t get_sizeof(Type *type);
 

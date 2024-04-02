@@ -2,23 +2,42 @@
 
 #include "lion.h"
 
-Type *new_type(TypeKind kind) {
+static Type *new_type(TypeKind kind) {
     Type *type = calloc(1, sizeof(Type));
     type->kind = kind;
     return type;
 }
 
-Type *new_type_ptr(Type *type) {
-    Type *ptr = new_type(TY_PTR);
-    ptr->ptr_to = type;
-    return ptr;
+Type *new_type_num(TypeKind kind) {
+    Type *type = new_type(kind);
+    if (!is_number(type)) {
+        error("数型ではありません");
+    }
+
+    return type;
 }
 
-Type *new_type_array(Type *type, size_t size) {
-    Type *array = new_type(TY_ARRAY);
-    array->ptr_to = type;
-    array->array_size = size;
-    return array;
+Type *new_type_func() {
+    Type *type = new_type(TY_FUNC);
+    return type;
+}
+
+Type *new_type_ptr(Type *base_type) {
+    Type *type = new_type(TY_PTR);
+    type->ptr_to = base_type;
+    return type;
+}
+
+Type *new_type_array(Type *base_type, size_t size) {
+    Type *type = new_type(TY_ARRAY);
+    type->ptr_to = base_type;
+    type->array_size = size;
+    return type;
+}
+Type *new_type_struct(Member *members) {
+    Type *type = new_type(TY_STRUCT);
+    type->members = members;
+    return type;
 }
 
 size_t get_sizeof(Type *type) {
