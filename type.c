@@ -3,22 +3,22 @@
 #include "lion.h"
 
 static size_t get_sizeof(Type *type) {
-    if (type->size) return type->size;
-
     switch (type->kind) {
         case TY_CHAR:
-            return type->size = 1;
+            return 1;
         case TY_INT:
-            return type->size = 4;
+            return 4;
         case TY_PTR:
-            return type->size = 8;
+            return 8;
         case TY_ARRAY:
-            return type->size = type->array_size * get_sizeof(type->ptr_to);
-        case TY_STRUCT:
+            return type->array_size * get_sizeof(type->ptr_to);
+        case TY_STRUCT: {
+            size_t size = 0;
             for (Member *mem = type->members; mem; mem = mem->next) {
-                type->size += get_sizeof(mem->type);
+                size += get_sizeof(mem->type);
             }
-            return type->size;
+            return size;
+        }
     }
 }
 
