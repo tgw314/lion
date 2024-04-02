@@ -14,6 +14,8 @@ Type *new_type_num(TypeKind kind) {
         error("数型ではありません");
     }
 
+    type->size = get_sizeof(type);
+    type->align = type->size;
     return type;
 }
 
@@ -25,6 +27,9 @@ Type *new_type_func() {
 Type *new_type_ptr(Type *base_type) {
     Type *type = new_type(TY_PTR);
     type->ptr_to = base_type;
+
+    type->size = get_sizeof(type);
+    type->align = type->size;
     return type;
 }
 
@@ -32,11 +37,17 @@ Type *new_type_array(Type *base_type, size_t size) {
     Type *type = new_type(TY_ARRAY);
     type->ptr_to = base_type;
     type->array_size = size;
+
+    type->size = get_sizeof(type);
+    type->align = base_type->align;
     return type;
 }
+
 Type *new_type_struct(Member *members) {
     Type *type = new_type(TY_STRUCT);
     type->members = members;
+
+    type->align = 1;
     return type;
 }
 

@@ -235,8 +235,9 @@ int main() {
     ASSERT(16, ({ struct {int a;} x[4]; sizeof(x); }));
     ASSERT(24, ({ struct {int a[3];} x[2]; sizeof(x); }));
     ASSERT(2, ({ struct {char a; char b;} x; sizeof(x); }));
-    ASSERT(5, ({ struct {char a; int b;} x; sizeof(x); }));
     ASSERT(0, ({ struct {} x; sizeof(x); }));
+    ASSERT(8, ({ struct {char a; int b;} x; sizeof(x); }));
+    ASSERT(8, ({ struct {int b; char a;} x; sizeof(x); }));
     
     printf("OK\n");
     return 0;

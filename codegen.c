@@ -42,7 +42,7 @@ static void println(const char *fmt, ...) {
 }
 
 // align = 2^n の場合のみ有効
-static int align(int n, int align) { return (n + align - 1) & ~(align - 1); }
+int align(int n, int align) { return (n + align - 1) & ~(align - 1); }
 
 static char *reg_alias(RegAlias64 reg, size_t size) {
     static char *regs[16][4] = {

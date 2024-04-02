@@ -72,6 +72,7 @@ struct Type {
     Type *ptr_to;
     size_t size;
     size_t array_size;
+    int align;
     Member *members;
 };
 
@@ -174,5 +175,7 @@ bool is_number(Type *type);
 void set_node_type(Node *node);
 
 Object *program();
+
+int align(int n, int align);
 
 void generate(Object *funcs);

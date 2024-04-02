@@ -451,10 +451,15 @@ static Type *struct_decl() {
 
     int offset = 0;
     for (Member *mem = type->members; mem; mem = mem->next) {
+        offset = align(offset, mem->type->align);
         mem->offset = offset;
         offset += get_sizeof(mem->type);
+
+        if (type->align < mem->type->align) {
+            type->align = mem->type->align;
+        }
     }
-    type->size = offset;
+    type->size = align(offset, type->align);
 
     return type;
 }
