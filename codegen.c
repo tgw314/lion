@@ -137,6 +137,15 @@ static void call(const char *funcname) {
     println(".L.end.%s.%03d:", funcname, i);
 }
 
+static void loc(Node *node) {
+    static int line_no = 0;
+    if (line_no == node->tok->line_no) {
+        return;
+    }
+    line_no = node->tok->line_no;
+    println("  .loc 1 %d", line_no);
+}
+
 static void gen_lval(Node *node) {
     switch (node->kind) {
         case ND_LVAR:
@@ -162,7 +171,7 @@ static void gen_lval(Node *node) {
 }
 
 static void gen_expr(Node *node) {
-    println("  .loc 1 %d", node->tok->line_no);
+    loc(node);
 
     switch (node->kind) {
         case ND_NUM:
@@ -262,7 +271,7 @@ static void gen_expr(Node *node) {
 }
 
 static void gen_stmt(Node *node) {
-    println("  .loc 1 %d", node->tok->line_no);
+    loc(node);
 
     switch (node->kind) {
         case ND_EXPR_STMT:
