@@ -83,6 +83,24 @@ Type *new_type_struct(Member *members) {
     return type;
 }
 
+Type *new_type_union(Member *members) {
+    Type *type = new_type(TY_UNION);
+    type->members = members;
+    type->align = 1;
+
+    for (Member *mem = type->members; mem; mem = mem->next) {
+        if (type->align < mem->type->align) {
+            type->align = mem->type->align;
+        }
+        if (type->size < mem->type->size) {
+            type->size = mem->type->size;
+        }
+    }
+    type->size = align(type->size, type->align);
+
+    return type;
+}
+
 bool is_pointer(Type *type) {
     return type->kind == TY_PTR || type->kind == TY_ARRAY;
 }

@@ -32,6 +32,7 @@ static Scope *scope = &(Scope){};
 static Type *declspec();
 static Type *declarator(Type *type, Token **ident_tok);
 static Type *struct_decl();
+static Type *union_decl();
 
 static void declaration_global();
 static void function(Type *type, Token *tok);
@@ -273,6 +274,14 @@ static Node *new_node_var(Token *tok) {
     return node;
 }
 
+static void push_tag_scope(Token *tok, Type *type) {
+    TagScope *sc = calloc(1, sizeof(TagScope));
+    sc->name = strndup(tok->loc, tok->len);
+    sc->type = type;
+    sc->next = scope->tags;
+    scope->tags = sc;
+}
+
 // program = declaration*
 Object *program() {
     while (!at_eof()) {
@@ -283,25 +292,22 @@ Object *program() {
 }
 
 static bool is_decl() {
-    return match("int") || match("char") || match("struct");
+    return match("int") || match("char") || match("struct") || match("union");
 }
 
-static void push_tag_scope(Token *tok, Type *type) {
-    TagScope *sc = calloc(1, sizeof(TagScope));
-    sc->name = strndup(tok->loc, tok->len);
-    sc->type = type;
-    sc->next = scope->tags;
-    scope->tags = sc;
-}
-
-// declspec = "int" | "char" | "struct" struct-decl
+// declspec = "int" | "char" | ("struct"|"union") struct-decl
 static Type *declspec() {
     if (consume("int")) {
         return new_type_num(TY_INT);
-    } else if (consume("char")) {
+    }
+    if (consume("char")) {
         return new_type_num(TY_CHAR);
-    } else if (consume("struct")) {
+    }
+    if (consume("struct")) {
         return struct_decl();
+    }
+    if (consume("union")) {
+        return union_decl();
     }
 
     error_tok(getok(), "型がありません");
@@ -440,8 +446,8 @@ static void params(Object *func) {
     expect(")");
 }
 
-// struct-members = (declspec declarator ("," declarator)* ";")*
-static Member *struct_members() {
+// members = (declspec declarator ("," declarator)* ";")*
+static Member *members() {
     Member head = {};
     Member *cur = &head;
 
@@ -462,7 +468,7 @@ static Member *struct_members() {
     return head.next;
 }
 
-// struct-decl = ident? ("{" struct-members)?
+// struct-decl = ident? ("{" members)?
 static Type *struct_decl() {
     Token *tok = consume_ident();
     if (tok && !match("{")) {
@@ -475,7 +481,7 @@ static Type *struct_decl() {
 
     expect("{");
 
-    Type *type = new_type_struct(struct_members());
+    Type *type = new_type_struct(members());
     if (tok) {
         push_tag_scope(tok, type);
     }
@@ -483,11 +489,33 @@ static Type *struct_decl() {
     return type;
 }
 
-static Node *struct_ref(Node *lhs) {
-    set_node_type(lhs);
-    if (lhs->type->kind != TY_STRUCT) {
-        error_tok(lhs->tok, "構造体ではありません");
+// union-decl = ident? ("{" members)?
+static Type *union_decl() {
+    Token *tok = consume_ident();
+    if (tok && !match("{")) {
+        Type *type = find_tag(tok);
+        if (!type) {
+            error_tok(tok, "不明な共用体です");
+        }
+        return type;
     }
+
+    expect("{");
+
+    Type *type = new_type_union(members());
+    if (tok) {
+        push_tag_scope(tok, type);
+    }
+
+    return type;
+}
+
+static Node *struct_union_ref(Node *lhs) {
+    set_node_type(lhs);
+    if (lhs->type->kind != TY_STRUCT && lhs->type->kind != TY_UNION) {
+        error_tok(lhs->tok, "構造体または共用体ではありません");
+    };
+
     Token *tok = expect_ident();
 
     Node *node = new_node_expr(ND_MEMBER, tok, lhs, NULL);
@@ -721,13 +749,13 @@ static Node *postfix() {
         }
 
         if (consume(".")) {
-            node = struct_ref(node);
+            node = struct_union_ref(node);
             continue;
         }
 
         if (consume("->")) {
             node = new_node_expr(ND_DEREF, getok()->prev, node, NULL);
-            node = struct_ref(node);
+            node = struct_union_ref(node);
             continue;
         }
 

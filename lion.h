@@ -23,6 +23,7 @@ typedef enum {
     TY_ARRAY,
     TY_FUNC,
     TY_STRUCT,
+    TY_UNION,
 } TypeKind;
 
 // 抽象構文木のノードの種類
@@ -165,6 +166,8 @@ Type *new_type_ptr(Type *type);
 Type *new_type_array(Type *type, size_t size);
 
 Type *new_type_struct(Member *member);
+
+Type *new_type_union(Member *members);
 
 bool is_pointer(Type *type);
 
