@@ -705,7 +705,7 @@ static Node *unary() {
     return postfix();
 }
 
-// postfix = primary ("[" expr "]" | "." ident)*
+// postfix = primary ("[" expr "]" | "." ident | "->" ident)*
 static Node *postfix() {
     Node *node = primary();
 
@@ -721,6 +721,12 @@ static Node *postfix() {
         }
 
         if (consume(".")) {
+            node = struct_ref(node);
+            continue;
+        }
+
+        if (consume("->")) {
+            node = new_node_expr(ND_DEREF, getok()->prev, node, NULL);
             node = struct_ref(node);
             continue;
         }
