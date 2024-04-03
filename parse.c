@@ -10,10 +10,18 @@ struct VarScope {
     Object *var;
 };
 
+typedef struct TagScope TagScope;
+struct TagScope {
+    TagScope *next;
+    char *name;
+    Type *type;
+};
+
 typedef struct Scope Scope;
 struct Scope {
     Scope *next;
     VarScope *vars;
+    TagScope *tags;
 };
 
 static Object *locals;
@@ -119,6 +127,17 @@ static Object *find_var_scope(Token *tok) {
         if (sc->var->name != NULL &&
             !strncmp(tok->loc, sc->var->name, tok->len)) {
             return sc->var;
+        }
+    }
+    return NULL;
+}
+
+static Type *find_tag(Token *tok) {
+    for (Scope *sc = scope; sc; sc = sc->next) {
+        for (TagScope *sc2 = sc->tags; sc2; sc2 = sc2->next) {
+            if (sc2->name != NULL && !strncmp(tok->loc, sc2->name, tok->len)) {
+                return sc2->type;
+            }
         }
     }
     return NULL;
@@ -443,11 +462,23 @@ static Member *struct_members() {
     return head.next;
 }
 
-// struct-decl = "{" struct-members
+// struct-decl = ident? ("{" struct-members)?
 static Type *struct_decl() {
+    Token *tok = consume_ident();
+    if (tok && !match("{")) {
+        Type *type = find_tag(tok);
+        if (!type) {
+            error_tok(tok, "不明な構造体です");
+        }
+        return type;
+    }
+
     expect("{");
 
     Type *type = new_type_struct(struct_members());
+    if (tok) {
+        push_tag_scope(tok, type);
+    }
 
     return type;
 }

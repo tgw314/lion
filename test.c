@@ -241,6 +241,11 @@ int main() {
 
     ASSERT(7, ({ int x; int y; char z; char *a=&y; char *b=&z; b-a; }));
     ASSERT(1, ({ int x; char y; int z; char *a=&y; char *b=&z; b-a; }));
+
+    ASSERT(8, ({ struct t {int a; int b;} x; struct t y; sizeof(y); }));
+    ASSERT(8, ({ struct t {int a; int b;}; struct t y; sizeof(y); }));
+    ASSERT(2, ({ struct t {char a[2];}; { struct t {char a[4];}; } struct t y; sizeof(y); }));
+    ASSERT(3, ({ struct t {int x;}; int t=1; struct t y; y.x=2; t+y.x; }));
     
     printf("OK\n");
     return 0;
