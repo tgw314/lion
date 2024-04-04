@@ -190,7 +190,7 @@ static Node *new_node(NodeKind kind, Token *tok) {
     return node;
 }
 
-static Node *new_node_num(Token *tok, int val) {
+static Node *new_node_num(Token *tok, int64_t val) {
     Node *node = new_node(ND_NUM, tok);
     node->val = val;
     return node;
@@ -292,16 +292,20 @@ Object *program() {
 }
 
 static bool is_decl() {
-    return match("int") || match("char") || match("struct") || match("union");
+    return match("char") || match("int") || match("long") || match("struct") ||
+           match("union");
 }
 
-// declspec = "int" | "char" | ("struct"|"union") struct-decl
+// declspec = "char" | "int" | "long" | ("struct"|"union") struct-decl
 static Type *declspec() {
+    if (consume("char")) {
+        return new_type_num(TY_CHAR);
+    }
     if (consume("int")) {
         return new_type_num(TY_INT);
     }
-    if (consume("char")) {
-        return new_type_num(TY_CHAR);
+    if (consume("long")) {
+        return new_type_num(TY_LONG);
     }
     if (consume("struct")) {
         return struct_decl();

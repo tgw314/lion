@@ -8,6 +8,8 @@ static size_t get_sizeof(Type *type) {
             return 1;
         case TY_INT:
             return 4;
+        case TY_LONG:
+            return 8;
         case TY_PTR:
             return 8;
         case TY_ARRAY:
@@ -106,7 +108,8 @@ bool is_pointer(Type *type) {
 }
 
 bool is_number(Type *type) {
-    return type->kind == TY_INT || type->kind == TY_CHAR;
+    return type->kind == TY_CHAR || type->kind == TY_INT ||
+           type->kind == TY_LONG;
 }
 
 void set_node_type(Node *node) {
@@ -146,7 +149,7 @@ void set_node_type(Node *node) {
         case ND_LEQ:
         case ND_NUM:
         case ND_CALL:
-            node->type = new_type(TY_INT);
+            node->type = new_type(TY_LONG);
             return;
         case ND_COMMA:
             node->type = node->rhs->type;

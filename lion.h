@@ -1,5 +1,6 @@
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 
 typedef struct Token Token;
 typedef struct Node Node;
@@ -17,8 +18,9 @@ typedef enum {
 } TokenKind;
 
 typedef enum {
-    TY_INT,
     TY_CHAR,
+    TY_INT,
+    TY_LONG,
     TY_PTR,
     TY_ARRAY,
     TY_FUNC,
@@ -60,7 +62,7 @@ struct Token {
     TokenKind kind;  // トークンの型
     Token *prev;     // 前の入力トークン
     Token *next;     // 次の入力トークン
-    int val;         // kind が TK_NUM の場合の数値
+    int64_t val;     // kind が TK_NUM の場合の数値
     char *str;       // kind が TK_STR の場合の文字列
     char *loc;       // トークン文字列
     int len;         // トークンの長さ
@@ -91,7 +93,7 @@ struct Node {
     Node *init;      // kind が ND_FOR の場合のみ
     Node *upd;       // kind が ND_FOR の場合のみ
     Node *body;      // kind が ND_BLOCK, ND_EXPR_STMT の場合のみ
-    int val;         // kind が ND_NUM の場合の数値
+    int64_t val;     // kind が ND_NUM の場合の数値
     Object *var;     // kind が ND_LVAR, ND_GVAR の場合のみ
     char *funcname;  // kind が ND_CALL の場合のみ
     Node *args;      // kind が ND_CALL の場合のみ
