@@ -729,8 +729,7 @@ static Node *unary() {
         return unary();
     }
     if (consume("-")) {
-        return new_node_expr(ND_SUB, getok()->prev,
-                             new_node_num(getok()->prev, 0), unary());
+        return new_node_expr(ND_NEG, getok()->prev, unary(), NULL);
     }
     if (consume("*")) {
         return new_node_expr(ND_DEREF, getok()->prev, unary(), NULL);

@@ -39,6 +39,7 @@ typedef enum {
     ND_NEQ,        // !=
     ND_LS,         // <
     ND_LEQ,        // <=
+    ND_NEG,        // 単項 '-'
     ND_ASSIGN,     // =
     ND_COMMA,      // ,
     ND_MEMBER,     // .

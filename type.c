@@ -121,7 +121,7 @@ void set_node_type(Node *node) {
         case ND_SUB:
         case ND_MUL:
         case ND_DIV:
-            // case ND_NEG:
+        case ND_NEG:
             node->type = node->lhs->type;
             return;
         case ND_ASSIGN:

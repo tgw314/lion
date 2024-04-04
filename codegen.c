@@ -171,6 +171,10 @@ static void gen_expr(Node *node) {
         case ND_NUM:
             println("  mov rax, %ld", node->val);
             return;
+        case ND_NEG:
+            gen_expr(node->lhs);
+            println("  neg rax");
+            return;
         case ND_GVAR:
         case ND_LVAR:
         case ND_MEMBER:
