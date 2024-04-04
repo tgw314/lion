@@ -72,10 +72,11 @@ struct Token {
 // 型
 struct Type {
     TypeKind kind;
-    Type *ptr_to;
     size_t size;
-    size_t array_size;
     int align;
+
+    Type *ptr_to;
+    size_t array_size;
     Member *members;
 };
 
@@ -159,7 +160,7 @@ bool at_eof();
 // 入力文字列 p をトークナイズしてそれを返す
 void tokenize(char *p);
 
-Type *new_type_num(TypeKind kind);
+Type *num_type(TypeKind kind);
 
 Type *new_type_func();
 

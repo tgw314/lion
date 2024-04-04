@@ -99,7 +99,7 @@ static Object *new_anon_gvar(Type *type) {
 }
 
 static Object *new_string_literal(char *str) {
-    Type *type = new_type_array(new_type_num(TY_CHAR), strlen(str) + 1);
+    Type *type = new_type_array(num_type(TY_CHAR), strlen(str) + 1);
     Object *gvar = new_anon_gvar(type);
     gvar->init_data = str;
     return gvar;
@@ -247,7 +247,7 @@ static Node *new_node_sub(Token *tok, Node *lhs, Node *rhs) {
 
     if (is_pointer(lhs->type) && is_pointer(rhs->type)) {
         Node *node = new_node_expr(ND_SUB, tok, lhs, rhs);
-        node->type = new_type_num(TY_INT);
+        node->type = num_type(TY_INT);
         return new_node_expr(ND_DIV, tok, node,
                              new_node_num(tok, lhs->type->ptr_to->size));
     }
@@ -299,13 +299,13 @@ static bool is_decl() {
 // declspec = "char" | "int" | "long" | ("struct"|"union") struct-decl
 static Type *declspec() {
     if (consume("char")) {
-        return new_type_num(TY_CHAR);
+        return num_type(TY_CHAR);
     }
     if (consume("int")) {
-        return new_type_num(TY_INT);
+        return num_type(TY_INT);
     }
     if (consume("long")) {
-        return new_type_num(TY_LONG);
+        return num_type(TY_LONG);
     }
     if (consume("struct")) {
         return struct_decl();

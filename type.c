@@ -2,43 +2,27 @@
 
 #include "lion.h"
 
-static size_t get_sizeof(Type *type) {
-    switch (type->kind) {
-        case TY_CHAR:
-            return 1;
-        case TY_INT:
-            return 4;
-        case TY_LONG:
-            return 8;
-        case TY_PTR:
-            return 8;
-        case TY_ARRAY:
-            return type->array_size * get_sizeof(type->ptr_to);
-        case TY_STRUCT: {
-            size_t size = 0;
-            for (Member *mem = type->members; mem; mem = mem->next) {
-                size += get_sizeof(mem->type);
-            }
-            return size;
-        }
-    }
-}
-
 static Type *new_type(TypeKind kind) {
     Type *type = calloc(1, sizeof(Type));
     type->kind = kind;
     return type;
 }
 
-Type *new_type_num(TypeKind kind) {
-    Type *type = new_type(kind);
-    if (!is_number(type)) {
-        error("数型ではありません");
-    }
+Type *num_type(TypeKind kind) {
+    static Type char_type = (Type){TY_CHAR, 1, 1};
+    static Type int_type = (Type){TY_INT, 4, 4};
+    static Type long_type = (Type){TY_LONG, 8, 8};
 
-    type->size = get_sizeof(type);
-    type->align = type->size;
-    return type;
+    switch (kind) {
+        case TY_CHAR:
+            return &char_type;
+        case TY_INT:
+            return &int_type;
+        case TY_LONG:
+            return &long_type;
+        default:
+            error("数型ではありません");
+    }
 }
 
 Type *new_type_func() {
@@ -50,7 +34,7 @@ Type *new_type_ptr(Type *base_type) {
     Type *type = new_type(TY_PTR);
     type->ptr_to = base_type;
 
-    type->size = get_sizeof(type);
+    type->size = 8;
     type->align = type->size;
     return type;
 }
@@ -60,7 +44,7 @@ Type *new_type_array(Type *base_type, size_t size) {
     type->ptr_to = base_type;
     type->array_size = size;
 
-    type->size = get_sizeof(type);
+    type->size = size * base_type->size;
     type->align = base_type->align;
     return type;
 }
@@ -74,7 +58,7 @@ Type *new_type_struct(Member *members) {
     for (Member *mem = type->members; mem; mem = mem->next) {
         offset = align(offset, mem->type->align);
         mem->offset = offset;
-        offset += get_sizeof(mem->type);
+        offset += mem->type->size;
 
         if (type->align < mem->type->align) {
             type->align = mem->type->align;
@@ -149,7 +133,7 @@ void set_node_type(Node *node) {
         case ND_LEQ:
         case ND_NUM:
         case ND_CALL:
-            node->type = new_type(TY_LONG);
+            node->type = num_type(TY_LONG);
             return;
         case ND_COMMA:
             node->type = node->rhs->type;
