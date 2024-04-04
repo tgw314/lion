@@ -100,7 +100,7 @@ static void mov_memReg(RegAlias64 dest, RegAlias64 src, Type *type) {
 
 static void mov_regMem(RegAlias64 dest, RegAlias64 src, Type *type) {
     size_t size = type->size;
-    if (size == 1) {
+    if (size != 8) {
         println("  movsx %s, %s [%s]", reg_alias(dest, 8), word_ptr(size),
                 reg_alias(src, 8));
     } else {
