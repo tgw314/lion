@@ -270,8 +270,10 @@ int main() {
     ASSERT(3, ({ union {struct {int a,b;} c;} x,y; x.c.b=3; y.c.b=5; y=x; y.c.b; }));
 
     ASSERT(16, ({ struct {char a; long b;} x; sizeof(x); }));
-
     ASSERT(8, ({ long x; sizeof(x); }));
+
+    ASSERT(4, ({ struct {char a; short b;} x; sizeof(x); }));
+    ASSERT(2, ({ short x = 9; sizeof(x); }));
 
     printf("OK\n");
     return 0;

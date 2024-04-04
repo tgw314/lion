@@ -10,12 +10,15 @@ static Type *new_type(TypeKind kind) {
 
 Type *num_type(TypeKind kind) {
     static Type char_type = (Type){TY_CHAR, 1, 1};
+    static Type short_type = (Type){TY_SHORT, 2, 2};
     static Type int_type = (Type){TY_INT, 4, 4};
     static Type long_type = (Type){TY_LONG, 8, 8};
 
     switch (kind) {
         case TY_CHAR:
             return &char_type;
+        case TY_SHORT:
+            return &short_type;
         case TY_INT:
             return &int_type;
         case TY_LONG:
@@ -92,8 +95,8 @@ bool is_pointer(Type *type) {
 }
 
 bool is_number(Type *type) {
-    return type->kind == TY_CHAR || type->kind == TY_INT ||
-           type->kind == TY_LONG;
+    return type->kind == TY_CHAR || type->kind == TY_SHORT ||
+           type->kind == TY_INT || type->kind == TY_LONG;
 }
 
 void set_node_type(Node *node) {

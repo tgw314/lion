@@ -66,6 +66,14 @@ static VarScope *push_scope(Object *var) {
     return sc;
 }
 
+static void push_tag_scope(Token *tok, Type *type) {
+    TagScope *sc = calloc(1, sizeof(TagScope));
+    sc->name = strndup(tok->loc, tok->len);
+    sc->type = type;
+    sc->next = scope->tags;
+    scope->tags = sc;
+}
+
 static Object *new_func(Type *type, Token *tok) {
     Object *func = calloc(1, sizeof(Object));
     func->type = type;
@@ -274,14 +282,6 @@ static Node *new_node_var(Token *tok) {
     return node;
 }
 
-static void push_tag_scope(Token *tok, Type *type) {
-    TagScope *sc = calloc(1, sizeof(TagScope));
-    sc->name = strndup(tok->loc, tok->len);
-    sc->type = type;
-    sc->next = scope->tags;
-    scope->tags = sc;
-}
-
 // program = declaration*
 Object *program() {
     while (!at_eof()) {
@@ -292,14 +292,18 @@ Object *program() {
 }
 
 static bool is_decl() {
-    return match("char") || match("int") || match("long") || match("struct") ||
-           match("union");
+    return match("char") || match("short") || match("int") || match("long") ||
+           match("struct") || match("union");
 }
 
-// declspec = "char" | "int" | "long" | ("struct"|"union") struct-decl
+// declspec = "char" | "int" | "long" | "short"
+//           | ("struct"|"union") struct-decl
 static Type *declspec() {
     if (consume("char")) {
         return num_type(TY_CHAR);
+    }
+    if (consume("short")) {
+        return num_type(TY_SHORT);
     }
     if (consume("int")) {
         return num_type(TY_INT);
