@@ -109,12 +109,6 @@ static void mov_regMem(RegAlias64 dest, RegAlias64 src, Type *type) {
     }
 }
 
-static void mov_regOffset(RegAlias64 dest, int offset, Type *type) {
-    size_t size = type->size;
-    println("  mov %s, %s [rbp%+d]", reg_alias(dest, size), word_ptr(size),
-            offset);
-}
-
 static void mov_offsetReg(int offset, RegAlias64 src, Type *type) {
     size_t size = type->size;
     println("  mov %s [rbp%+d], %s", word_ptr(size), offset,
