@@ -175,7 +175,8 @@ static void gen_expr(Node *node) {
         case ND_LVAR:
         case ND_MEMBER:
             gen_lval(node);
-            if (node->type->kind != TY_ARRAY) {
+            if (node->type->kind != TY_ARRAY && node->type->kind != TY_STRUCT &&
+                node->type->kind != TY_UNION) {
                 mov_regMem(RAX, RAX, node->type);
             }
             return;
@@ -184,7 +185,14 @@ static void gen_expr(Node *node) {
             println("  push rax");
             gen_expr(node->rhs);
             println("  pop rdi");
-            mov_memReg(RDI, RAX, node->type);
+            if (node->type->kind == TY_STRUCT || node->type->kind == TY_UNION) {
+                for (int i = 0; i < node->type->size; i++) {
+                    println("  mov r8b, [rax%+d]", i);
+                    println("  mov [rdi%+d], r8b", i);
+                }
+            } else {
+                mov_memReg(RDI, RAX, node->type);
+            }
             return;
         case ND_COMMA:
             gen_expr(node->lhs);
@@ -195,7 +203,8 @@ static void gen_expr(Node *node) {
             return;
         case ND_DEREF:
             gen_expr(node->lhs);
-            if (node->type->kind != TY_ARRAY) {
+            if (node->type->kind != TY_ARRAY && node->type->kind != TY_STRUCT &&
+                node->type->kind != TY_UNION) {
                 mov_regMem(RAX, RAX, node->type);
             }
             return;
