@@ -430,6 +430,12 @@ static void function(Type *type) {
         error_tok(tok, "再定義です");
     }
     Object *func = new_func(type, tok);
+    func->is_def = !consume(";");
+    add_global(func);
+
+    if (!func->is_def) {
+        return;
+    }
 
     locals = NULL;
 
@@ -441,8 +447,6 @@ static void function(Type *type) {
     func->locals = locals;
 
     leave_scope();
-
-    add_global(func);
 }
 
 // params = (declare ident ("," declare ident)*)? ")"

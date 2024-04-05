@@ -115,6 +115,7 @@ struct Object {
     Object *next;  // 次の関数
     bool is_func;
     bool is_local;
+    bool is_def;
 
     // ローカル変数
     int offset;  // RBP からのオフセット

@@ -1,5 +1,7 @@
 #define ASSERT(x, y) assert(x, y, #y)
 
+int printf();
+
 int ret3() {
   return 3;
   return 5;

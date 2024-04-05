@@ -364,6 +364,7 @@ void generate(Object *globals) {
 
             continue;
         }
+        if (!obj->is_def) continue;
 
         {  // ローカル変数のオフセットを計算
             int stack_size = 0;
