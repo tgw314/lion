@@ -30,13 +30,12 @@ static Object *globals = &(Object){};
 static Scope *scope = &(Scope){};
 
 static Type *declspec();
-static Type *declarator(Type *type, Token **ident_tok);
+static Type *declarator(Type *type);
 static Type *struct_decl();
 static Type *union_decl();
-
 static void declaration_global();
-static void function(Type *type, Token *tok);
-static void params(Object *func);
+static void function(Type *type);
+static Type *params();
 static Node *stmt();
 static Node *compound_stmt();
 static Node *expr_stmt();
@@ -323,10 +322,7 @@ static Type *declspec() {
 
 static Type *declsuffix(Type *type) {
     if (consume("(")) {
-        Type *base_type = type;
-
-        type = new_type_func();
-        type->ptr_to = base_type;
+        type = new_type_func(type, params());
         return type;
     }
 
@@ -341,26 +337,28 @@ static Type *declsuffix(Type *type) {
 }
 
 // declarator = "*"* ("(" ident ")" | "(" declarator ")" | ident) declsuffix
-static Type *declarator(Type *type, Token **ident_tok) {
+static Type *declarator(Type *type) {
     while (consume("*")) {
         type = new_type_ptr(type);
     }
 
     if (consume("(")) {
         Token *start = getok();
-        declarator(&(Type){}, ident_tok);
+        declarator(&(Type){});
         expect(")");
         Type *base = declsuffix(type);
         Token *end = getok();
         seek(start);
-        Type *type = declarator(base, ident_tok);
+        type = declarator(base);
         seek(end);
         return type;
     }
 
-    *ident_tok = expect_ident();
+    Token *tok = expect_ident();
+    type = declsuffix(type);
+    type->tok = tok;
 
-    return declsuffix(type);
+    return type;
 }
 
 // declaration = declspec
@@ -368,29 +366,28 @@ static Type *declarator(Type *type, Token **ident_tok) {
 static Node *declaration_local() {
     Type *base_type = declspec();
 
-    Token *tok = getok();
+    Token *start = getok();
     Node head = {};
     Node *cur = &head;
 
     for (int i = 0; !consume(";"); i++) {
         if (i > 0) expect(",");
 
-        Token *tok = NULL;
-        Type *type = declarator(base_type, &tok);
-        Object *var = new_lvar(type, tok);
+        Type *type = declarator(base_type);
+        Object *var = new_lvar(type, type->tok);
 
-        if (find_var_scope(tok) != NULL) {
-            error_tok(tok, "再定義です");
+        if (find_var_scope(type->tok) != NULL) {
+            error_tok(type->tok, "再定義です");
         }
         add_lvar(var);
 
         if (consume("=")) {
             cur = cur->next = new_node(ND_EXPR_STMT, getok());
             cur->lhs = new_node_expr(ND_ASSIGN, getok()->prev,
-                                     new_node_var(tok), assign());
+                                     new_node_var(type->tok), assign());
         }
     }
-    Node *node = new_node(ND_BLOCK, tok);
+    Node *node = new_node(ND_BLOCK, start);
     node->body = head.next;
 
     return node;
@@ -402,18 +399,17 @@ static void declaration_global() {
     for (int i = 0; !consume(";"); i++) {
         if (i > 0) expect(",");
 
-        Token *tok = NULL;
-        Type *type = declarator(base_type, &tok);
+        Type *type = declarator(base_type);
 
         if (type->kind == TY_FUNC && i == 0) {
-            function(type->ptr_to, tok);
+            function(type);
             break;
         } else {
             // グローバル変数の再宣言は可能
-            if (find_func(tok) != NULL) {
-                error_tok(tok, "再定義です");
+            if (find_func(type->tok) != NULL) {
+                error_tok(type->tok, "再定義です");
             }
-            add_global(new_gvar(type, tok));
+            add_global(new_gvar(type, type->tok));
             if (consume("=")) {
                 error_tok(getok()->prev, "初期化式は未対応です");
             }
@@ -421,7 +417,15 @@ static void declaration_global() {
     }
 }
 
-static void function(Type *type, Token *tok) {
+static void add_params_lvar(Type *param) {
+    if (param) {
+        add_params_lvar(param->next);
+        add_lvar(new_lvar(param, param->tok));
+    }
+}
+
+static void function(Type *type) {
+    Token *tok = type->tok;
     if (find_func(tok) != NULL || find_var_scope(tok) != NULL) {
         error_tok(tok, "再定義です");
     }
@@ -431,7 +435,8 @@ static void function(Type *type, Token *tok) {
 
     enter_scope();
 
-    params(func);
+    add_params_lvar(type->params);
+    func->params = locals;
     func->body = stmt();
     func->locals = locals;
 
@@ -441,29 +446,21 @@ static void function(Type *type, Token *tok) {
 }
 
 // params = (declare ident ("," declare ident)*)? ")"
-static void params(Object *func) {
-    if (consume(")")) return;
+static Type *params() {
+    if (consume(")")) return NULL;
 
-    Object head = {};
-    Object *cur = &head;
+    Type head = {};
+    Type *cur = &head;
 
     do {
         Type *base_type = declspec();
-
-        Token *tok = NULL;
-        Type *type = declarator(base_type, &tok);
-        Object *var = new_lvar(type, tok);
-
-        if (find_var_scope(tok) != NULL) {
-            error_tok(tok, "引数の再定義");
-        }
-        push_scope(var);
-
-        cur = cur->next = var;
-        locals = head.next;
+        Type *type = calloc(1, sizeof(Type));
+        *type = *declarator(base_type);
+        cur = cur->next = type;
     } while (consume(","));
-    func->params = head.next;
     expect(")");
+
+    return head.next;
 }
 
 // members = (declspec declarator ("," declarator)* ";")*
@@ -477,10 +474,9 @@ static Member *members() {
         for (int i = 0; !consume(";"); i++) {
             if (i > 0) expect(",");
 
-            Token *tok = NULL;
             Member *mem = calloc(1, sizeof(Member));
-            mem->type = declarator(base_type, &tok);
-            mem->name = strndup(tok->loc, tok->len);
+            mem->type = declarator(base_type);
+            mem->name = strndup(mem->type->tok->loc, mem->type->tok->len);
             cur = cur->next = mem;
         }
     }

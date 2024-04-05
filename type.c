@@ -28,8 +28,10 @@ Type *num_type(TypeKind kind) {
     }
 }
 
-Type *new_type_func() {
+Type *new_type_func(Type *return_type, Type *params) {
     Type *type = new_type(TY_FUNC);
+    type->return_type = return_type;
+    type->params = params;
     return type;
 }
 

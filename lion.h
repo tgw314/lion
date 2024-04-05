@@ -76,10 +76,15 @@ struct Type {
     TypeKind kind;
     size_t size;
     int align;
+    Token *tok;
 
     Type *ptr_to;
     size_t array_size;
     Member *members;
+
+    Type *return_type;
+    Type *params;
+    Type *next;
 };
 
 // 抽象構文木のノードの型
@@ -166,7 +171,7 @@ void tokenize(char *p);
 
 Type *num_type(TypeKind kind);
 
-Type *new_type_func();
+Type *new_type_func(Type *return_type, Type *params);
 
 Type *new_type_ptr(Type *type);
 
