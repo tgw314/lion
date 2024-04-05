@@ -291,13 +291,23 @@ Object *program() {
 }
 
 static bool is_decl() {
-    return match("char") || match("short") || match("int") || match("long") ||
-           match("struct") || match("union");
+    static char *keywords[] = {"void", "char",   "short", "int",
+                               "long", "struct", "union"};
+    static int len = sizeof(keywords) / sizeof(*keywords);
+    for (int i = 0; i < len; i++) {
+        if (match(keywords[i])) {
+            return true;
+        }
+    }
+    return false;
 }
 
-// declspec = "char" | "int" | "long" | "short"
+// declspec = "void" | "char" | "int" | "long" | "short"
 //           | ("struct"|"union") struct-decl
 static Type *declspec() {
+    if (consume("void")) {
+        return num_type(TY_VOID);
+    }
     if (consume("char")) {
         return num_type(TY_CHAR);
     }
@@ -374,6 +384,10 @@ static Node *declaration_local() {
         if (i > 0) expect(",");
 
         Type *type = declarator(base_type);
+        if (type->kind == TY_VOID) {
+            error_tok(type->tok, "void 型の変数が宣言されました");
+        }
+
         Object *var = new_lvar(type, type->tok);
 
         if (find_var_scope(type->tok) != NULL) {
@@ -404,6 +418,8 @@ static void declaration_global() {
         if (type->kind == TY_FUNC && i == 0) {
             function(type);
             break;
+        } else if (type->kind == TY_VOID) {
+            error_tok(type->tok, "void 型の変数が宣言されました");
         } else {
             // グローバル変数の再宣言は可能
             if (find_func(type->tok) != NULL) {

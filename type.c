@@ -9,12 +9,15 @@ static Type *new_type(TypeKind kind) {
 }
 
 Type *num_type(TypeKind kind) {
+    static Type void_type = (Type){TY_VOID, 1, 1};
     static Type char_type = (Type){TY_CHAR, 1, 1};
     static Type short_type = (Type){TY_SHORT, 2, 2};
     static Type int_type = (Type){TY_INT, 4, 4};
     static Type long_type = (Type){TY_LONG, 8, 8};
 
     switch (kind) {
+        case TY_VOID:
+            return &void_type;
         case TY_CHAR:
             return &char_type;
         case TY_SHORT:
@@ -155,7 +158,10 @@ void set_node_type(Node *node) {
             return;
         case ND_DEREF:
             if (node->lhs->type->ptr_to == NULL) {
-                error_tok(node->tok, "無効なポインタの参照です");
+                error_tok(node->tok, "無効なポインタの参照");
+            }
+            if (node->lhs->type->ptr_to->kind == TY_VOID) {
+                error_tok(node->tok, "void 型のポインタの参照");
             }
             node->type = node->lhs->type->ptr_to;
             return;
