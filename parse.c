@@ -325,7 +325,7 @@ static Type *declsuffix(Type *type) {
     if (consume("(")) {
         Type *base_type = type;
 
-        type = new_type_func(TY_FUNC);
+        type = new_type_func();
         type->ptr_to = base_type;
         return type;
     }
@@ -340,10 +340,22 @@ static Type *declsuffix(Type *type) {
     return type;
 }
 
-// declarator = "*"* ident declsuffix
+// declarator = "*"* ("(" ident ")" | "(" declarator ")" | ident) declsuffix
 static Type *declarator(Type *type, Token **ident_tok) {
     while (consume("*")) {
         type = new_type_ptr(type);
+    }
+
+    if (consume("(")) {
+        Token *start = getok();
+        declarator(&(Type){}, ident_tok);
+        expect(")");
+        Type *base = declsuffix(type);
+        Token *end = getok();
+        seek(start);
+        Type *type = declarator(base, ident_tok);
+        seek(end);
+        return type;
     }
 
     *ident_tok = expect_ident();

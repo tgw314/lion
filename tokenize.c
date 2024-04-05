@@ -9,6 +9,8 @@ static Token *token;
 
 Token *getok() { return token; }
 
+void seek(Token *tok) { token = tok; }
+
 // 次のトークンが期待している記号のときには、
 // 真を返す。それ以外の場合には偽を返す。
 bool match(char *op) {

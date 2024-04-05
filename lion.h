@@ -143,6 +143,8 @@ void error_tok(Token *tok, char *fmt, ...);
 
 Token *getok();
 
+void seek(Token *tok);
+
 bool match(char *op);
 
 bool consume(char *op);
