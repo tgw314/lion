@@ -27,7 +27,7 @@ Type *num_type(TypeKind kind) {
         case TY_LONG:
             return &long_type;
         default:
-            error("数型ではありません");
+            unreachable();
     }
 }
 

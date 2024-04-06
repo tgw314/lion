@@ -71,7 +71,7 @@ static char *reg_alias(RegAlias64 reg, size_t size) {
             idx = 3;
             break;
         default:
-            error("reg_alias: 不正なサイズです");
+            unreachable();
     }
 
     return regs[reg][idx];
@@ -88,7 +88,7 @@ static char *word_ptr(size_t size) {
         case 8:
             return "QWORD PTR";
         default:
-            error("word_ptr: 不正なサイズです");
+            unreachable();
     }
 }
 

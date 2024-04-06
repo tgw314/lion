@@ -148,6 +148,8 @@ void error_at(char *loc, char *fmt, ...);
 
 void error_tok(Token *tok, char *fmt, ...);
 
+#define unreachable() error("内部エラー: %s:%d", __FILE__, __LINE__)
+
 Token *getok();
 
 void seek(Token *tok);
