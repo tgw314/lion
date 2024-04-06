@@ -1,4 +1,5 @@
 #define ASSERT(x, y) assert(x, y, #y)
+// clang-format off
 
 int printf();
 
@@ -287,6 +288,14 @@ int main() {
     ASSERT(4, ({ char x[3]; char (*y)[3]=x; y[0][0]=4; y[0][0]; }));
 
     { void *x; }
+
+    ASSERT(1, ({ char x; sizeof(x); }));
+    ASSERT(2, ({ short int x; sizeof(x); }));
+    ASSERT(2, ({ int short x; sizeof(x); }));
+    ASSERT(4, ({ int x; sizeof(x); }));
+    ASSERT(8, ({ long int x; sizeof(x); }));
+    ASSERT(8, ({ int long x; sizeof(x); }));
+    ASSERT(8, ({ long long x; sizeof(x); }));
 
     printf("OK\n");
     return 0;

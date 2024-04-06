@@ -302,32 +302,75 @@ static bool is_decl() {
     return false;
 }
 
-// declspec = "void" | "char" | "int" | "long" | "short"
-//           | ("struct"|"union") struct-decl
+// declspec = ("void" | "char" | "int" | "long" | "short"
+//             | ("struct"|"union") struct-decl)+
 static Type *declspec() {
-    if (consume("void")) {
-        return num_type(TY_VOID);
-    }
-    if (consume("char")) {
-        return num_type(TY_CHAR);
-    }
-    if (consume("short")) {
-        return num_type(TY_SHORT);
-    }
-    if (consume("int")) {
-        return num_type(TY_INT);
-    }
-    if (consume("long")) {
-        return num_type(TY_LONG);
-    }
-    if (consume("struct")) {
-        return struct_decl();
-    }
-    if (consume("union")) {
-        return union_decl();
+    enum {
+        // clang-format off
+        VOID  = 1 << 0,
+        CHAR  = 1 << 2,
+        SHORT = 1 << 4,
+        INT   = 1 << 6,
+        LONG  = 1 << 8,
+        OTHER = 1 << 10,
+        // clang-format on
+    };
+
+    Type *type = num_type(TY_INT);
+    int counter = 0;
+
+    while (is_decl()) {
+        if (consume("struct")) {
+            type = struct_decl();
+            counter += OTHER;
+            continue;
+        }
+        if (consume("union")) {
+            type = union_decl();
+            counter += OTHER;
+            continue;
+        }
+
+        if (consume("void")) {
+            counter += VOID;
+        } else if (consume("char")) {
+            counter += CHAR;
+        } else if (consume("short")) {
+            counter += SHORT;
+        } else if (consume("int")) {
+            counter += INT;
+        } else if (consume("long")) {
+            counter += LONG;
+        } else {
+            unreachable();
+        }
+
+        switch (counter) {
+            case VOID:
+                type = num_type(TY_VOID);
+                break;
+            case CHAR:
+                type = num_type(TY_CHAR);
+                break;
+            case SHORT:
+            case SHORT + INT:
+                type = num_type(TY_SHORT);
+                break;
+            case INT:
+                type = num_type(TY_INT);
+                break;
+            case LONG:
+            case LONG + INT:
+            case LONG + LONG:
+            case LONG + LONG + INT:
+                type = num_type(TY_LONG);
+                break;
+            default:
+                error_tok(getok()->prev, "不正な型です");
+        }
     }
 
-    error_tok(getok(), "型がありません");
+    return type;
 }
 
 static Type *declsuffix(Type *type) {
