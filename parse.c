@@ -461,30 +461,32 @@ static Type *declarator(Type *type) {
 static Node *declaration_local(Type *base_type) {
     Node *node = new_node(ND_BLOCK, getok());
 
-    Node head = {};
-    Node *cur = &head;
+    if (!consume(";")) {
+        Node head = {};
+        Node *cur = &head;
 
-    for (bool first = true; !consume(";"); first = false) {
-        if (!first) expect(",");
+        do {
+            Type *type = declarator(base_type);
+            if (type->kind == TY_VOID) {
+                error_tok(type->tok, "void 型の変数が宣言されました");
+            }
 
-        Type *type = declarator(base_type);
-        if (type->kind == TY_VOID) {
-            error_tok(type->tok, "void 型の変数が宣言されました");
-        }
+            Object *var = new_lvar(type, type->tok);
 
-        Object *var = new_lvar(type, type->tok);
+            check_var_redef(type->tok);
+            add_lvar(var);
 
-        check_var_redef(type->tok);
-        add_lvar(var);
+            if (consume("=")) {
+                cur = cur->next = new_node(ND_EXPR_STMT, getok());
+                cur->lhs = new_node_expr(ND_ASSIGN, getok()->prev,
+                                         new_node_var(type->tok), assign());
+            }
+        } while (consume(","));
+        expect(";");
 
-        if (consume("=")) {
-            cur = cur->next = new_node(ND_EXPR_STMT, getok());
-            cur->lhs = new_node_expr(ND_ASSIGN, getok()->prev,
-                                     new_node_var(type->tok), assign());
-        }
+        node->body = head.next;
     }
 
-    node->body = head.next;
     return node;
 }
 
@@ -641,12 +643,13 @@ static Node *struct_union_ref(Node *lhs) {
 }
 
 static void parse_typedef(Type *base_type) {
-    for (bool first = true; !consume(";"); first = false) {
-        if (!first) expect(",");
-
-        Type *type = declarator(base_type);
-        char *name = strndup(type->tok->loc, type->tok->len);
-        push_scope(name)->type_def = type;
+    if (!consume(";")) {
+        do {
+            Type *type = declarator(base_type);
+            char *name = strndup(type->tok->loc, type->tok->len);
+            push_scope(name)->type_def = type;
+        } while (consume(","));
+        expect(";");
     }
 }
 
