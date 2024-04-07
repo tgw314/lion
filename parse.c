@@ -137,15 +137,6 @@ static VarScope *find_var(Token *tok) {
     return NULL;
 }
 
-static Object *find_var_scope(Token *tok) {
-    for (VarScope *sc = scope->vars; sc; sc = sc->next) {
-        if (equal(tok, sc->name)) {
-            return sc->var;
-        }
-    }
-    return NULL;
-}
-
 static Type *find_tag(Token *tok) {
     for (Scope *sc = scope; sc; sc = sc->next) {
         for (TagScope *sc2 = sc->tags; sc2; sc2 = sc2->next) {
@@ -181,6 +172,22 @@ static Member *get_member(Type *type, Token *tok) {
         }
     }
     error_tok(tok, "存在しないメンバです");
+}
+
+static void check_var_redef(Token *tok) {
+    for (VarScope *sc = scope->vars; sc; sc = sc->next) {
+        if (equal(tok, sc->name)) {
+            if (sc->var) {
+                error_tok(tok, "再定義です");
+            }
+        }
+    }
+}
+
+static void check_func_redef(Token *tok) {
+    if (find_func(tok)) {
+        error_tok(tok, "再定義です");
+    }
 }
 
 // ローカル変数を locals の先頭に追加する
@@ -467,9 +474,7 @@ static Node *declaration_local(Type *base_type) {
 
         Object *var = new_lvar(type, type->tok);
 
-        if (find_var_scope(type->tok) != NULL) {
-            error_tok(type->tok, "再定義です");
-        }
+        check_var_redef(type->tok);
         add_lvar(var);
 
         if (consume("=")) {
@@ -498,9 +503,7 @@ static void declaration_global(Type *base_type) {
             error_tok(type->tok, "void 型の変数が宣言されました");
         } else {
             // グローバル変数の再宣言は可能
-            if (find_func(type->tok) != NULL) {
-                error_tok(type->tok, "再定義です");
-            }
+            check_var_redef(type->tok);
             add_global(new_gvar(type, type->tok));
             if (consume("=")) {
                 error_tok(getok()->prev, "初期化式は未対応です");
@@ -518,9 +521,10 @@ static void add_params_lvar(Type *param) {
 
 static void function(Type *type) {
     Token *tok = type->tok;
-    if (find_func(tok) != NULL || find_var_scope(tok) != NULL) {
-        error_tok(tok, "再定義です");
-    }
+
+    check_var_redef(tok);
+    check_func_redef(tok);
+
     Object *func = new_func(type, tok);
     func->is_def = !consume(";");
     add_global(func);
