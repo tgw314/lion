@@ -170,6 +170,8 @@ int expect_number();
 
 bool at_eof();
 
+bool equal(Token *tok, char *op);
+
 // 入力文字列 p をトークナイズしてそれを返す
 void tokenize(char *p);
 

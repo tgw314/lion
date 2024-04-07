@@ -7,7 +7,9 @@
 typedef struct VarScope VarScope;
 struct VarScope {
     VarScope *next;
+    char *name;
     Object *var;
+    Type *type_def;
 };
 
 typedef struct TagScope TagScope;
@@ -24,18 +26,24 @@ struct Scope {
     TagScope *tags;
 };
 
+typedef struct VarAttr VarAttr;
+struct VarAttr {
+    bool is_typedef;
+};
+
 static Object *locals;
 static Object *globals = &(Object){};
 
 static Scope *scope = &(Scope){};
 
-static Type *declspec();
+static Type *declspec(VarAttr *attr);
 static Type *declarator(Type *type);
 static Type *struct_decl();
 static Type *union_decl();
-static void declaration_global();
+static void declaration_global(Type *base_type);
 static void function(Type *type);
 static Type *params();
+static void parse_typedef(Type *base_type);
 static Node *stmt();
 static Node *compound_stmt();
 static Node *expr_stmt();
@@ -57,9 +65,9 @@ static void enter_scope() {
 
 static void leave_scope() { scope = scope->next; }
 
-static VarScope *push_scope(Object *var) {
+static VarScope *push_scope(char *name) {
     VarScope *sc = calloc(1, sizeof(VarScope));
-    sc->var = var;
+    sc->name = name;
     sc->next = scope->vars;
     scope->vars = sc;
     return sc;
@@ -118,12 +126,11 @@ static Object *new_lvar(Type *type, Token *tok) {
     return lvar;
 }
 
-static Object *find_var(Token *tok) {
+static VarScope *find_var(Token *tok) {
     for (Scope *sc = scope; sc; sc = sc->next) {
         for (VarScope *sc2 = sc->vars; sc2; sc2 = sc2->next) {
-            if (sc2->var->name != NULL &&
-                !strncmp(tok->loc, sc2->var->name, tok->len)) {
-                return sc2->var;
+            if (equal(tok, sc2->name)) {
+                return sc2;
             }
         }
     }
@@ -132,8 +139,7 @@ static Object *find_var(Token *tok) {
 
 static Object *find_var_scope(Token *tok) {
     for (VarScope *sc = scope->vars; sc; sc = sc->next) {
-        if (sc->var->name != NULL &&
-            !strncmp(tok->loc, sc->var->name, tok->len)) {
+        if (equal(tok, sc->name)) {
             return sc->var;
         }
     }
@@ -143,7 +149,7 @@ static Object *find_var_scope(Token *tok) {
 static Type *find_tag(Token *tok) {
     for (Scope *sc = scope; sc; sc = sc->next) {
         for (TagScope *sc2 = sc->tags; sc2; sc2 = sc2->next) {
-            if (sc2->name != NULL && !strncmp(tok->loc, sc2->name, tok->len)) {
+            if (equal(tok, sc2->name)) {
                 return sc2->type;
             }
         }
@@ -153,17 +159,24 @@ static Type *find_tag(Token *tok) {
 
 static Object *find_func(Token *tok) {
     for (Object *func = globals; func; func = func->next) {
-        if (func->is_func && func->name != NULL &&
-            !strncmp(tok->loc, func->name, tok->len)) {
+        if (func->is_func && equal(tok, func->name)) {
             return func;
         }
     }
     return NULL;
 }
 
+static Type *find_typedef(Token *tok) {
+    if (tok->kind == TK_IDENT) {
+        VarScope *sc = find_var(tok);
+        if (sc) return sc->type_def;
+    }
+    return NULL;
+}
+
 static Member *get_member(Type *type, Token *tok) {
     for (Member *mem = type->members; mem; mem = mem->next) {
-        if (!strncmp(tok->loc, mem->name, tok->len)) {
+        if (equal(tok, mem->name)) {
             return mem;
         }
     }
@@ -174,7 +187,7 @@ static Member *get_member(Type *type, Token *tok) {
 static void add_lvar(Object *lvar) {
     lvar->next = locals;
     locals = lvar;
-    push_scope(lvar);
+    push_scope(lvar->name)->var = lvar;
 }
 
 // 関数とグローバル変数を globals の末尾に追加する
@@ -184,7 +197,7 @@ static void add_global(Object *global) {
     for (cur = globals; cur; cur = cur->next) {
         if (cur->next == NULL) {
             cur = cur->next = global;
-            push_scope(global);
+            push_scope(global->name)->var = global;
             return;
         }
     }
@@ -266,25 +279,32 @@ static Node *new_node_sub(Token *tok, Node *lhs, Node *rhs) {
 static Node *new_node_var(Token *tok) {
     Node *node = NULL;
 
-    Object *var = find_var(tok);
-    if (!var) {
+    VarScope *sc = find_var(tok);
+    if (!sc || !sc->var) {
         error_tok(tok, "宣言されていない変数です");
     }
 
-    if (var->is_local) {
+    if (sc->var->is_local) {
         node = new_node(ND_LVAR, tok);
     } else {
         node = new_node(ND_GVAR, tok);
     }
-    node->var = var;
+    node->var = sc->var;
 
     return node;
 }
 
-// program = declaration*
+// program = (typedef | declaration_global)*
 Object *program() {
     while (!at_eof()) {
-        declaration_global();
+        VarAttr attr = {};
+        Type *base_type = declspec(&attr);
+
+        if (attr.is_typedef) {
+            parse_typedef(base_type);
+            continue;
+        }
+        declaration_global(base_type);
     }
 
     return globals->next;
@@ -292,19 +312,20 @@ Object *program() {
 
 static bool is_decl() {
     static char *keywords[] = {"void", "char",   "short", "int",
-                               "long", "struct", "union"};
+                               "long", "struct", "union", "typedef"};
     static int len = sizeof(keywords) / sizeof(*keywords);
     for (int i = 0; i < len; i++) {
         if (match(keywords[i])) {
             return true;
         }
     }
-    return false;
+    return find_typedef(getok());
 }
 
 // declspec = ("void" | "char" | "int" | "long" | "short"
-//             | ("struct"|"union") struct-decl)+
-static Type *declspec() {
+//             | "struct" struct-decl | "union" union-decl
+//             | "typedef" | typedef-name)+
+static Type *declspec(VarAttr *attr) {
     enum {
         // clang-format off
         VOID  = 1 << 0,
@@ -320,13 +341,27 @@ static Type *declspec() {
     int counter = 0;
 
     while (is_decl()) {
-        if (consume("struct")) {
-            type = struct_decl();
-            counter += OTHER;
+        if (consume("typedef")) {
+            if (!attr) {
+                error_tok(getok(), "記憶クラス指定子は使用できません");
+            }
+            attr->is_typedef = true;
             continue;
         }
-        if (consume("union")) {
-            type = union_decl();
+
+        Type *deftype = find_typedef(getok());
+        if (match("struct") || match("union") || deftype) {
+            if (counter) break;
+
+            if (consume("struct")) {
+                type = struct_decl();
+            } else if (consume("union")) {
+                type = union_decl();
+            } else {
+                type = deftype;
+                seek(getok()->next);
+            }
+
             counter += OTHER;
             continue;
         }
@@ -416,15 +451,14 @@ static Type *declarator(Type *type) {
 
 // declaration = declspec
 //               (declarator ("=" assign)? ("," declarator ("=" assign)?)*)? ";"
-static Node *declaration_local() {
-    Type *base_type = declspec();
+static Node *declaration_local(Type *base_type) {
+    Node *node = new_node(ND_BLOCK, getok());
 
-    Token *start = getok();
     Node head = {};
     Node *cur = &head;
 
-    for (int i = 0; !consume(";"); i++) {
-        if (i > 0) expect(",");
+    for (bool first = true; !consume(";"); first = false) {
+        if (!first) expect(",");
 
         Type *type = declarator(base_type);
         if (type->kind == TY_VOID) {
@@ -444,24 +478,23 @@ static Node *declaration_local() {
                                      new_node_var(type->tok), assign());
         }
     }
-    Node *node = new_node(ND_BLOCK, start);
-    node->body = head.next;
 
+    node->body = head.next;
     return node;
 }
 
-static void declaration_global() {
-    Type *base_type = declspec();
-
-    for (int i = 0; !consume(";"); i++) {
-        if (i > 0) expect(",");
+static void declaration_global(Type *base_type) {
+    for (bool first = true; !consume(";"); first = false) {
+        if (!first) expect(",");
 
         Type *type = declarator(base_type);
 
-        if (type->kind == TY_FUNC && i == 0) {
+        if (first && type->kind == TY_FUNC) {
             function(type);
             break;
-        } else if (type->kind == TY_VOID) {
+        }
+
+        if (type->kind == TY_VOID) {
             error_tok(type->tok, "void 型の変数が宣言されました");
         } else {
             // グローバル変数の再宣言は可能
@@ -516,7 +549,7 @@ static Type *params() {
     Type *cur = &head;
 
     do {
-        Type *base_type = declspec();
+        Type *base_type = declspec(NULL);
         Type *type = calloc(1, sizeof(Type));
         *type = *declarator(base_type);
         cur = cur->next = type;
@@ -532,7 +565,7 @@ static Member *members() {
     Member *cur = &head;
 
     while (!consume("}")) {
-        Type *base_type = declspec();
+        Type *base_type = declspec(NULL);
 
         for (int i = 0; !consume(";"); i++) {
             if (i > 0) expect(",");
@@ -603,6 +636,16 @@ static Node *struct_union_ref(Node *lhs) {
     return node;
 }
 
+static void parse_typedef(Type *base_type) {
+    for (bool first = true; !consume(";"); first = false) {
+        if (!first) expect(",");
+
+        Type *type = declarator(base_type);
+        char *name = strndup(type->tok->loc, type->tok->len);
+        push_scope(name)->type_def = type;
+    }
+}
+
 // stmt = expr_stmt
 //      | "{" compound_stmt
 //      | "if" "(" expr ")" stmt ("else" stmt)?
@@ -669,7 +712,7 @@ static Node *stmt() {
     return expr_stmt();
 }
 
-// compound_stmt = (declaration_local | stmt)* "}"
+// compound_stmt = (typedef | declaration_local | stmt)* "}"
 static Node *compound_stmt() {
     Node *node = new_node(ND_BLOCK, getok()->prev);
 
@@ -680,7 +723,15 @@ static Node *compound_stmt() {
 
     while (!consume("}")) {
         if (is_decl()) {
-            cur->next = declaration_local();
+            VarAttr attr = {};
+            Type *base_type = declspec(&attr);
+
+            if (attr.is_typedef) {
+                parse_typedef(base_type);
+                continue;
+            }
+
+            cur->next = declaration_local(base_type);
         } else {
             cur->next = stmt();
         }
