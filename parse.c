@@ -177,9 +177,7 @@ static Member *get_member(Type *type, Token *tok) {
 static void check_var_redef(Token *tok) {
     for (VarScope *sc = scope->vars; sc; sc = sc->next) {
         if (equal(tok, sc->name)) {
-            if (sc->var) {
-                error_tok(tok, "再定義です");
-            }
+            error_tok(tok, "再定義です");
         }
     }
 }
@@ -647,6 +645,7 @@ static void parse_typedef(Type *base_type) {
         do {
             Type *type = declarator(base_type);
             char *name = strndup(type->tok->loc, type->tok->len);
+            check_var_redef(type->tok);
             push_scope(name)->type_def = type;
         } while (consume(","));
         expect(";");
