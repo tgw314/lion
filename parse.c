@@ -460,6 +460,29 @@ static Type *declarator(Type *type) {
     return type;
 }
 
+// abstract-declarator = "*"* ("(" abstract-declarator ")")? declsuffix
+static Type *abstract_declarator(Type *type) {
+    while (consume("*")) {
+        type = new_type_ptr(type);
+    }
+
+    if (consume("(")) {
+        Token *start = getok();
+        abstract_declarator(&(Type){});
+        expect(")");
+        Type *base = declsuffix(type);
+        Token *end = getok();
+        seek(start);
+        type = abstract_declarator(base);
+        seek(end);
+        return type;
+    }
+
+    return declsuffix(type);
+}
+
+static Type *typename() { return abstract_declarator(declspec(NULL)); }
+
 // declaration = declspec
 //               (declarator ("=" assign)? ("," declarator ("=" assign)?)*)? ";"
 static Node *declaration_local(Type *base_type) {
@@ -857,16 +880,10 @@ static Node *mul() {
     }
 }
 
-// unary = "sizeof" unary
-//       | ("+" | "-" | "*" | "&") unary
+// unary = ("+" | "-" | "*" | "&") unary
 //       | postfix
 static Node *unary() {
     Token *tok = getok();
-    if (consume("sizeof")) {
-        Node *node = unary();
-        set_node_type(node);
-        return new_node_num(tok, node->type->size);
-    }
     if (consume("+")) {
         return unary();
     }
@@ -943,8 +960,9 @@ static Node *string_literal(Token *tok) {
 // primary = num | ident | callfunc
 //         | string | "(" expr ")"
 //         | "(" "{" stmt+ "}" ")"
+//         | "sizeof" (unary | "(" typename ")")
 static Node *primary() {
-    Token *tok;
+    Token *tok = getok();
 
     if (consume("(")) {
         Node *node;
@@ -956,6 +974,19 @@ static Node *primary() {
         }
         expect(")");
         return node;
+    }
+
+    if (consume("sizeof")) {
+        if (consume("(") && is_decl()) {
+            Type *type = typename();
+            expect(")");
+            return new_node_num(tok, type->size);
+        }
+        seek(tok->next);
+
+        Node *node = unary();
+        set_node_type(node);
+        return new_node_num(tok, node->type->size);
     }
 
     if ((tok = consume_ident())) {
