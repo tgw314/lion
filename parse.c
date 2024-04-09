@@ -967,7 +967,7 @@ static Node *primary() {
     if (consume("(")) {
         Node *node;
         if (consume("{")) {
-            node = new_node(ND_STMT_EXPR, getok()->prev);
+            node = new_node(ND_STMT_EXPR, tok->next);
             node->body = compound_stmt()->body;
         } else {
             node = expr();
@@ -989,7 +989,8 @@ static Node *primary() {
         return new_node_num(tok, node->type->size);
     }
 
-    if ((tok = consume_ident())) {
+    if (tok->kind == TK_IDENT) {
+        seek(tok->next);
         if (consume("(")) {
             return callfunc(tok);
         }
@@ -997,9 +998,10 @@ static Node *primary() {
         return new_node_var(tok);
     }
 
-    if ((tok = consume_string())) {
+    if (tok->kind == TK_STR) {
+        seek(tok->next);
         return string_literal(tok);
     }
 
-    return new_node_num(getok(), expect_number());
+    return new_node_num(tok, expect_number());
 }

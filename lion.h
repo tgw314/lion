@@ -164,8 +164,6 @@ Token *consume_ident();
 
 Token *expect_ident();
 
-Token *consume_string();
-
 int expect_number();
 
 bool at_eof();
