@@ -240,40 +240,50 @@ static void gen_expr(Node *node) {
     println("  mov rdi, rax");
     println("  pop rax");
 
+    Type *t = node->lhs->type;
+    size_t size = t->kind == TY_LONG || t->ptr_to ? 8 : 4;
+    char *rax = reg_alias(RAX, size);
+    char *rdi = reg_alias(RDI, size);
+
     switch (node->kind) {
         case ND_ADD:
-            println("  add rax, rdi");
-            break;
+            println("  add %s, %s", rax, rdi);
+            return;
         case ND_SUB:
-            println("  sub rax, rdi");
-            break;
+            println("  sub %s, %s", rax, rdi);
+            return;
         case ND_MUL:
-            println("  imul rax, rdi");
-            break;
+            println("  imul %s, %s", rax, rdi);
+            return;
         case ND_DIV:
-            println("  cqo");
-            println("  idiv rdi");
-            break;
+            if (size == 8) {
+                println("  cqo");
+            } else {
+                println("  cdq");
+            }
+            println("  idiv %s", rdi);
+            return;
         case ND_EQ:
-            println("  cmp rax, rdi");
-            println("  sete al");
-            println("  movzb rax, al");
-            break;
         case ND_NEQ:
-            println("  cmp rax, rdi");
-            println("  setne al");
-            println("  movzb rax, al");
-            break;
         case ND_LS:
-            println("  cmp rax, rdi");
-            println("  setl al");
-            println("  movzb rax, al");
-            break;
         case ND_LEQ:
-            println("  cmp rax, rdi");
-            println("  setle al");
+            println("  cmp %s, %s", rax, rdi);
+            switch (node->kind) {
+                case ND_EQ:
+                    println("  sete al");
+                    break;
+                case ND_NEQ:
+                    println("  setne al");
+                    break;
+                case ND_LS:
+                    println("  setl al");
+                    break;
+                case ND_LEQ:
+                    println("  setle al");
+                    break;
+            }
             println("  movzb rax, al");
-            break;
+            return;
     }
 }
 
