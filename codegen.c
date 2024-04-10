@@ -44,7 +44,24 @@ static void println(const char *fmt, ...) {
 // align = 2^n の場合のみ有効
 int align(int n, int align) { return (n + align - 1) & ~(align - 1); }
 
-static char *reg_alias(RegAlias64 reg, size_t size) {
+typedef enum { I8, I16, I32, I64 } TypeId;
+
+static TypeId type_id(Type *type) {
+    switch (type->kind) {
+        case TY_CHAR:
+            return I8;
+        case TY_SHORT:
+            return I16;
+        case TY_INT:
+            return I32;
+        case TY_VOID:
+            unreachable();
+        default:
+            return I64;
+    }
+}
+
+static char *reg_alias(RegAlias64 reg, TypeId id) {
     static char *regs[16][4] = {
         {"al", "ax", "eax", "rax"},      {"dil", "di", "edi", "rdi"},
         {"sil", "si", "esi", "rsi"},     {"dl", "dx", "edx", "rdx"},
@@ -56,36 +73,18 @@ static char *reg_alias(RegAlias64 reg, size_t size) {
         {"r14b", "r14w", "r14d", "r14"}, {"r15b", "r15w", "r15d", "r15"},
     };
 
-    int idx;
-    switch (size) {
-        case 1:
-            idx = 0;
-            break;
-        case 2:
-            idx = 1;
-            break;
-        case 4:
-            idx = 2;
-            break;
-        case 8:
-            idx = 3;
-            break;
-        default:
-            unreachable();
-    }
-
-    return regs[reg][idx];
+    return regs[reg][id];
 }
 
-static char *word_ptr(size_t size) {
-    switch (size) {
-        case 1:
+static char *word_ptr(TypeId id) {
+    switch (id) {
+        case I8:
             return "BYTE PTR";
-        case 2:
+        case I16:
             return "WORD PTR";
-        case 4:
+        case I32:
             return "DWORD PTR";
-        case 8:
+        case I64:
             return "QWORD PTR";
         default:
             unreachable();
@@ -93,26 +92,25 @@ static char *word_ptr(size_t size) {
 }
 
 static void mov_memReg(RegAlias64 dest, RegAlias64 src, Type *type) {
-    size_t size = type->size;
-    println("  mov %s [%s], %s", word_ptr(size), reg_alias(dest, 8),
-            reg_alias(src, size));
+    TypeId id = type_id(type);
+    println("  mov %s [%s], %s", word_ptr(id), reg_alias(dest, I64),
+            reg_alias(src, id));
 }
 
 static void mov_regMem(RegAlias64 dest, RegAlias64 src, Type *type) {
-    size_t size = type->size;
-    if (size != 8) {
-        println("  movsx %s, %s [%s]", reg_alias(dest, 8), word_ptr(size),
-                reg_alias(src, 8));
+    TypeId id = type_id(type);
+    if (id != I64) {
+        println("  movsx %s, %s [%s]", reg_alias(dest, I64), word_ptr(id),
+                reg_alias(src, I64));
     } else {
-        println("  mov %s, %s [%s]", reg_alias(dest, size), word_ptr(size),
-                reg_alias(src, 8));
+        println("  mov %s, %s [%s]", reg_alias(dest, id), word_ptr(id),
+                reg_alias(src, I64));
     }
 }
 
 static void mov_offsetReg(int offset, RegAlias64 src, Type *type) {
-    size_t size = type->size;
-    println("  mov %s [rbp%+d], %s", word_ptr(size), offset,
-            reg_alias(src, size));
+    TypeId id = type_id(type);
+    println("  mov %s [rbp%+d], %s", word_ptr(id), offset, reg_alias(src, id));
 }
 
 static void call(const char *funcname) {
@@ -129,6 +127,26 @@ static void call(const char *funcname) {
     println("  call %s", funcname);
     println("  add rsp, 8");
     println(".L.end.%s.%03d:", funcname, i);
+}
+
+static void cast(Type *from, Type *to) {
+    static char i32i8[] = "movsx eax, al";
+    static char i32i16[] = "movsx eax, ax";
+    static char i32i64[] = "movsxd rax, eax";
+    static char *cast_table[][8] = {
+        {NULL, NULL, NULL, i32i64},
+        {i32i8, NULL, NULL, i32i64},
+        {i32i8, i32i16, NULL, i32i64},
+        {i32i8, i32i16, NULL, NULL},
+    };
+
+    if (to->kind == TY_VOID) return;
+    TypeId from_id = type_id(from);
+    TypeId to_id = type_id(to);
+
+    if (cast_table[from_id][to_id]) {
+        println("  %s", cast_table[from_id][to_id]);
+    }
 }
 
 static void loc(Node *node) {
@@ -212,6 +230,10 @@ static void gen_expr(Node *node) {
                 mov_regMem(RAX, RAX, node->type);
             }
             return;
+        case ND_CAST:
+            gen_expr(node->lhs);
+            cast(node->lhs->type, node->type);
+            return;
         case ND_CALL: {
             int argc = 0;
             char *arg_regs[] = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"};
@@ -241,9 +263,9 @@ static void gen_expr(Node *node) {
     println("  pop rax");
 
     Type *t = node->lhs->type;
-    size_t size = t->kind == TY_LONG || t->ptr_to ? 8 : 4;
-    char *rax = reg_alias(RAX, size);
-    char *rdi = reg_alias(RDI, size);
+    TypeId id = t->kind == TY_LONG || t->ptr_to ? I64 : I32;
+    char *rax = reg_alias(RAX, id);
+    char *rdi = reg_alias(RDI, id);
 
     switch (node->kind) {
         case ND_ADD:
@@ -256,7 +278,7 @@ static void gen_expr(Node *node) {
             println("  imul %s, %s", rax, rdi);
             return;
         case ND_DIV:
-            if (size == 8) {
+            if (id == I64) {
                 println("  cqo");
             } else {
                 println("  cdq");

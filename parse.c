@@ -53,6 +53,7 @@ static Node *equality();
 static Node *relational();
 static Node *add();
 static Node *mul();
+static Node *cast();
 static Node *unary();
 static Node *postfix();
 static Node *primary();
@@ -302,6 +303,16 @@ static Node *new_node_var(Token *tok) {
     }
     node->var = sc->var;
 
+    return node;
+}
+
+static Node *new_node_cast(Token *tok, Type *type, Node *expr) {
+    set_node_type(expr);
+
+    Node *node = new_node(ND_CAST, tok);
+    node->lhs = expr;
+    node->type = calloc(1, sizeof(Type));
+    *node->type = *type;
     return node;
 }
 
@@ -864,37 +875,50 @@ static Node *add() {
     }
 }
 
-// mul = unary ("*" unary | "/" unary)*
+// mul = cast ("*" cast | "/" cast)*
 static Node *mul() {
-    Node *node = unary();
+    Node *node = cast();
 
     while (true) {
         Token *tok = getok();
         if (consume("*")) {
-            node = new_node_binary(ND_MUL, tok, node, unary());
+            node = new_node_binary(ND_MUL, tok, node, cast());
         } else if (consume("/")) {
-            node = new_node_binary(ND_DIV, tok, node, unary());
+            node = new_node_binary(ND_DIV, tok, node, cast());
         } else {
             return node;
         }
     }
 }
 
-// unary = ("+" | "-" | "*" | "&") unary
+// cast = "(" typename ")" cast | unary
+static Node *cast() {
+    Token *tok = getok();
+    if (consume("(") && is_decl()) {
+        Type *type = typename();
+        expect(")");
+        return new_node_cast(tok, type, cast());
+    }
+
+    seek(tok);
+    return unary();
+}
+
+// unary = ("+" | "-" | "*" | "&") cast
 //       | postfix
 static Node *unary() {
     Token *tok = getok();
     if (consume("+")) {
-        return unary();
+        return cast();
     }
     if (consume("-")) {
-        return new_node_unary(ND_NEG, tok, unary());
+        return new_node_unary(ND_NEG, tok, cast());
     }
     if (consume("*")) {
-        return new_node_unary(ND_DEREF, tok, unary());
+        return new_node_unary(ND_DEREF, tok, cast());
     }
     if (consume("&")) {
-        return new_node_unary(ND_ADDR, tok, unary());
+        return new_node_unary(ND_ADDR, tok, cast());
     }
     return postfix();
 }

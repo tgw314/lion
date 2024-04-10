@@ -46,6 +46,7 @@ typedef enum {
     ND_MEMBER,     // .
     ND_ADDR,       // &
     ND_DEREF,      // *
+    ND_CAST,       // キャスト
     ND_LVAR,       // ローカル変数
     ND_GVAR,       // グローバル変数
     ND_NUM,        // 整数
