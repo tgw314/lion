@@ -960,7 +960,15 @@ static Node *postfix() {
 
 // callfunc = ident "(" (assign ("," assign)*)? ")"
 static Node *callfunc(Token *tok) {
+    VarScope *sc = find_var(tok);
+
+    if (!sc) error_tok(tok, "関数の暗黙的な宣言");
+    if (!sc->var || sc->var->type->kind != TY_FUNC) {
+        error_tok(tok, "関数ではありません");
+    }
+
     Node *node = new_node(ND_CALL, tok);
+    node->type = sc->var->type->return_type;
     node->funcname = strndup(tok->loc, tok->len);
 
     if (!consume(")")) {
@@ -969,6 +977,7 @@ static Node *callfunc(Token *tok) {
 
         do {
             cur = cur->next = assign();
+            set_node_type(cur);
         } while (consume(","));
         expect(")");
 
