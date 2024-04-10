@@ -95,13 +95,27 @@ Type *new_type_union(Member *members) {
     return type;
 }
 
-bool is_pointer(Type *type) {
-    return type->kind == TY_PTR || type->kind == TY_ARRAY;
-}
+bool is_pointer(Type *type) { return type->ptr_to != NULL; }
 
 bool is_number(Type *type) {
     return type->kind == TY_CHAR || type->kind == TY_SHORT ||
            type->kind == TY_INT || type->kind == TY_LONG;
+}
+
+static Type *common_type(Type *ty1, Type *ty2) {
+    if (is_pointer(ty1)) {
+        return new_type_ptr(ty1->ptr_to);
+    }
+    if (ty1->size == 8 || ty2->size == 8) {
+        return num_type(TY_LONG);
+    }
+    return num_type(TY_INT);
+}
+
+static void usual_arith_conv(Node **lhs, Node **rhs) {
+    Type *type = common_type((*lhs)->type, (*rhs)->type);
+    *lhs = new_node_cast((*lhs)->tok, type, *lhs);
+    *rhs = new_node_cast((*rhs)->tok, type, *rhs);
 }
 
 void set_node_type(Node *node) {
@@ -122,16 +136,30 @@ void set_node_type(Node *node) {
     }
 
     switch (node->kind) {
+        case ND_NUM:
+            node->type = (node->val == (int)node->val) ? num_type(TY_INT)
+                                                       : num_type(TY_LONG);
+            return;
         case ND_ADD:
         case ND_SUB:
         case ND_MUL:
         case ND_DIV:
-        case ND_NEG:
+            usual_arith_conv(&node->lhs, &node->rhs);
             node->type = node->lhs->type;
             return;
+        case ND_NEG: {
+            Type *type = common_type(num_type(TY_INT), node->lhs->type);
+            node->lhs = new_node_cast(node->tok, type, node->lhs);
+            node->type = type;
+            return;
+        }
         case ND_ASSIGN:
             if (node->lhs->type->kind == TY_ARRAY) {
                 error_tok(node->tok, "配列への代入はできません");
+            }
+            if (node->lhs->type->kind != TY_STRUCT) {
+                node->rhs =
+                    new_node_cast(node->tok, node->lhs->type, node->rhs);
             }
             node->type = node->lhs->type;
             return;
@@ -139,7 +167,9 @@ void set_node_type(Node *node) {
         case ND_NEQ:
         case ND_LS:
         case ND_LEQ:
-        case ND_NUM:
+            usual_arith_conv(&node->lhs, &node->rhs);
+            node->type = num_type(TY_INT);
+            return;
         case ND_CALL:
             node->type = num_type(TY_LONG);
             return;

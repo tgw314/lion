@@ -99,12 +99,20 @@ static void mov_memReg(RegAlias64 dest, RegAlias64 src, Type *type) {
 
 static void mov_regMem(RegAlias64 dest, RegAlias64 src, Type *type) {
     TypeId id = type_id(type);
-    if (id != I64) {
-        println("  movsx %s, %s [%s]", reg_alias(dest, I64), word_ptr(id),
-                reg_alias(src, I64));
-    } else {
-        println("  mov %s, %s [%s]", reg_alias(dest, id), word_ptr(id),
-                reg_alias(src, I64));
+    switch (id) {
+        case I8:
+        case I16:
+            println("  movsx %s, %s [%s]", reg_alias(dest, I32), word_ptr(id),
+                    reg_alias(src, I64));
+            return;
+        case I32:
+            println("  movsxd %s, %s [%s]", reg_alias(dest, I64), word_ptr(id),
+                    reg_alias(src, I64));
+            return;
+        case I64:
+            println("  mov %s, %s [%s]", reg_alias(dest, id), word_ptr(id),
+                    reg_alias(src, I64));
+            return;
     }
 }
 

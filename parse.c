@@ -222,6 +222,12 @@ static Node *new_node_num(Token *tok, int64_t val) {
     return node;
 }
 
+static Node *new_node_long(Token *tok, int64_t val) {
+    Node *node = new_node_num(tok, val);
+    node->type = num_type(TY_LONG);
+    return node;
+}
+
 static Node *new_node_unary(NodeKind kind, Token *tok, Node *lhs) {
     Node *node = new_node(kind, tok);
     node->lhs = lhs;
@@ -256,7 +262,7 @@ static Node *new_node_add(Token *tok, Node *lhs, Node *rhs) {
 
     // lhs: pointer, rhs: number
     rhs = new_node_binary(ND_MUL, tok, rhs,
-                          new_node_num(tok, lhs->type->ptr_to->size));
+                          new_node_long(tok, lhs->type->ptr_to->size));
     return new_node_binary(ND_ADD, tok, lhs, rhs);
 }
 
@@ -270,7 +276,7 @@ static Node *new_node_sub(Token *tok, Node *lhs, Node *rhs) {
 
     if (is_pointer(lhs->type) && is_number(rhs->type)) {
         rhs = new_node_binary(ND_MUL, tok, rhs,
-                              new_node_num(tok, lhs->type->ptr_to->size));
+                              new_node_long(tok, lhs->type->ptr_to->size));
         set_node_type(rhs);
         Node *node = new_node_binary(ND_SUB, tok, lhs, rhs);
         node->type = lhs->type;
@@ -306,7 +312,7 @@ static Node *new_node_var(Token *tok) {
     return node;
 }
 
-static Node *new_node_cast(Token *tok, Type *type, Node *expr) {
+Node *new_node_cast(Token *tok, Type *type, Node *expr) {
     set_node_type(expr);
 
     Node *node = new_node(ND_CAST, tok);

@@ -174,6 +174,8 @@ bool equal(Token *tok, char *op);
 // 入力文字列 p をトークナイズしてそれを返す
 void tokenize(char *p);
 
+Node *new_node_cast(Token *tok, Type *type, Node *expr);
+
 Type *num_type(TypeKind kind);
 
 Type *new_type_func(Type *return_type, Type *params);
