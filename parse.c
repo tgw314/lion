@@ -33,6 +33,7 @@ struct VarAttr {
 
 static Object *locals;
 static Object *globals = &(Object){};
+static Object *current_func;
 
 static Scope *scope = &(Scope){};
 
@@ -581,6 +582,7 @@ static void function(Type *type) {
     }
 
     locals = NULL;
+    current_func = func;
 
     enter_scope();
 
@@ -758,8 +760,12 @@ static Node *stmt() {
     }
 
     if (consume("return")) {
-        Node *node = new_node_unary(ND_RETURN, tok, expr());
+        Node *node = expr();
         expect(";");
+
+        set_node_type(node);
+        node = new_node_cast(tok, current_func->type->return_type, node);
+        node = new_node_unary(ND_RETURN, tok, node);
         return node;
     }
 

@@ -40,6 +40,14 @@ int fib(int x) {
 
 int g1, g2[4];
 
+int *g1_ptr() {
+  return &g1;
+}
+
+char int_to_char(int x) {
+  return x;
+}
+
 int main() {
     ASSERT(0, 0);
     ASSERT(42, 42);
@@ -369,6 +377,10 @@ int main() {
     ASSERT(0, ({ char x[3]; x[0]=0; x[1]=1; x[2]=2; char *y=x+1; y[-1]; }));
     ASSERT(5, ({ struct t {char a;} x, y; x.a=5; y=x; y.a; }));
 
+    g1 = 3;
+
+    ASSERT(3, *g1_ptr());
+    ASSERT(5, int_to_char(261));
 
     printf("OK\n");
     return 0;
