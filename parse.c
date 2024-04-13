@@ -116,7 +116,7 @@ static Object *new_anon_gvar(Type *type) {
 }
 
 static Object *new_string_literal(char *str) {
-    Type *type = new_type_array(num_type(TY_CHAR), strlen(str) + 1);
+    Type *type = new_type_array(basic_type(TY_CHAR), strlen(str) + 1);
     Object *gvar = new_anon_gvar(type);
     gvar->init_data = str;
     return gvar;
@@ -225,7 +225,7 @@ static Node *new_node_num(Token *tok, int64_t val) {
 
 static Node *new_node_long(Token *tok, int64_t val) {
     Node *node = new_node_num(tok, val);
-    node->type = num_type(TY_LONG);
+    node->type = basic_type(TY_LONG);
     return node;
 }
 
@@ -286,7 +286,7 @@ static Node *new_node_sub(Token *tok, Node *lhs, Node *rhs) {
 
     if (is_pointer(lhs->type) && is_pointer(rhs->type)) {
         Node *node = new_node_binary(ND_SUB, tok, lhs, rhs);
-        node->type = num_type(TY_INT);
+        node->type = basic_type(TY_INT);
         return new_node_binary(ND_DIV, tok, node,
                                new_node_num(tok, lhs->type->ptr_to->size));
     }
@@ -340,7 +340,7 @@ Object *program() {
 }
 
 static bool is_decl() {
-    static char *keywords[] = {"void", "char",   "short", "int",
+    static char *keywords[] = {"void", "_Bool",  "char",  "short",  "int",
                                "long", "struct", "union", "typedef"};
     static int len = sizeof(keywords) / sizeof(*keywords);
     for (int i = 0; i < len; i++) {
@@ -351,22 +351,23 @@ static bool is_decl() {
     return find_typedef(getok());
 }
 
-// declspec = ("void" | "char" | "int" | "long" | "short"
+// declspec = ("void" | "_Bool" | "char" | "int" | "long" | "short"
 //             | "struct" struct-decl | "union" union-decl
 //             | "typedef" | typedef-name)+
 static Type *declspec(VarAttr *attr) {
     enum {
         // clang-format off
         VOID  = 1 << 0,
-        CHAR  = 1 << 2,
-        SHORT = 1 << 4,
-        INT   = 1 << 6,
-        LONG  = 1 << 8,
-        OTHER = 1 << 10,
+        BOOL  = 1 << 2,
+        CHAR  = 1 << 4,
+        SHORT = 1 << 6,
+        INT   = 1 << 8,
+        LONG  = 1 << 10,
+        OTHER = 1 << 12,
         // clang-format on
     };
 
-    Type *type = num_type(TY_INT);
+    Type *type = basic_type(TY_INT);
     int counter = 0;
 
     while (is_decl()) {
@@ -397,6 +398,8 @@ static Type *declspec(VarAttr *attr) {
 
         if (consume("void")) {
             counter += VOID;
+        } else if (consume("_Bool")) {
+            counter += BOOL;
         } else if (consume("char")) {
             counter += CHAR;
         } else if (consume("short")) {
@@ -411,23 +414,26 @@ static Type *declspec(VarAttr *attr) {
 
         switch (counter) {
             case VOID:
-                type = num_type(TY_VOID);
+                type = basic_type(TY_VOID);
+                break;
+            case BOOL:
+                type = basic_type(TY_BOOL);
                 break;
             case CHAR:
-                type = num_type(TY_CHAR);
+                type = basic_type(TY_CHAR);
                 break;
             case SHORT:
             case SHORT + INT:
-                type = num_type(TY_SHORT);
+                type = basic_type(TY_SHORT);
                 break;
             case INT:
-                type = num_type(TY_INT);
+                type = basic_type(TY_INT);
                 break;
             case LONG:
             case LONG + INT:
             case LONG + LONG:
             case LONG + LONG + INT:
-                type = num_type(TY_LONG);
+                type = basic_type(TY_LONG);
                 break;
             default:
                 error_tok(getok()->prev, "不正な型です");

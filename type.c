@@ -8,16 +8,19 @@ static Type *new_type(TypeKind kind) {
     return type;
 }
 
-Type *num_type(TypeKind kind) {
-    static Type void_type = (Type){TY_VOID, 1, 1};
-    static Type char_type = (Type){TY_CHAR, 1, 1};
-    static Type short_type = (Type){TY_SHORT, 2, 2};
-    static Type int_type = (Type){TY_INT, 4, 4};
-    static Type long_type = (Type){TY_LONG, 8, 8};
+Type *basic_type(TypeKind kind) {
+    static Type void_type = (Type){TY_VOID, 1, 1},
+                bool_type = (Type){TY_BOOL, 1, 1},
+                char_type = (Type){TY_CHAR, 1, 1},
+                short_type = (Type){TY_SHORT, 2, 2},
+                int_type = (Type){TY_INT, 4, 4},
+                long_type = (Type){TY_LONG, 8, 8};
 
     switch (kind) {
         case TY_VOID:
             return &void_type;
+        case TY_BOOL:
+            return &bool_type;
         case TY_CHAR:
             return &char_type;
         case TY_SHORT:
@@ -98,8 +101,9 @@ Type *new_type_union(Member *members) {
 bool is_pointer(Type *type) { return type->ptr_to != NULL; }
 
 bool is_number(Type *type) {
-    return type->kind == TY_CHAR || type->kind == TY_SHORT ||
-           type->kind == TY_INT || type->kind == TY_LONG;
+    return type->kind == TY_BOOL || type->kind == TY_CHAR ||
+           type->kind == TY_SHORT || type->kind == TY_INT ||
+           type->kind == TY_LONG;
 }
 
 static Type *common_type(Type *ty1, Type *ty2) {
@@ -107,9 +111,9 @@ static Type *common_type(Type *ty1, Type *ty2) {
         return new_type_ptr(ty1->ptr_to);
     }
     if (ty1->size == 8 || ty2->size == 8) {
-        return num_type(TY_LONG);
+        return basic_type(TY_LONG);
     }
-    return num_type(TY_INT);
+    return basic_type(TY_INT);
 }
 
 static void usual_arith_conv(Node **lhs, Node **rhs) {
@@ -137,8 +141,8 @@ void set_node_type(Node *node) {
 
     switch (node->kind) {
         case ND_NUM:
-            node->type = (node->val == (int)node->val) ? num_type(TY_INT)
-                                                       : num_type(TY_LONG);
+            node->type = (node->val == (int)node->val) ? basic_type(TY_INT)
+                                                       : basic_type(TY_LONG);
             return;
         case ND_ADD:
         case ND_SUB:
@@ -148,7 +152,7 @@ void set_node_type(Node *node) {
             node->type = node->lhs->type;
             return;
         case ND_NEG: {
-            Type *type = common_type(num_type(TY_INT), node->lhs->type);
+            Type *type = common_type(basic_type(TY_INT), node->lhs->type);
             node->lhs = new_node_cast(node->tok, type, node->lhs);
             node->type = type;
             return;
@@ -168,10 +172,10 @@ void set_node_type(Node *node) {
         case ND_LS:
         case ND_LEQ:
             usual_arith_conv(&node->lhs, &node->rhs);
-            node->type = num_type(TY_INT);
+            node->type = basic_type(TY_INT);
             return;
         case ND_CALL:
-            node->type = num_type(TY_LONG);
+            node->type = basic_type(TY_LONG);
             return;
         case ND_COMMA:
             node->type = node->rhs->type;

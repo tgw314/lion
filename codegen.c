@@ -50,6 +50,7 @@ typedef enum { I8, I16, I32, I64 } TypeId;
 
 static TypeId type_id(Type *type) {
     switch (type->kind) {
+        case TY_BOOL:
         case TY_CHAR:
             return I8;
         case TY_SHORT:
@@ -151,8 +152,17 @@ static void cast(Type *from, Type *to) {
     };
 
     if (to->kind == TY_VOID) return;
+
     TypeId from_id = type_id(from);
     TypeId to_id = type_id(to);
+
+    if (to->kind == TY_BOOL) {
+        char *reg = (from_id <= I32) ? "eax" : "rax";
+        println("  cmp %s, 0", reg);
+        println("  setne al");
+        println("  movzx eax, al");
+        return;
+    }
 
     if (cast_table[from_id][to_id]) {
         println("  %s", cast_table[from_id][to_id]);

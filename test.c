@@ -52,6 +52,10 @@ int div_long(long a, long b) {
     return a/b;
 }
 
+_Bool bool_fn_add(_Bool x) { return x + 1; }
+
+_Bool bool_fn_sub(_Bool x) { return x - 1; }
+
 int main() {
     ASSERT(0, 0);
     ASSERT(42, 42);
@@ -386,6 +390,20 @@ int main() {
     ASSERT(3, *g1_ptr());
     ASSERT(5, int_to_char(261));
     ASSERT(-5, div_long(-10, 2));
+
+    ASSERT(0, ({ _Bool x=0; x; }));
+    ASSERT(1, ({ _Bool x=1; x; }));
+    ASSERT(1, ({ _Bool x=2; x; }));
+    ASSERT(1, (_Bool)1);
+    ASSERT(1, (_Bool)2);
+    ASSERT(0, (_Bool)(char)256);
+
+    ASSERT(1, bool_fn_add(3));
+    ASSERT(0, bool_fn_sub(3));
+    ASSERT(1, bool_fn_add(-3));
+    ASSERT(0, bool_fn_sub(-3));
+    ASSERT(1, bool_fn_add(0));
+    ASSERT(1, bool_fn_sub(0));
 
     printf("OK\n");
     return 0;
