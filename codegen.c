@@ -41,8 +41,10 @@ static void println(const char *fmt, ...) {
     printf("\n");
 }
 
-// align = 2^n の場合のみ有効
-int align(int n, int align) { return (n + align - 1) & ~(align - 1); }
+int align(int n, int align) {
+    if (align == 0) return n;
+    return (n + align - 1) / align * align;
+}
 
 typedef enum { I8, I16, I32, I64 } TypeId;
 
