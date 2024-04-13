@@ -312,7 +312,7 @@ static void gen_expr(Node *node) {
                     println("  setle al");
                     break;
             }
-            println("  movzb rax, al");
+            println("  movzx rax, al");
             return;
     }
 }
@@ -389,7 +389,6 @@ void generate(Object *globals) {
     for (obj = globals; obj; obj = obj->next) {
         if (!obj->is_func) {
             println(".data");
-            println(".globl %s", obj->name);
             println("%s:", obj->name);
 
             if (obj->init_data) {
