@@ -973,17 +973,33 @@ static Node *callfunc(Token *tok) {
         error_tok(tok, "関数ではありません");
     }
 
+    Type *type = sc->var->type;
+    Type *param_type = type->params;
+
     Node *node = new_node(ND_CALL, tok);
-    node->type = sc->var->type->return_type;
+    node->type = type->return_type;
     node->funcname = strndup(tok->loc, tok->len);
+    node->functype = type;
 
     if (!consume(")")) {
         Node head = {};
         Node *cur = &head;
 
         do {
-            cur = cur->next = assign();
-            set_node_type(cur);
+            Node *arg = assign();
+            set_node_type(arg);
+
+            if (param_type) {
+                if (param_type->kind == TY_STRUCT ||
+                    param_type->kind == TY_UNION) {
+                    error_tok(arg->tok,
+                              "構造体または共用体の引数渡しは未対応です");
+                }
+                arg = new_node_cast(arg->tok, param_type, arg);
+                param_type = param_type->next;
+            }
+
+            cur = cur->next = arg;
         } while (consume(","));
         expect(")");
 

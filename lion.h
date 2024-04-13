@@ -105,6 +105,7 @@ struct Node {
     Node *body;      // kind が ND_BLOCK, ND_EXPR_STMT の場合のみ
     int64_t val;     // kind が ND_NUM の場合の数値
     Object *var;     // kind が ND_LVAR, ND_GVAR の場合のみ
+    Type *functype;  // kind が ND_CALL の場合のみ
     char *funcname;  // kind が ND_CALL の場合のみ
     Node *args;      // kind が ND_CALL の場合のみ
     Member *member;  // kind が ND_MEMBER の場合のみ
