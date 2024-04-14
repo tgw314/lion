@@ -165,36 +165,34 @@ static int read_escaped_char(char **pos, char *p) {
     }
 }
 
-static char *string_literal_end(char *p) {
-    char *start = p;
+static char *read_string_literal(char **pos, char *start) {
+    char *p = start + 1;
+
+    char *buf = NULL;
+    size_t size = 0;
+
+    FILE *fp = open_memstream(&buf, &size);
+
     while (*p != '"') {
         if (*p == '\n' || *p == '\0') {
-            error_at(start, "文字列が閉じられていません");
+            error_at(p, "文字列が閉じられていません");
         }
-        if (*p == '\\') {
-            p++;
-        }
-        p++;
-    }
-    return p;
-}
 
-static char *read_string_literal(char *start, char *end) {
-    char *buf = calloc(1, end - start);
-    int len = 0;
-
-    for (char *p = start + 1; p < end;) {
         if (*p == '\\') {
-            buf[len++] = read_escaped_char(&p, p + 1);
+            fputc(read_escaped_char(&p, p + 1), fp);
         } else {
-            buf[len++] = *p++;
+            fputc(*p++, fp);
         }
     }
+    fflush(fp);
+    fputc('\0', fp);
+    fclose(fp);
 
+    *pos = p + 1;
     return buf;
 }
 
-static char read_char_literal(char *start, char **pos) {
+static char read_char_literal(char **pos, char *start) {
     char *p = start + 1;
     char c;
 
@@ -280,16 +278,18 @@ void tokenize(char *p) {
         }
 
         if (*p == '\'') {
+            char *start = p;
             cur = new_token(TK_NUM, cur, p);
-            cur->val = read_char_literal(p, &p);
+            cur->val = read_char_literal(&p, p);
+            cur->len = p - start;
             continue;
         }
 
         if (*p == '"') {
+            char *start = p;
             cur = new_token(TK_STR, cur, p);
-            char *end = string_literal_end(p + 1);
-            cur->str = read_string_literal(p, end);
-            p = end + 1;
+            cur->str = read_string_literal(&p, p);
+            cur->len = p - start;
             continue;
         }
 
