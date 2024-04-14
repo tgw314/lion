@@ -194,6 +194,26 @@ static char *read_string_literal(char *start, char *end) {
     return buf;
 }
 
+static char read_char_literal(char *start, char **pos) {
+    char *p = start + 1;
+    char c;
+
+    while (*p != '\'') {
+        if (*p == '\n' || *p == '\0') {
+            error_at(p, "文字リテラルが閉じられていません");
+        }
+
+        if (*p == '\\') {
+            c = read_escaped_char(&p, p + 1);
+        } else {
+            c = *p++;
+        }
+    }
+
+    *pos = p + 1;
+    return c;
+}
+
 static void add_line_nums(char *input, Token *tok) {
     char *p = input;
     int n = 1;
@@ -256,6 +276,12 @@ void tokenize(char *p) {
 
             cur->len = 1;
             p += cur->len;
+            continue;
+        }
+
+        if (*p == '\'') {
+            cur = new_token(TK_NUM, cur, p);
+            cur->val = read_char_literal(p, &p);
             continue;
         }
 
