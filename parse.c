@@ -10,6 +10,8 @@ struct VarScope {
     char *name;
     Object *var;
     Type *type_def;
+    Type *enum_type;
+    int enum_val;
 };
 
 typedef struct TagScope TagScope;
@@ -41,6 +43,7 @@ static Type *declspec(VarAttr *attr);
 static Type *declarator(Type *type);
 static Type *struct_decl();
 static Type *union_decl();
+static Type *enum_specifier();
 static void declaration_global(Type *base_type);
 static void function(Type *type);
 static Type *params();
@@ -296,13 +299,16 @@ static Node *new_node_sub(Token *tok, Node *lhs, Node *rhs) {
 }
 
 static Node *new_node_var(Token *tok) {
-    Node *node = NULL;
-
     VarScope *sc = find_var(tok);
-    if (!sc || !sc->var) {
+    if (!sc || (!sc->var && !sc->enum_type)) {
         error_tok(tok, "宣言されていない変数です");
     }
 
+    if (sc->enum_type) {
+        return new_node_num(tok, sc->enum_val);
+    }
+
+    Node *node = NULL;
     if (sc->var->is_local) {
         node = new_node(ND_LVAR, tok);
     } else {
@@ -340,8 +346,8 @@ Object *program() {
 }
 
 static bool is_decl() {
-    static char *keywords[] = {"void", "_Bool",  "char",  "short",  "int",
-                               "long", "struct", "union", "typedef"};
+    static char *keywords[] = {"void", "_Bool",  "char",  "short",   "int",
+                               "long", "struct", "union", "typedef", "enum"};
     static int len = sizeof(keywords) / sizeof(*keywords);
     for (int i = 0; i < len; i++) {
         if (match(keywords[i])) {
@@ -353,7 +359,7 @@ static bool is_decl() {
 
 // declspec = ("void" | "_Bool" | "char" | "int" | "long" | "short"
 //             | "struct" struct-decl | "union" union-decl
-//             | "typedef" | typedef-name)+
+//             | "typedef" | typedef-name | "enum" enum-specifier)+
 static Type *declspec(VarAttr *attr) {
     enum {
         // clang-format off
@@ -380,13 +386,15 @@ static Type *declspec(VarAttr *attr) {
         }
 
         Type *deftype = find_typedef(getok());
-        if (match("struct") || match("union") || deftype) {
+        if (match("struct") || match("union") || match("enum") || deftype) {
             if (counter) break;
 
             if (consume("struct")) {
                 type = struct_decl();
             } else if (consume("union")) {
                 type = union_decl();
+            } else if (consume("enum")) {
+                type = enum_specifier();
             } else {
                 type = deftype;
                 seek(getok()->next);
@@ -641,11 +649,14 @@ static Member *members() {
 
 // struct-decl = ident? ("{" members)?
 static Type *struct_decl() {
-    Token *tok = consume_ident();
-    if (tok && !match("{")) {
-        Type *type = find_tag(tok);
+    Token *tag = consume_ident();
+    if (tag && !match("{")) {
+        Type *type = find_tag(tag);
         if (!type) {
-            error_tok(tok, "不明な構造体です");
+            error_tok(tag, "不明な構造体です");
+        }
+        if (type->kind != TY_STRUCT) {
+            error_tok(tag, "構造体のタグではありません");
         }
         return type;
     }
@@ -653,8 +664,8 @@ static Type *struct_decl() {
     expect("{");
 
     Type *type = new_type_struct(members());
-    if (tok) {
-        push_tag_scope(tok, type);
+    if (tag) {
+        push_tag_scope(tag, type);
     }
 
     return type;
@@ -662,11 +673,14 @@ static Type *struct_decl() {
 
 // union-decl = ident? ("{" members)?
 static Type *union_decl() {
-    Token *tok = consume_ident();
-    if (tok && !match("{")) {
-        Type *type = find_tag(tok);
+    Token *tag = consume_ident();
+    if (tag && !match("{")) {
+        Type *type = find_tag(tag);
         if (!type) {
-            error_tok(tok, "不明な共用体です");
+            error_tok(tag, "不明な共用体です");
+        }
+        if (type->kind != TY_UNION) {
+            error_tok(tag, "共用体のタグではありません");
         }
         return type;
     }
@@ -674,8 +688,52 @@ static Type *union_decl() {
     expect("{");
 
     Type *type = new_type_union(members());
-    if (tok) {
-        push_tag_scope(tok, type);
+    if (tag) {
+        push_tag_scope(tag, type);
+    }
+
+    return type;
+}
+
+// enum-specifier = ident? "{" enum-list? "}"
+//                | ident ("{" enum-list? "}")?
+//
+// enum-list      = ident ("=" num)? ("," ident ("=" num)?)*
+static Type *enum_specifier() {
+    Token *tag = consume_ident();
+    if (tag && !match("{")) {
+        Type *type = find_tag(tag);
+        if (!type) {
+            error_tok(tag, "不明な列挙型です");
+        }
+        if (type->kind != TY_ENUM) {
+            error_tok(tag, "列挙型のタグではありません");
+        }
+        return type;
+    }
+
+    expect("{");
+
+    Type *type = new_type_enum();
+    if (!consume("}")) {
+        int val = 0;
+        do {
+            Token *tok = expect_ident();
+            char *name = strndup(tok->loc, tok->len);
+
+            if (consume("=")) {
+                val = expect_number();
+            }
+
+            VarScope *sc = push_scope(name);
+            sc->enum_type = type;
+            sc->enum_val = val++;
+        } while (consume(","));
+        expect("}");
+    }
+
+    if (tag) {
+        push_tag_scope(tag, type);
     }
 
     return type;

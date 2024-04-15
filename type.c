@@ -41,6 +41,12 @@ Type *new_type_func(Type *return_type, Type *params) {
     return type;
 }
 
+Type *new_type_enum() {
+    Type *type = new_type(TY_ENUM);
+    type->size = type->align = 4;
+    return type;
+}
+
 Type *new_type_ptr(Type *base_type) {
     Type *type = new_type(TY_PTR);
     type->ptr_to = base_type;
@@ -103,7 +109,7 @@ bool is_pointer(Type *type) { return type->ptr_to != NULL; }
 bool is_number(Type *type) {
     return type->kind == TY_BOOL || type->kind == TY_CHAR ||
            type->kind == TY_SHORT || type->kind == TY_INT ||
-           type->kind == TY_LONG;
+           type->kind == TY_LONG || type->kind == TY_ENUM;
 }
 
 static Type *common_type(Type *ty1, Type *ty2) {

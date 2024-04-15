@@ -24,6 +24,7 @@ typedef enum {
     TY_SHORT,
     TY_INT,
     TY_LONG,
+    TY_ENUM,
     TY_PTR,
     TY_ARRAY,
     TY_FUNC,
@@ -181,6 +182,8 @@ Node *new_node_cast(Token *tok, Type *type, Node *expr);
 Type *basic_type(TypeKind kind);
 
 Type *new_type_func(Type *return_type, Type *params);
+
+Type *new_type_enum();
 
 Type *new_type_ptr(Type *type);
 
