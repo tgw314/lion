@@ -401,6 +401,9 @@ void generate(Object *globals) {
     for (obj = globals; obj; obj = obj->next) {
         if (!obj->is_func) {
             println(".data");
+            if (obj->name[0] != '.') {
+                println(".globl %s", obj->name);
+            }
             println("%s:", obj->name);
 
             if (obj->init_data) {
