@@ -634,13 +634,14 @@ static Member *members() {
     while (!consume("}")) {
         Type *base_type = declspec(NULL);
 
-        for (int i = 0; !consume(";"); i++) {
-            if (i > 0) expect(",");
-
-            Member *mem = calloc(1, sizeof(Member));
-            mem->type = declarator(base_type);
-            mem->name = strndup(mem->type->tok->loc, mem->type->tok->len);
-            cur = cur->next = mem;
+        if (!consume(";")) {
+            do {
+                Member *mem = calloc(1, sizeof(Member));
+                mem->type = declarator(base_type);
+                mem->name = strndup(mem->type->tok->loc, mem->type->tok->len);
+                cur = cur->next = mem;
+            } while (consume(","));
+            expect(";");
         }
     }
 
