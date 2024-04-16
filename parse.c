@@ -329,6 +329,13 @@ Node *new_node_cast(Token *tok, Type *type, Node *expr) {
     return node;
 }
 
+static bool is_func() {
+    Token *tok = getok();
+    bool is_func = declarator(&(Type){})->kind == TY_FUNC;
+    seek(tok);
+    return is_func;
+}
+
 // program = (typedef | declaration_global)*
 Object *program() {
     while (!at_eof()) {
@@ -337,6 +344,10 @@ Object *program() {
 
         if (attr.is_typedef) {
             parse_typedef(base_type);
+            continue;
+        }
+        if (is_func()) {
+            function(base_type);
             continue;
         }
         declaration_global(base_type);
@@ -551,26 +562,22 @@ static Node *declaration_local(Type *base_type) {
 }
 
 static void declaration_global(Type *base_type) {
-    for (bool first = true; !consume(";"); first = false) {
-        if (!first) expect(",");
+    if (!consume(";")) {
+        do {
+            Type *type = declarator(base_type);
 
-        Type *type = declarator(base_type);
-
-        if (first && type->kind == TY_FUNC) {
-            function(type);
-            break;
-        }
-
-        if (type->kind == TY_VOID) {
-            error_tok(type->tok, "void 型の変数が宣言されました");
-        } else {
-            // グローバル変数の再宣言は可能
-            check_var_redef(type->tok);
-            add_global(new_gvar(type, type->tok));
-            if (consume("=")) {
-                error_tok(getok()->prev, "初期化式は未対応です");
+            if (type->kind == TY_VOID) {
+                error_tok(type->tok, "void 型の変数が宣言されました");
+            } else {
+                // グローバル変数の再宣言は可能
+                check_var_redef(type->tok);
+                add_global(new_gvar(type, type->tok));
+                if (consume("=")) {
+                    error_tok(getok()->prev, "初期化式は未対応です");
+                }
             }
-        }
+        } while (consume(","));
+        expect(";");
     }
 }
 
@@ -581,7 +588,8 @@ static void add_params_lvar(Type *param) {
     }
 }
 
-static void function(Type *type) {
+static void function(Type *base_type) {
+    Type *type = declarator(base_type);
     Token *tok = type->tok;
 
     check_var_redef(tok);
