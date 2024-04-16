@@ -18,7 +18,7 @@ void error(char *fmt, ...) {
     exit(1);
 }
 
-static void verror_at(int line_no, char *loc, char *fmt, va_list ap) {
+static void verror_at(int line_no, int len, char *loc, char *fmt, va_list ap) {
     // loc が含まれている行の開始地点と終了地点を取得
     char *line = loc;
     while (user_input < line && line[-1] != '\n') {
@@ -35,10 +35,15 @@ static void verror_at(int line_no, char *loc, char *fmt, va_list ap) {
 
     int pos = loc - line + indent;
 
-    if (pos > 0) {
-        fprintf(stderr, "%*s", pos, " ");  // pos 個の空白を出力
+    for (int i = 0; i < pos; i++) {
+        fprintf(stderr, " ");
     }
-    fprintf(stderr, "^ ");
+
+    fprintf(stderr, "^");
+    for (int i = 1; i < len; i++) {
+        fprintf(stderr, "~");
+    }
+    fprintf(stderr, " ");
     vfprintf(stderr, fmt, ap);
     fprintf(stderr, "\n");
     exit(1);
@@ -54,13 +59,13 @@ void error_at(char *loc, char *fmt, ...) {
 
     va_list ap;
     va_start(ap, fmt);
-    verror_at(line_no, loc, fmt, ap);
+    verror_at(line_no, 1, loc, fmt, ap);
 }
 
 void error_tok(Token *tok, char *fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
-    verror_at(tok->line_no, tok->loc, fmt, ap);
+    verror_at(tok->line_no, tok->len, tok->loc, fmt, ap);
 }
 
 char *read_file(char *path) {
