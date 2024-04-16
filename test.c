@@ -56,6 +56,8 @@ _Bool bool_fn_add(_Bool x) { return x + 1; }
 
 _Bool bool_fn_sub(_Bool x) { return x - 1; }
 
+static int static_fn() { return 5; }
+
 int main() {
     ASSERT(0, 0);
     ASSERT(42, 42);
@@ -420,6 +422,8 @@ int main() {
     ASSERT(4, ({ enum { zero, five=5, three=3, four }; four; }));
     ASSERT(4, ({ enum { zero, one, two } x; sizeof(x); }));
     ASSERT(4, ({ enum t { zero, one, two }; enum t y; sizeof(y); }));
+
+    ASSERT(5, static_fn());
 
     printf("OK\n");
     return 0;

@@ -31,6 +31,7 @@ struct Scope {
 typedef struct VarAttr VarAttr;
 struct VarAttr {
     bool is_typedef;
+    bool is_static;
 };
 
 static Object *locals;
@@ -45,7 +46,7 @@ static Type *struct_decl();
 static Type *union_decl();
 static Type *enum_specifier();
 static void declaration_global(Type *base_type);
-static void function(Type *type);
+static void function(Type *type, VarAttr *attr);
 static Type *params();
 static void parse_typedef(Type *base_type);
 static Node *stmt();
@@ -347,7 +348,7 @@ Object *program() {
             continue;
         }
         if (is_func()) {
-            function(base_type);
+            function(base_type, &attr);
             continue;
         }
         declaration_global(base_type);
@@ -357,8 +358,9 @@ Object *program() {
 }
 
 static bool is_decl() {
-    static char *keywords[] = {"void", "_Bool",  "char",  "short",   "int",
-                               "long", "struct", "union", "typedef", "enum"};
+    static char *keywords[] = {"void",    "_Bool", "char",   "short",
+                               "int",     "long",  "struct", "union",
+                               "typedef", "enum",  "static"};
     static int len = sizeof(keywords) / sizeof(*keywords);
     for (int i = 0; i < len; i++) {
         if (match(keywords[i])) {
@@ -370,7 +372,8 @@ static bool is_decl() {
 
 // declspec = ("void" | "_Bool" | "char" | "int" | "long" | "short"
 //             | "struct" struct-decl | "union" union-decl
-//             | "typedef" | typedef-name | "enum" enum-specifier)+
+//             | "typedef" | typedef-name | "enum" enum-specifier
+//             | "static")+
 static Type *declspec(VarAttr *attr) {
     enum {
         // clang-format off
@@ -388,11 +391,21 @@ static Type *declspec(VarAttr *attr) {
     int counter = 0;
 
     while (is_decl()) {
-        if (consume("typedef")) {
+        if (match("typedef") || match("static")) {
+            Token *tok = getok();
             if (!attr) {
-                error_tok(getok(), "記憶クラス指定子は使用できません");
+                error_tok(tok, "記憶クラス指定子は使用できません");
             }
-            attr->is_typedef = true;
+
+            if (consume("typedef")) {
+                attr->is_typedef = true;
+            } else if (consume("static")) {
+                attr->is_static = true;
+            }
+
+            if (attr->is_typedef && attr->is_static) {
+                error_tok(tok, "`typedef`と`static`は併用できません");
+            }
             continue;
         }
 
@@ -588,7 +601,7 @@ static void add_params_lvar(Type *param) {
     }
 }
 
-static void function(Type *base_type) {
+static void function(Type *base_type, VarAttr *attr) {
     Type *type = declarator(base_type);
     Token *tok = type->tok;
 
@@ -597,6 +610,7 @@ static void function(Type *base_type) {
 
     Object *func = new_func(type, tok);
     func->is_def = !consume(";");
+    func->is_static = attr->is_static;
     add_global(func);
 
     if (!func->is_def) {

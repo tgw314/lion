@@ -104,10 +104,10 @@ static bool is_al(char c) {
 static bool is_alnum(char c) { return is_al(c) || ('0' <= c && c <= '9'); }
 
 static bool is_keyword(Token *tok) {
-    static char *keywords[] = {"return", "if",      "else",   "while",
-                               "for",    "int",     "sizeof", "char",
-                               "struct", "union",   "long",   "short",
-                               "void",   "typedef", "_Bool",  "enum"};
+    static char *keywords[] = {"return", "if",     "else", "while",   "for",
+                               "int",    "sizeof", "char", "struct",  "union",
+                               "long",   "short",  "void", "typedef", "_Bool",
+                               "enum",   "static"};
     static int len = sizeof(keywords) / sizeof(*keywords);
     for (int i = 0; i < len; i++) {
         if (equal(tok, keywords[i])) {

@@ -121,6 +121,7 @@ struct Object {
     bool is_func;
     bool is_local;
     bool is_def;
+    bool is_static;
 
     // ローカル変数
     int offset;  // RBP からのオフセット

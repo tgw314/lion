@@ -401,7 +401,9 @@ void generate(Object *globals) {
     for (obj = globals; obj; obj = obj->next) {
         if (!obj->is_func) {
             println(".data");
-            if (obj->name[0] != '.') {
+            if (obj->is_static || obj->name[0] == '.') {
+                println(".local %s", obj->name);
+            } else {
                 println(".globl %s", obj->name);
             }
             println("%s:", obj->name);
@@ -431,7 +433,11 @@ void generate(Object *globals) {
         }
 
         println(".text");
-        println(".globl %s", obj->name);
+        if (obj->is_static) {
+            println(".local %s", obj->name);
+        } else {
+            println(".globl %s", obj->name);
+        }
         println("%s:", obj->name);
 
         // プロローグ
