@@ -829,10 +829,15 @@ static Node *stmt() {
         Node *node = new_node(ND_FOR, tok);
 
         expect("(");
-        if (!consume(";")) {
-            node->init = expr();
-            expect(";");
+
+        enter_scope();
+
+        if (is_decl()) {
+            node->init = declaration_local(declspec(NULL));
+        } else {
+            node->init = expr_stmt();
         }
+
         if (!consume(";")) {
             node->cond = expr();
             expect(";");
@@ -842,6 +847,8 @@ static Node *stmt() {
             expect(")");
         }
         node->then = stmt();
+
+        leave_scope();
 
         return node;
     }
