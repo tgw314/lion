@@ -117,6 +117,20 @@ static bool is_keyword(Token *tok) {
     return false;
 }
 
+static int read_reserved(char *p) {
+    static char *ops[] = {"==", "!=", "<=", ">=", "->"};
+    static int len = sizeof(ops) / sizeof(*ops);
+    for (int i = 0; i < len; i++) {
+        if (startswith(p, ops[i])) {
+            return strlen(ops[i]);
+        }
+    }
+    if (strchr("+-*/()<>=;{},&*[].", *p)) {
+        return 1;
+    }
+    return 0;
+}
+
 static int read_escaped_char(char **pos, char *p) {
     if ('0' <= *p && *p <= '7') {
         int c = *p++ - '0';
@@ -261,21 +275,14 @@ void tokenize(char *p) {
             continue;
         }
 
-        if (startswith(p, "==") || startswith(p, "!=") || startswith(p, "<=") ||
-            startswith(p, ">=") || startswith(p, "->")) {
-            cur = new_token(TK_RESERVED, cur, p);
-
-            cur->len = 2;
-            p += cur->len;
-            continue;
-        }
-
-        if (strchr("+-*/()<>=;{},&*[].", *p)) {
-            cur = new_token(TK_RESERVED, cur, p);
-
-            cur->len = 1;
-            p += cur->len;
-            continue;
+        {
+            int len = read_reserved(p);
+            if (len > 0) {
+                cur = new_token(TK_RESERVED, cur, p);
+                cur->len = len;
+                p += cur->len;
+                continue;
+            }
         }
 
         if (*p == '\'') {
