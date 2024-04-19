@@ -96,17 +96,16 @@ static Object *new_func(Type *type, Token *tok) {
     return func;
 }
 
-static Object *new_var(Type *type, Token *tok) {
+static Object *new_var(Type *type, char *name) {
     Object *var = calloc(1, sizeof(Object));
     var->type = type;
-    var->name = strndup(tok->loc, tok->len);
+    var->name = name;
     var->is_func = false;
     return var;
 }
 
 static Object *new_gvar(Type *type, Token *tok) {
-    Object *gvar = new_var(type, tok);
-    gvar->is_local = false;
+    Object *gvar = new_var(type, strndup(tok->loc, tok->len));
     return gvar;
 }
 
@@ -116,7 +115,7 @@ static Object *new_anon_gvar(Type *type) {
     char *name = calloc(1, 20);
     sprintf(name, ".LC%d", index++);
 
-    return new_gvar(type, &(Token){.loc = name, .len = strlen(name)});
+    return new_var(type, name);
 }
 
 static Object *new_string_literal(char *str) {
@@ -127,7 +126,7 @@ static Object *new_string_literal(char *str) {
 }
 
 static Object *new_lvar(Type *type, Token *tok) {
-    Object *lvar = new_var(type, tok);
+    Object *lvar = new_var(type, strndup(tok->loc, tok->len));
     lvar->is_local = true;
     return lvar;
 }
@@ -299,23 +298,14 @@ static Node *new_node_sub(Token *tok, Node *lhs, Node *rhs) {
     error_tok(tok, "誤ったオペランドです");
 }
 
-static Node *new_node_var(Token *tok) {
-    VarScope *sc = find_var(tok);
-    if (!sc || (!sc->var && !sc->enum_type)) {
-        error_tok(tok, "宣言されていない変数です");
-    }
-
-    if (sc->enum_type) {
-        return new_node_num(tok, sc->enum_val);
-    }
-
+static Node *new_node_var(Object *var, Token *tok) {
     Node *node = NULL;
-    if (sc->var->is_local) {
+    if (var->is_local) {
         node = new_node(ND_LVAR, tok);
     } else {
         node = new_node(ND_GVAR, tok);
     }
-    node->var = sc->var;
+    node->var = var;
 
     return node;
 }
@@ -562,8 +552,9 @@ static Node *declaration_local(Type *base_type) {
             if (consume("=")) {
                 Token *tok = getok();
                 cur = cur->next = new_node(ND_EXPR_STMT, tok);
-                cur->lhs = new_node_binary(ND_ASSIGN, tok->next,
-                                           new_node_var(type->tok), assign());
+                cur->lhs =
+                    new_node_binary(ND_ASSIGN, tok->next,
+                                    new_node_var(var, type->tok), assign());
             }
         } while (consume(","));
         expect(";");
@@ -920,11 +911,45 @@ static Node *expr() {
     return node;
 }
 
+static Node *to_assign(Node *binary) {
+    set_node_type(binary->lhs);
+    set_node_type(binary->rhs);
+
+    Token *tok = binary->tok;
+    Object *var = new_var(new_type_ptr(binary->lhs->type), "");
+    var->is_local = true;
+    add_lvar(var);
+
+    Node *expr1 = new_node_binary(ND_ASSIGN, tok, new_node_var(var, tok),
+                                  new_node_unary(ND_ADDR, tok, binary->lhs));
+    Node *expr2 = new_node_binary(
+        ND_ASSIGN, tok, new_node_unary(ND_DEREF, tok, new_node_var(var, tok)),
+        new_node_binary(binary->kind, tok,
+                        new_node_unary(ND_DEREF, tok, new_node_var(var, tok)),
+                        binary->rhs));
+
+    return new_node_binary(ND_COMMA, tok, expr1, expr2);
+}
+
 // assign = equality ("=" assign)?
 static Node *assign() {
+    Token *tok = getok();
+
     Node *node = equality();
     if (consume("=")) {
-        node = new_node_binary(ND_ASSIGN, getok()->prev, node, assign());
+        node = new_node_binary(ND_ASSIGN, tok, node, assign());
+    }
+    if (consume("+=")) {
+        node = to_assign(new_node_add(tok, node, assign()));
+    }
+    if (consume("-=")) {
+        node = to_assign(new_node_sub(tok, node, assign()));
+    }
+    if (consume("*=")) {
+        node = to_assign(new_node_binary(ND_MUL, tok, node, assign()));
+    }
+    if (consume("/=")) {
+        node = to_assign(new_node_binary(ND_DIV, tok, node, assign()));
     }
     return node;
 }
@@ -1150,7 +1175,16 @@ static Node *primary() {
             return callfunc(tok);
         }
 
-        return new_node_var(tok);
+        VarScope *sc = find_var(tok);
+        if (!sc || (!sc->var && !sc->enum_type)) {
+            error_tok(tok, "宣言されていない変数です");
+        }
+
+        if (sc->enum_type) {
+            return new_node_num(tok, sc->enum_val);
+        }
+
+        return new_node_var(sc->var, tok);
     }
 
     if (tok->kind == TK_STR) {

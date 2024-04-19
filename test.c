@@ -428,6 +428,15 @@ int main() {
     ASSERT(55, ({ int j=0; for (int i=0; i<=10; i=i+1) j=j+i; j; }));
     ASSERT(3, ({ int i=3; int j=0; for (int i=0; i<=10; i=i+1) j=j+i; i; }));
 
+    ASSERT(7, ({ int i=2; i+=5; i; }));
+    ASSERT(7, ({ int i=2; i+=5; }));
+    ASSERT(3, ({ int i=5; i-=2; i; }));
+    ASSERT(3, ({ int i=5; i-=2; }));
+    ASSERT(6, ({ int i=3; i*=2; i; }));
+    ASSERT(6, ({ int i=3; i*=2; }));
+    ASSERT(3, ({ int i=6; i/=2; i; }));
+    ASSERT(3, ({ int i=6; i/=2; }));
+
     printf("OK\n");
     return 0;
 }
