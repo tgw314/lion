@@ -924,15 +924,16 @@ static Node *to_assign(Node *binary) {
     Object *var = new_temp_lvar(new_type_ptr(binary->lhs->type));
     add_lvar(var);
 
-    // clang-format off
-    Node *expr1 = new_node_binary(ND_ASSIGN, tok, new_node_var(var, tok),
-                                  new_node_unary(ND_ADDR, tok, binary->lhs));
-    Node *expr2 = new_node_binary(ND_ASSIGN, tok,
-        new_node_unary(ND_DEREF, tok, new_node_var(var, tok)),
-        new_node_binary(binary->kind, tok,
-                        new_node_unary(ND_DEREF, tok, new_node_var(var, tok)),
-                        binary->rhs));
-    // clang-format on
+    Node *expr1, *expr2;
+
+    expr1 = new_node_unary(ND_ADDR, tok, binary->lhs);
+    expr1 = new_node_binary(ND_ASSIGN, tok, new_node_var(var, tok), expr1);
+
+    expr2 = new_node_unary(ND_DEREF, tok, new_node_var(var, tok));
+    expr2 = new_node_binary(binary->kind, tok, expr2, binary->rhs);
+    expr2 = new_node_binary(
+        ND_ASSIGN, tok, new_node_unary(ND_DEREF, tok, new_node_var(var, tok)),
+        expr2);
 
     return new_node_binary(ND_COMMA, tok, expr1, expr2);
 }
