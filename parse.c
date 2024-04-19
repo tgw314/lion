@@ -1042,6 +1042,7 @@ static Node *cast() {
 }
 
 // unary = ("+" | "-" | "*" | "&") cast
+//       | ("++" | "--") unary
 //       | postfix
 static Node *unary() {
     Token *tok = getok();
@@ -1056,6 +1057,12 @@ static Node *unary() {
     }
     if (consume("&")) {
         return new_node_unary(ND_ADDR, tok, cast());
+    }
+    if (consume("++")) {
+        return to_assign(new_node_add(tok, unary(), new_node_num(tok, 1)));
+    }
+    if (consume("--")) {
+        return to_assign(new_node_sub(tok, unary(), new_node_num(tok, 1)));
     }
     return postfix();
 }
@@ -1082,6 +1089,26 @@ static Node *postfix() {
         if (consume("->")) {
             node = new_node_unary(ND_DEREF, tok, node);
             node = struct_union_ref(node);
+            continue;
+        }
+
+        if (consume("++")) {
+            set_node_type(node);
+            Type *type = node->type;
+
+            node = to_assign(new_node_add(tok, node, new_node_num(tok, 1)));
+            node = new_node_sub(tok, node, new_node_num(tok, 1));
+            node = new_node_cast(tok, type, node);
+            continue;
+        }
+
+        if (consume("--")) {
+            set_node_type(node);
+            Type *type = node->type;
+
+            node = to_assign(new_node_sub(tok, node, new_node_num(tok, 1)));
+            node = new_node_add(tok, node, new_node_num(tok, 1));
+            node = new_node_cast(tok, type, node);
             continue;
         }
 
