@@ -394,76 +394,80 @@ static void gen_stmt(Node *node) {
     error_tok(node->tok, "不正な文です");
 }
 
-void generate(Object *globals) {
-    RegAlias64 param_regs[] = {RDI, RSI, RDX, RCX, R8, R9};
+void emit_data(Object *obj) {
+    println(".data");
+    if (obj->is_static || obj->name[0] == '.') {
+        println(".local %s", obj->name);
+    } else {
+        println(".globl %s", obj->name);
+    }
+    println("%s:", obj->name);
 
+    if (obj->init_data) {
+        if (!is_number(obj->type)) {
+            for (int i = 0; i < obj->type->array_size; i++) {
+                println("  .byte %d", obj->init_data[i]);
+            }
+        }
+    } else {
+        println("  .zero %d", (int)obj->type->size);
+    }
+}
+
+void emit_text(Object *obj) {
+    RegAlias64 param_regs[] = {RDI, RSI, RDX, RCX, R8, R9};
+    // ローカル変数のオフセットを計算
+    int size = 0;
+    for (Object *v = obj->locals; v; v = v->next) {
+        size += v->type->size;
+        size = align(size, v->type->align);
+        v->offset = -size;
+    }
+    obj->stack_size = align(size, 16);
+
+    println(".text");
+    if (obj->is_static) {
+        println(".local %s", obj->name);
+    } else {
+        println(".globl %s", obj->name);
+    }
+    println("%s:", obj->name);
+
+    // プロローグ
+    println("  push rbp");
+    println("  mov rbp, rsp");
+    if (obj->stack_size > 0) {
+        println("  sub rsp, %d", obj->stack_size);
+    }
+
+    {  // 引数をローカル変数として代入
+        int i = 0;
+        for (Object *p = obj->params; p; p = p->next) {
+            mov_offsetReg(p->offset, param_regs[i++], p->type);
+        }
+    }
+
+    // 先頭の式から順にコード生成
+    for (Node *s = obj->body; s; s = s->next) {
+        gen_stmt(s);
+    }
+
+    // エピローグ
+    // 最後の式の結果が RAX に残っているのでそれが返り値になる
+    println(".L.return.%s:", obj->name);
+    println("  mov rsp, rbp");
+    println("  pop rbp");
+    println("  ret");
+}
+
+void generate(Object *globals) {
     println(".intel_syntax noprefix");
     for (obj = globals; obj; obj = obj->next) {
-        if (!obj->is_func) {
-            println(".data");
-            if (obj->is_static || obj->name[0] == '.') {
-                println(".local %s", obj->name);
-            } else {
-                println(".globl %s", obj->name);
-            }
-            println("%s:", obj->name);
-
-            if (obj->init_data) {
-                if (!is_number(obj->type)) {
-                    for (int i = 0; i < obj->type->array_size; i++) {
-                        println("  .byte %d", obj->init_data[i]);
-                    }
-                }
-            } else {
-                println("  .zero %d", (int)obj->type->size);
-            }
-
-            continue;
-        }
-        if (!obj->is_def) continue;
-
-        {  // ローカル変数のオフセットを計算
-            int stack_size = 0;
-            for (Object *v = obj->locals; v; v = v->next) {
-                stack_size += v->type->size;
-                stack_size = align(stack_size, v->type->align);
-                v->offset = -stack_size;
-            }
-            obj->stack_size = align(stack_size, 16);
-        }
-
-        println(".text");
-        if (obj->is_static) {
-            println(".local %s", obj->name);
+        if (obj->is_func) {
+            if (!obj->is_def) continue;
+            emit_text(obj);
         } else {
-            println(".globl %s", obj->name);
+            emit_data(obj);
         }
-        println("%s:", obj->name);
-
-        // プロローグ
-        println("  push rbp");
-        println("  mov rbp, rsp");
-        if (obj->stack_size > 0) {
-            println("  sub rsp, %d", obj->stack_size);
-        }
-
-        {  // 引数をローカル変数として代入
-            int i = 0;
-            for (Object *p = obj->params; p; p = p->next) {
-                mov_offsetReg(p->offset, param_regs[i++], p->type);
-            }
-        }
-
-        // 先頭の式から順にコード生成
-        for (Node *s = obj->body; s; s = s->next) {
-            gen_stmt(s);
-        }
-
-        // エピローグ
-        // 最後の式の結果が RAX に残っているのでそれが返り値になる
-        println(".L.return.%s:", obj->name);
-        println("  mov rsp, rbp");
-        println("  pop rbp");
-        println("  ret");
     }
 }
