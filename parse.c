@@ -310,14 +310,8 @@ static Node *new_node_sub(Token *tok, Node *lhs, Node *rhs) {
 }
 
 static Node *new_node_var(Object *var, Token *tok) {
-    Node *node = NULL;
-    if (var->is_local) {
-        node = new_node(ND_LVAR, tok);
-    } else {
-        node = new_node(ND_GVAR, tok);
-    }
+    Node *node = new_node(ND_VAR, tok);
     node->var = var;
-
     return node;
 }
 
@@ -1144,7 +1138,7 @@ static Node *string_literal(Token *tok) {
     Object *str_obj = new_string_literal(tok->str);
     str_obj->init_data = tok->str;
     add_global(str_obj);
-    Node *node = new_node(ND_GVAR, tok);
+    Node *node = new_node(ND_VAR, tok);
     node->var = str_obj;
     return node;
 }

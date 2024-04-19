@@ -205,8 +205,7 @@ void set_node_type(Node *node) {
             }
             node->type = node->lhs->type->ptr_to;
             return;
-        case ND_LVAR:
-        case ND_GVAR:
+        case ND_VAR:
             node->type = node->var->type;
             return;
         case ND_STMT_EXPR:

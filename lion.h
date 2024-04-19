@@ -49,8 +49,7 @@ typedef enum {
     ND_ADDR,       // &
     ND_DEREF,      // *
     ND_CAST,       // キャスト
-    ND_LVAR,       // ローカル変数
-    ND_GVAR,       // グローバル変数
+    ND_VAR,        // 変数
     ND_NUM,        // 整数
     ND_CALL,       // 関数呼び出し
     ND_STMT_EXPR,  // ステートメント式

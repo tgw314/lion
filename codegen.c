@@ -180,11 +180,12 @@ static void loc(Node *node) {
 
 static void gen_lval(Node *node) {
     switch (node->kind) {
-        case ND_LVAR:
-            println("  lea rax, [rbp%+d]", node->var->offset);
-            return;
-        case ND_GVAR:
-            println("  lea rax, %s[rip]", node->var->name);
+        case ND_VAR:
+            if (node->var->is_local) {
+                println("  lea rax, [rbp%+d]", node->var->offset);
+            } else {
+                println("  lea rax, %s[rip]", node->var->name);
+            }
             return;
         case ND_MEMBER:
             gen_lval(node->lhs);
@@ -213,8 +214,7 @@ static void gen_expr(Node *node) {
             gen_expr(node->lhs);
             println("  neg rax");
             return;
-        case ND_GVAR:
-        case ND_LVAR:
+        case ND_VAR:
         case ND_MEMBER:
             gen_lval(node);
             if (node->type->kind != TY_ARRAY && node->type->kind != TY_STRUCT &&
