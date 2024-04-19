@@ -87,25 +87,24 @@ static void push_tag_scope(Token *tok, Type *type) {
     scope->tags = sc;
 }
 
-static Object *new_func(Type *type, Token *tok) {
-    Object *func = calloc(1, sizeof(Object));
-    func->type = type;
-    func->name = strndup(tok->loc, tok->len);
-    func->is_func = true;
-    func->is_local = false;
-    return func;
-}
-
-static Object *new_var(Type *type, char *name) {
+static Object *new_object(Type *type, char *name) {
     Object *var = calloc(1, sizeof(Object));
     var->type = type;
     var->name = name;
-    var->is_func = false;
     return var;
 }
 
+static Object *new_func(Type *type, Token *tok) {
+    Object *func = new_object(type, strndup(tok->loc, tok->len));
+    func->is_local = false;
+    func->is_func = true;
+    return func;
+}
+
 static Object *new_gvar(Type *type, Token *tok) {
-    Object *gvar = new_var(type, strndup(tok->loc, tok->len));
+    Object *gvar = new_object(type, strndup(tok->loc, tok->len));
+    gvar->is_local = false;
+    gvar->is_func = false;
     return gvar;
 }
 
@@ -115,7 +114,11 @@ static Object *new_anon_gvar(Type *type) {
     char *name = calloc(1, 20);
     sprintf(name, ".LC%d", index++);
 
-    return new_var(type, name);
+    Object *gvar = new_object(type, name);
+    gvar->is_local = false;
+    gvar->is_func = false;
+
+    return gvar;
 }
 
 static Object *new_string_literal(char *str) {
@@ -126,8 +129,16 @@ static Object *new_string_literal(char *str) {
 }
 
 static Object *new_lvar(Type *type, Token *tok) {
-    Object *lvar = new_var(type, strndup(tok->loc, tok->len));
+    Object *lvar = new_object(type, strndup(tok->loc, tok->len));
     lvar->is_local = true;
+    lvar->is_func = false;
+    return lvar;
+}
+
+static Object *new_temp_lvar(Type *type) {
+    Object *lvar = new_object(type, "");
+    lvar->is_local = true;
+    lvar->is_func = false;
     return lvar;
 }
 
@@ -544,9 +555,9 @@ static Node *declaration_local(Type *base_type) {
                 error_tok(type->tok, "void 型の変数が宣言されました");
             }
 
-            Object *var = new_lvar(type, type->tok);
-
             check_var_redef(type->tok);
+
+            Object *var = new_lvar(type, type->tok);
             add_lvar(var);
 
             if (consume("=")) {
@@ -916,17 +927,18 @@ static Node *to_assign(Node *binary) {
     set_node_type(binary->rhs);
 
     Token *tok = binary->tok;
-    Object *var = new_var(new_type_ptr(binary->lhs->type), "");
-    var->is_local = true;
+    Object *var = new_temp_lvar(new_type_ptr(binary->lhs->type));
     add_lvar(var);
 
+    // clang-format off
     Node *expr1 = new_node_binary(ND_ASSIGN, tok, new_node_var(var, tok),
                                   new_node_unary(ND_ADDR, tok, binary->lhs));
-    Node *expr2 = new_node_binary(
-        ND_ASSIGN, tok, new_node_unary(ND_DEREF, tok, new_node_var(var, tok)),
+    Node *expr2 = new_node_binary(ND_ASSIGN, tok,
+        new_node_unary(ND_DEREF, tok, new_node_var(var, tok)),
         new_node_binary(binary->kind, tok,
                         new_node_unary(ND_DEREF, tok, new_node_var(var, tok)),
                         binary->rhs));
+    // clang-format on
 
     return new_node_binary(ND_COMMA, tok, expr1, expr2);
 }
