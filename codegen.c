@@ -309,6 +309,9 @@ static void gen_expr(Node *node) {
             }
             println("  movzx rax, al");
             return;
+        case ND_BITAND: println("  and %s, %s", rax, rdi); return;
+        case ND_BITOR: println("  or %s, %s", rax, rdi); return;
+        case ND_BITXOR: println("  xor %s, %s", rax, rdi); return;
     }
 }
 

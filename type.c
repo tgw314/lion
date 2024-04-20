@@ -148,6 +148,9 @@ void set_node_type(Node *node) {
         case ND_MUL:
         case ND_DIV:
         case ND_MOD:
+        case ND_BITAND:
+        case ND_BITOR:
+        case ND_BITXOR:
             usual_arith_conv(&node->lhs, &node->rhs);
             node->type = node->lhs->type;
             return;
