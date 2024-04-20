@@ -147,6 +147,7 @@ void set_node_type(Node *node) {
         case ND_SUB:
         case ND_MUL:
         case ND_DIV:
+        case ND_MOD:
             usual_arith_conv(&node->lhs, &node->rhs);
             node->type = node->lhs->type;
             return;

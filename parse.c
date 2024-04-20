@@ -925,7 +925,8 @@ static Node *to_assign(Node *binary) {
     return new_node_binary(ND_COMMA, tok, expr1, expr2);
 }
 
-// assign = equality ("=" assign)?
+// assign = equality
+//          (("=" | "+=" | "-=" | "*=" | "/=" | "%=") assign)?
 static Node *assign() {
     Token *tok = getok();
 
@@ -944,6 +945,9 @@ static Node *assign() {
     }
     if (consume("/=")) {
         node = to_assign(new_node_binary(ND_DIV, tok, node, assign()));
+    }
+    if (consume("%=")) {
+        node = to_assign(new_node_binary(ND_MOD, tok, node, assign()));
     }
     return node;
 }
@@ -1000,7 +1004,7 @@ static Node *add() {
     }
 }
 
-// mul = cast ("*" cast | "/" cast)*
+// mul = cast ("*" cast | "/" cast | "%" cast)*
 static Node *mul() {
     Node *node = cast();
 
@@ -1010,6 +1014,8 @@ static Node *mul() {
             node = new_node_binary(ND_MUL, tok, node, cast());
         } else if (consume("/")) {
             node = new_node_binary(ND_DIV, tok, node, cast());
+        } else if (consume("%")) {
+            node = new_node_binary(ND_MOD, tok, node, cast());
         } else {
             return node;
         }

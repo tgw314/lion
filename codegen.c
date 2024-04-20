@@ -284,6 +284,7 @@ static void gen_expr(Node *node) {
         case ND_ADD: println("  add %s, %s", rax, rdi); return;
         case ND_SUB: println("  sub %s, %s", rax, rdi); return;
         case ND_MUL: println("  imul %s, %s", rax, rdi); return;
+        case ND_MOD:
         case ND_DIV:
             if (id == I64) {
                 println("  cqo");
@@ -291,6 +292,9 @@ static void gen_expr(Node *node) {
                 println("  cdq");
             }
             println("  idiv %s", rdi);
+            if (node->kind == ND_MOD) {
+                println("  mov rax, rdx");
+            }
             return;
         case ND_EQ:
         case ND_NEQ:
