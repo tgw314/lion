@@ -1,7 +1,9 @@
 #include <ctype.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 
 #include "lion.h"
 
@@ -97,11 +99,13 @@ static bool startswith(char *p, char *q) {
     return memcmp(p, q, strlen(q)) == 0;
 }
 
-static bool is_al(char c) {
+static bool is_ident_head(char c) {
     return ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || (c == '_');
 }
 
-static bool is_alnum(char c) { return is_al(c) || ('0' <= c && c <= '9'); }
+static bool is_ident(char c) {
+    return is_ident_head(c) || ('0' <= c && c <= '9');
+}
 
 static bool is_keyword(Token *tok) {
     static char *keywords[] = {"return", "if",     "else", "while",   "for",
@@ -160,24 +164,15 @@ static int read_escaped_char(char **pos, char *p) {
 
     *pos = p + 1;
     switch (*p) {
-        case 'a':
-            return '\a';
-        case 'b':
-            return '\b';
-        case 't':
-            return '\t';
-        case 'n':
-            return '\n';
-        case 'v':
-            return '\v';
-        case 'f':
-            return '\f';
-        case 'r':
-            return '\r';
-        case 'e':
-            return 27;
-        default:
-            return *p;
+        case 'a': return '\a';
+        case 'b': return '\b';
+        case 't': return '\t';
+        case 'n': return '\n';
+        case 'v': return '\v';
+        case 'f': return '\f';
+        case 'r': return '\r';
+        case 'e': return 27;
+        default: return *p;
     }
 }
 
@@ -226,6 +221,29 @@ static char read_char_literal(char **pos, char *start) {
 
     *pos = p + 1;
     return c;
+}
+
+static long read_int_literal(char **pos, char *start) {
+    char *p = start;
+
+    int base = 10;
+    if (!strncasecmp(p, "0x", 2)) {
+        p += 2;
+        base = 16;
+    } else if (!strncasecmp(p, "0b", 2)) {
+        p += 2;
+        base = 2;
+    } else if (*p == '0') {
+        base = 8;
+    }
+
+    long val = strtoul(p, &p, base);
+    if (isalnum(*p)) {
+        error_at(p, "誤った整数定数です");
+    }
+    *pos = p;
+
+    return val;
 }
 
 static void add_line_nums(char *input, Token *tok) {
@@ -287,26 +305,24 @@ void tokenize(char *p) {
         }
 
         if (*p == '\'') {
-            char *start = p;
             cur = new_token(TK_NUM, cur, p);
             cur->val = read_char_literal(&p, p);
-            cur->len = p - start;
+            cur->len = p - cur->loc;
             continue;
         }
 
         if (*p == '"') {
-            char *start = p;
             cur = new_token(TK_STR, cur, p);
             cur->str = read_string_literal(&p, p);
-            cur->len = p - start;
+            cur->len = p - cur->loc;
             continue;
         }
 
-        if (is_al(*p)) {
+        if (is_ident_head(*p)) {
             cur = new_token(TK_IDENT, cur, p);
 
             cur->len = 1;
-            while (is_alnum(*(p + cur->len))) cur->len++;
+            while (is_ident(*(p + cur->len))) cur->len++;
 
             if (is_keyword(cur)) {
                 cur->kind = TK_RESERVED;
@@ -318,7 +334,8 @@ void tokenize(char *p) {
 
         if (isdigit(*p)) {
             cur = new_token(TK_NUM, cur, p);
-            cur->val = strtol(p, &p, 10);
+            cur->val = read_int_literal(&p, p);
+            cur->len = p - cur->loc;
             continue;
         }
 
