@@ -42,13 +42,14 @@ typedef enum {
     ND_NEQ,        // !=
     ND_LS,         // <
     ND_LEQ,        // <=
-    ND_NEG,        // 単項 '-'
+    ND_NEG,        // 単項 -
     ND_ASSIGN,     // =
     ND_COMMA,      // ,
     ND_MEMBER,     // .
-    ND_ADDR,       // &
-    ND_DEREF,      // *
-    ND_NOT,        // 論理否定
+    ND_ADDR,       // 単項 &
+    ND_DEREF,      // 単項 *
+    ND_NOT,        // !
+    ND_BITNOT,     // ~
     ND_CAST,       // キャスト
     ND_VAR,        // 変数
     ND_NUM,        // 整数

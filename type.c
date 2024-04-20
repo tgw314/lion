@@ -174,6 +174,7 @@ void set_node_type(Node *node) {
             node->type = basic_type(TY_INT);
             return;
         case ND_NOT: node->type = basic_type(TY_INT); return;
+        case ND_BITNOT: node->type = node->lhs->type; return;
         case ND_CALL: node->type = basic_type(TY_LONG); return;
         case ND_COMMA: node->type = node->rhs->type; return;
         case ND_MEMBER: node->type = node->member->type; return;

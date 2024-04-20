@@ -1029,7 +1029,7 @@ static Node *cast() {
     return unary();
 }
 
-// unary = ("+" | "-" | "*" | "&" | "!") cast
+// unary = ("+" | "-" | "*" | "&" | "!" | "~") cast
 //       | ("++" | "--") unary
 //       | postfix
 static Node *unary() {
@@ -1048,6 +1048,9 @@ static Node *unary() {
     }
     if (consume("!")) {
         return new_node_unary(ND_NOT, tok, cast());
+    }
+    if (consume("~")) {
+        return new_node_unary(ND_BITNOT, tok, cast());
     }
     if (consume("++")) {
         return to_assign(new_node_add(tok, unary(), new_node_num(tok, 1)));

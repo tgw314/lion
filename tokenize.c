@@ -130,7 +130,7 @@ static int read_reserved(char *p) {
             return strlen(ops[i]);
         }
     }
-    if (strchr("+-*/()<>=;{},&*[].!", *p)) {
+    if (strchr("+-*/()<>=;{},&*[].!~", *p)) {
         return 1;
     }
     return 0;

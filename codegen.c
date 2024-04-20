@@ -205,6 +205,10 @@ static void gen_expr(Node *node) {
             println("  sete al");
             println("  movzx rax, al");
             return;
+        case ND_BITNOT:
+            gen_expr(node->lhs);
+            println("  not rax");
+            return;
         case ND_VAR:
         case ND_MEMBER:
             gen_lval(node);
