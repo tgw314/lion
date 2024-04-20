@@ -48,6 +48,7 @@ typedef enum {
     ND_MEMBER,     // .
     ND_ADDR,       // &
     ND_DEREF,      // *
+    ND_NOT,        // 論理否定
     ND_CAST,       // キャスト
     ND_VAR,        // 変数
     ND_NUM,        // 整数

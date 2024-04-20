@@ -440,30 +440,17 @@ static Type *declspec(VarAttr *attr) {
         }
 
         switch (counter) {
-            case VOID:
-                type = basic_type(TY_VOID);
-                break;
-            case BOOL:
-                type = basic_type(TY_BOOL);
-                break;
-            case CHAR:
-                type = basic_type(TY_CHAR);
-                break;
+            case VOID: type = basic_type(TY_VOID); break;
+            case BOOL: type = basic_type(TY_BOOL); break;
+            case CHAR: type = basic_type(TY_CHAR); break;
             case SHORT:
-            case SHORT + INT:
-                type = basic_type(TY_SHORT);
-                break;
-            case INT:
-                type = basic_type(TY_INT);
-                break;
+            case SHORT + INT: type = basic_type(TY_SHORT); break;
+            case INT: type = basic_type(TY_INT); break;
             case LONG:
             case LONG + INT:
             case LONG + LONG:
-            case LONG + LONG + INT:
-                type = basic_type(TY_LONG);
-                break;
-            default:
-                error_tok(getok()->prev, "不正な型です");
+            case LONG + LONG + INT: type = basic_type(TY_LONG); break;
+            default: error_tok(getok()->prev, "不正な型です");
         }
     }
 
@@ -1042,7 +1029,7 @@ static Node *cast() {
     return unary();
 }
 
-// unary = ("+" | "-" | "*" | "&") cast
+// unary = ("+" | "-" | "*" | "&" | "!") cast
 //       | ("++" | "--") unary
 //       | postfix
 static Node *unary() {
@@ -1059,6 +1046,9 @@ static Node *unary() {
     if (consume("&")) {
         return new_node_unary(ND_ADDR, tok, cast());
     }
+    if (consume("!")) {
+        return new_node_unary(ND_NOT, tok, cast());
+    }
     if (consume("++")) {
         return to_assign(new_node_add(tok, unary(), new_node_num(tok, 1)));
     }
@@ -1068,7 +1058,7 @@ static Node *unary() {
     return postfix();
 }
 
-// postfix = primary ("[" expr "]" | "." ident | "->" ident)*
+// postfix = primary ("[" expr "]" | ("." | "->") ident | "++" | "--")*
 static Node *postfix() {
     Node *node = primary();
 

@@ -17,20 +17,13 @@ Type *basic_type(TypeKind kind) {
                 long_type = (Type){TY_LONG, 8, 8};
 
     switch (kind) {
-        case TY_VOID:
-            return &void_type;
-        case TY_BOOL:
-            return &bool_type;
-        case TY_CHAR:
-            return &char_type;
-        case TY_SHORT:
-            return &short_type;
-        case TY_INT:
-            return &int_type;
-        case TY_LONG:
-            return &long_type;
-        default:
-            unreachable();
+        case TY_VOID: return &void_type;
+        case TY_BOOL: return &bool_type;
+        case TY_CHAR: return &char_type;
+        case TY_SHORT: return &short_type;
+        case TY_INT: return &int_type;
+        case TY_LONG: return &long_type;
+        default: unreachable();
     }
 }
 
@@ -180,15 +173,10 @@ void set_node_type(Node *node) {
             usual_arith_conv(&node->lhs, &node->rhs);
             node->type = basic_type(TY_INT);
             return;
-        case ND_CALL:
-            node->type = basic_type(TY_LONG);
-            return;
-        case ND_COMMA:
-            node->type = node->rhs->type;
-            return;
-        case ND_MEMBER:
-            node->type = node->member->type;
-            return;
+        case ND_NOT: node->type = basic_type(TY_INT); return;
+        case ND_CALL: node->type = basic_type(TY_LONG); return;
+        case ND_COMMA: node->type = node->rhs->type; return;
+        case ND_MEMBER: node->type = node->member->type; return;
         case ND_ADDR:
             if (node->lhs->type->kind == TY_ARRAY) {
                 node->type = new_type_ptr(node->lhs->type->ptr_to);
@@ -205,9 +193,7 @@ void set_node_type(Node *node) {
             }
             node->type = node->lhs->type->ptr_to;
             return;
-        case ND_VAR:
-            node->type = node->var->type;
-            return;
+        case ND_VAR: node->type = node->var->type; return;
         case ND_STMT_EXPR:
             if (node->body) {
                 Node *stmt = node->body;
