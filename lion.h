@@ -43,13 +43,15 @@ typedef enum {
     ND_NEQ,        // !=
     ND_LS,         // <
     ND_LEQ,        // <=
+    ND_AND,        // &&
+    ND_OR,         // ||
     ND_BITAND,     // &
     ND_BITOR,      // |
     ND_BITXOR,     // ^
-    ND_NEG,        // 単項 -
     ND_ASSIGN,     // =
     ND_COMMA,      // ,
     ND_MEMBER,     // .
+    ND_NEG,        // 単項 -
     ND_ADDR,       // 単項 &
     ND_DEREF,      // 単項 *
     ND_NOT,        // !

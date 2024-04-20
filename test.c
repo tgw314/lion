@@ -506,6 +506,15 @@ int main() {
     ASSERT(7, ({ int i=6; i|=3; i; }));
     ASSERT(10, ({ int i=15; i^=5; i; }));
 
+    ASSERT(1, 0||1);
+    ASSERT(1, 0||(2-2)||5);
+    ASSERT(0, 0||0);
+    ASSERT(0, 0||(2-2));
+
+    ASSERT(0, 0&&1);
+    ASSERT(0, (2-2)&&5);
+    ASSERT(1, 1&&5);
+
     printf("OK\n");
     return 0;
 }
