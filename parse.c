@@ -574,28 +574,28 @@ static Node *declaration_local(Type *base_type) {
 }
 
 static void declaration_global(Type *base_type) {
-    if (!consume(";")) {
-        do {
-            Type *type = declarator(base_type);
+    if (consume(";")) return;
 
-            if (type->kind == TY_VOID) {
-                error_tok(type->tok, "void 型の変数が宣言されました");
-            }
-            if (type->size < 0) {
-                error_tok(type->tok, "不完全な型です");
-            }
+    do {
+        Type *type = declarator(base_type);
 
-            // グローバル変数の再宣言は可能
-            check_var_redef(type->tok);
-            add_global(new_gvar(type, type->tok));
+        if (type->kind == TY_VOID) {
+            error_tok(type->tok, "void 型の変数が宣言されました");
+        }
+        if (type->size < 0) {
+            error_tok(type->tok, "不完全な型です");
+        }
 
-            if (consume("=")) {
-                error_tok(getok()->prev, "初期化式は未対応です");
-            }
+        // グローバル変数の再宣言は可能
+        check_var_redef(type->tok);
+        add_global(new_gvar(type, type->tok));
 
-        } while (consume(","));
-        expect(";");
-    }
+        if (consume("=")) {
+            error_tok(getok()->prev, "初期化式は未対応です");
+        }
+
+    } while (consume(","));
+    expect(";");
 }
 
 static void add_params_lvar(Type *param) {
@@ -662,17 +662,16 @@ static Member *members() {
     Member *cur = &head;
 
     while (!consume("}")) {
-        Type *base_type = declspec(NULL);
+        if (consume(";")) continue;
 
-        if (!consume(";")) {
-            do {
-                Member *mem = calloc(1, sizeof(Member));
-                mem->type = declarator(base_type);
-                mem->name = strndup(mem->type->tok->loc, mem->type->tok->len);
-                cur = cur->next = mem;
-            } while (consume(","));
-            expect(";");
-        }
+        Type *base_type = declspec(NULL);
+        do {
+            Member *mem = calloc(1, sizeof(Member));
+            mem->type = declarator(base_type);
+            mem->name = strndup(mem->type->tok->loc, mem->type->tok->len);
+            cur = cur->next = mem;
+        } while (consume(","));
+        expect(";");
     }
 
     return head.next;
@@ -785,15 +784,15 @@ static Node *struct_union_ref(Node *lhs) {
 }
 
 static void parse_typedef(Type *base_type) {
-    if (!consume(";")) {
-        do {
-            Type *type = declarator(base_type);
-            char *name = strndup(type->tok->loc, type->tok->len);
-            check_var_redef(type->tok);
-            push_scope(name)->type_def = type;
-        } while (consume(","));
-        expect(";");
-    }
+    if (consume(";")) return;
+
+    do {
+        Type *type = declarator(base_type);
+        char *name = strndup(type->tok->loc, type->tok->len);
+        check_var_redef(type->tok);
+        push_scope(name)->type_def = type;
+    } while (consume(","));
+    expect(";");
 }
 
 // stmt = expr_stmt
