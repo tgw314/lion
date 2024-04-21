@@ -59,7 +59,7 @@ static TypeId type_id(Type *type) {
     }
 }
 
-static char *reg_alias(RegAlias64 reg, TypeId id) {
+static char *reg(RegAlias64 reg, TypeId id) {
     static char *regs[16][4] = {
         {"al", "ax", "eax", "rax"},      {"dil", "di", "edi", "rdi"},
         {"sil", "si", "esi", "rsi"},     {"dl", "dx", "edx", "rdx"},
@@ -74,7 +74,7 @@ static char *reg_alias(RegAlias64 reg, TypeId id) {
     return regs[reg][id];
 }
 
-static char *word_ptr(TypeId id) {
+static char *word(TypeId id) {
     switch (id) {
         case I8: return "BYTE PTR";
         case I16: return "WORD PTR";
@@ -84,34 +84,29 @@ static char *word_ptr(TypeId id) {
     }
 }
 
-static void mov_memReg(RegAlias64 dest, RegAlias64 src, Type *type) {
-    TypeId id = type_id(type);
-    println("  mov %s [%s], %s", word_ptr(id), reg_alias(dest, I64),
-            reg_alias(src, id));
-}
+static void load(Type *type) {
+    if (type->kind == TY_ARRAY || type->kind == TY_STRUCT ||
+        type->kind == TY_UNION) {
+        return;
+    }
 
-static void mov_regMem(RegAlias64 dest, RegAlias64 src, Type *type) {
     TypeId id = type_id(type);
+
     switch (id) {
         case I8:
         case I16:
-            println("  movsx %s, %s [%s]", reg_alias(dest, I32), word_ptr(id),
-                    reg_alias(src, I64));
+            println("  movsx %s, %s [%s]", reg(RAX, I32), word(id),
+                    reg(RAX, I64));
             return;
         case I32:
-            println("  movsxd %s, %s [%s]", reg_alias(dest, I64), word_ptr(id),
-                    reg_alias(src, I64));
+            println("  movsxd %s, %s [%s]", reg(RAX, I64), word(id),
+                    reg(RAX, I64));
             return;
         case I64:
-            println("  mov %s, %s [%s]", reg_alias(dest, id), word_ptr(id),
-                    reg_alias(src, I64));
+            println("  mov %s, %s [%s]", reg(RAX, I64), word(id),
+                    reg(RAX, I64));
             return;
     }
-}
-
-static void mov_offsetReg(int offset, RegAlias64 src, Type *type) {
-    TypeId id = type_id(type);
-    println("  mov %s [rbp%+d], %s", word_ptr(id), offset, reg_alias(src, id));
 }
 
 static void call(const char *funcname) {
@@ -242,10 +237,7 @@ static void gen_expr(Node *node) {
         case ND_VAR:
         case ND_MEMBER:
             gen_lval(node);
-            if (node->type->kind != TY_ARRAY && node->type->kind != TY_STRUCT &&
-                node->type->kind != TY_UNION) {
-                mov_regMem(RAX, RAX, node->type);
-            }
+            load(node->type);
             return;
         case ND_ASSIGN:
             gen_lval(node->lhs);
@@ -258,7 +250,9 @@ static void gen_expr(Node *node) {
                     println("  mov [rdi%+d], r8b", i);
                 }
             } else {
-                mov_memReg(RDI, RAX, node->type);
+                TypeId id = type_id(node->type);
+                println("  mov %s [%s], %s", word(id), reg(RDI, I64),
+                        reg(RAX, id));
             }
             return;
         case ND_COMMA:
@@ -268,10 +262,7 @@ static void gen_expr(Node *node) {
         case ND_ADDR: gen_lval(node->lhs); return;
         case ND_DEREF:
             gen_expr(node->lhs);
-            if (node->type->kind != TY_ARRAY && node->type->kind != TY_STRUCT &&
-                node->type->kind != TY_UNION) {
-                mov_regMem(RAX, RAX, node->type);
-            }
+            load(node->type);
             return;
         case ND_CAST:
             gen_expr(node->lhs);
@@ -307,8 +298,8 @@ static void gen_expr(Node *node) {
 
     Type *t = node->lhs->type;
     TypeId id = t->kind == TY_LONG || t->ptr_to ? I64 : I32;
-    char *rax = reg_alias(RAX, id);
-    char *rdi = reg_alias(RDI, id);
+    char *rax = reg(RAX, id);
+    char *rdi = reg(RDI, id);
 
     switch (node->kind) {
         case ND_ADD: println("  add %s, %s", rax, rdi); return;
@@ -457,7 +448,9 @@ void emit_text(Object *obj) {
     {  // 引数をローカル変数として代入
         int i = 0;
         for (Object *p = obj->params; p; p = p->next) {
-            mov_offsetReg(p->offset, param_regs[i++], p->type);
+            TypeId id = type_id(p->type);
+            println("  mov %s [rbp%+d], %s", word(id), p->offset,
+                    reg(param_regs[i++], id));
         }
     }
 
