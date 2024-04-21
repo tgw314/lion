@@ -462,6 +462,7 @@ static Type *declspec(VarAttr *attr) {
     return type;
 }
 
+// declsuffix = "(" params ")" |  "[" num? "]" declsuffix
 static Type *declsuffix(Type *type) {
     if (consume("(")) {
         type = new_type_func(type, params());
@@ -469,8 +470,15 @@ static Type *declsuffix(Type *type) {
     }
 
     if (consume("[")) {
-        int len = expect_number();
-        expect("]");
+        int len;
+
+        if (consume("]")) {
+            len = -1;
+        } else {
+            len = expect_number();
+            expect("]");
+        }
+
         type = declsuffix(type);
         return new_type_array(type, len);
     }
@@ -540,6 +548,9 @@ static Node *declaration_local(Type *base_type) {
             if (type->kind == TY_VOID) {
                 error_tok(type->tok, "void 型の変数が宣言されました");
             }
+            if (type->size < 0) {
+                error_tok(type->tok, "不完全な型です");
+            }
 
             check_var_redef(type->tok);
 
@@ -569,14 +580,19 @@ static void declaration_global(Type *base_type) {
 
             if (type->kind == TY_VOID) {
                 error_tok(type->tok, "void 型の変数が宣言されました");
-            } else {
-                // グローバル変数の再宣言は可能
-                check_var_redef(type->tok);
-                add_global(new_gvar(type, type->tok));
-                if (consume("=")) {
-                    error_tok(getok()->prev, "初期化式は未対応です");
-                }
             }
+            if (type->size < 0) {
+                error_tok(type->tok, "不完全な型です");
+            }
+
+            // グローバル変数の再宣言は可能
+            check_var_redef(type->tok);
+            add_global(new_gvar(type, type->tok));
+
+            if (consume("=")) {
+                error_tok(getok()->prev, "初期化式は未対応です");
+            }
+
         } while (consume(","));
         expect(";");
     }
