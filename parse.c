@@ -642,9 +642,13 @@ static Type *params() {
     Type *cur = &head;
 
     do {
-        Type *base_type = declspec(NULL);
         Type *type = calloc(1, sizeof(Type));
-        *type = *declarator(base_type);
+        *type = *declarator(declspec(NULL));
+        if (type->kind == TY_ARRAY) {
+            Token *tok = type->tok;
+            type = new_type_ptr(type->ptr_to);
+            type->tok = tok;
+        }
         cur = cur->next = type;
     } while (consume(","));
     expect(")");
