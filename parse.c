@@ -445,17 +445,30 @@ static Type *declspec(VarAttr *attr) {
         }
 
         switch (counter) {
-            case VOID: type = basic_type(TY_VOID); break;
-            case BOOL: type = basic_type(TY_BOOL); break;
-            case CHAR: type = basic_type(TY_CHAR); break;
+            case VOID:
+                type = basic_type(TY_VOID);
+                break;
+            case BOOL:
+                type = basic_type(TY_BOOL);
+                break;
+            case CHAR:
+                type = basic_type(TY_CHAR);
+                break;
             case SHORT:
-            case SHORT + INT: type = basic_type(TY_SHORT); break;
-            case INT: type = basic_type(TY_INT); break;
+            case SHORT + INT:
+                type = basic_type(TY_SHORT);
+                break;
+            case INT:
+                type = basic_type(TY_INT);
+                break;
             case LONG:
             case LONG + INT:
             case LONG + LONG:
-            case LONG + LONG + INT: type = basic_type(TY_LONG); break;
-            default: error_tok(getok()->prev, "不正な型です");
+            case LONG + LONG + INT:
+                type = basic_type(TY_LONG);
+                break;
+            default:
+                error_tok(getok()->prev, "不正な型です");
         }
     }
 
@@ -682,12 +695,17 @@ static Type *struct_decl() {
     Token *tag = consume_ident();
     if (tag && !match("{")) {
         Type *type = find_tag(tag);
-        if (!type) {
-            error_tok(tag, "不明な構造体です");
+
+        if (type) {
+            if (type->kind != TY_STRUCT) {
+                error_tok(tag, "構造体のタグではありません");
+            }
+            return type;
         }
-        if (type->kind != TY_STRUCT) {
-            error_tok(tag, "構造体のタグではありません");
-        }
+
+        type = new_type_struct(NULL);
+        type->size = -1;
+        push_tag_scope(tag, type);
         return type;
     }
 
@@ -695,6 +713,12 @@ static Type *struct_decl() {
 
     Type *type = new_type_struct(members());
     if (tag) {
+        for (TagScope *sc = scope->tags; sc; sc = sc->next) {
+            if (equal(tag, sc->name)) {
+                *sc->type = *type;
+                return sc->type;
+            }
+        }
         push_tag_scope(tag, type);
     }
 
@@ -706,12 +730,17 @@ static Type *union_decl() {
     Token *tag = consume_ident();
     if (tag && !match("{")) {
         Type *type = find_tag(tag);
-        if (!type) {
-            error_tok(tag, "不明な共用体です");
+
+        if (type) {
+            if (type->kind != TY_UNION) {
+                error_tok(tag, "共用体のタグではありません");
+            }
+            return type;
         }
-        if (type->kind != TY_UNION) {
-            error_tok(tag, "共用体のタグではありません");
-        }
+
+        type = new_type_union(NULL);
+        type->size = -1;
+        push_tag_scope(tag, type);
         return type;
     }
 
@@ -719,6 +748,12 @@ static Type *union_decl() {
 
     Type *type = new_type_union(members());
     if (tag) {
+        for (TagScope *sc = scope->tags; sc; sc = sc->next) {
+            if (equal(tag, sc->name)) {
+                *sc->type = *type;
+                return sc->type;
+            }
+        }
         push_tag_scope(tag, type);
     }
 
