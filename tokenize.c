@@ -111,7 +111,7 @@ static bool is_keyword(Token *tok) {
     static char *keywords[] = {"return", "if",     "else", "while",   "for",
                                "int",    "sizeof", "char", "struct",  "union",
                                "long",   "short",  "void", "typedef", "_Bool",
-                               "enum",   "static"};
+                               "enum",   "static", "goto"};
     static int len = sizeof(keywords) / sizeof(*keywords);
     for (int i = 0; i < len; i++) {
         if (equal(tok, keywords[i])) {
@@ -130,7 +130,7 @@ static int read_reserved(char *p) {
             return strlen(ops[i]);
         }
     }
-    if (strchr("+-*/()<>=;{},&*[].!~%|^", *p)) {
+    if (strchr("+-*/()<>=;{},&*[].!~%|^:", *p)) {
         return 1;
     }
     return 0;

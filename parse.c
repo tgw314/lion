@@ -38,6 +38,9 @@ static Object *locals;
 static Object *globals = &(Object){};
 static Object *current_func;
 
+static Node *gotos;
+static Node *labels;
+
 static Scope *scope = &(Scope){};
 
 static Type *declspec(VarAttr *attr);
@@ -92,6 +95,13 @@ static void push_tag_scope(Token *tok, Type *type) {
     scope->tags = sc;
 }
 
+static char *unique_name() {
+    static int index = 0;
+    char *name = calloc(1, 20);
+    sprintf(name, ".LC%d", index++);
+    return name;
+}
+
 static Object *new_object(Type *type, char *name) {
     Object *var = calloc(1, sizeof(Object));
     var->type = type;
@@ -114,12 +124,7 @@ static Object *new_gvar(Type *type, Token *tok) {
 }
 
 static Object *new_anon_gvar(Type *type) {
-    static int index = 0;
-
-    char *name = calloc(1, 20);
-    sprintf(name, ".LC%d", index++);
-
-    Object *gvar = new_object(type, name);
+    Object *gvar = new_object(type, unique_name());
     gvar->is_local = false;
     gvar->is_func = false;
 
@@ -618,6 +623,23 @@ static void add_params_lvar(Type *param) {
     }
 }
 
+static void resolve_goto_labels() {
+    for (Node *jmp = gotos; jmp; jmp = jmp->goto_next) {
+        for (Node *decl = labels; decl; decl = decl->goto_next) {
+            if (!strcmp(jmp->label, decl->label)) {
+                jmp->unique_label = decl->unique_label;
+                break;
+            }
+        }
+
+        if (jmp->unique_label == NULL) {
+            error_tok(jmp->tok->next, "このラベルは宣言されていません");
+        }
+    }
+
+    gotos = labels = NULL;
+}
+
 static void function(Type *base_type, VarAttr *attr) {
     Type *type = declarator(base_type);
     Token *tok = type->tok;
@@ -645,6 +667,7 @@ static void function(Type *base_type, VarAttr *attr) {
     func->locals = locals;
 
     leave_scope();
+    resolve_goto_labels();
 }
 
 // params = (declare ident ("," declare ident)*)? ")"
@@ -835,6 +858,8 @@ static void parse_typedef(Type *base_type) {
 //      | "if" "(" expr ")" stmt ("else" stmt)?
 //      | "while" "(" expr ")" stmt
 //      | "for" "(" expr? ";" expr? ";" expr? ")" stmt
+//      | "goto" ident ";"
+//      | ident ":" stmt
 //      | "return" expr ";"
 static Node *stmt() {
     Token *tok = getok();
@@ -893,6 +918,33 @@ static Node *stmt() {
         leave_scope();
 
         return node;
+    }
+
+    if (consume("goto")) {
+        Node *node = new_node(ND_GOTO, tok);
+        Token *label = expect_ident();
+        expect(";");
+
+        node->label = strndup(label->loc, label->len);
+        node->goto_next = gotos;
+        gotos = node;
+
+        return node;
+    }
+
+    if (tok->kind == TK_IDENT) {
+        seek(tok->next);
+        if (consume(":")) {
+            Node *node = new_node_unary(ND_LABEL, tok, stmt());
+
+            node->label = strndup(tok->loc, tok->len);
+            node->unique_label = unique_name();
+            node->goto_next = labels;
+            labels = node;
+
+            return node;
+        }
+        seek(tok);
     }
 
     if (consume("return")) {

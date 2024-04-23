@@ -390,6 +390,11 @@ static void gen_stmt(Node *node) {
             println(".L.end.%03d:", i);
             return;
         }
+        case ND_GOTO: println("  jmp %s", node->unique_label); return;
+        case ND_LABEL:
+            println("%s:", node->unique_label);
+            gen_stmt(node->lhs);
+            return;
         case ND_RETURN:
             gen_expr(node->lhs);
             println("  jmp .L.return.%s", obj->name);

@@ -68,6 +68,8 @@ typedef enum {
     ND_WHILE,      // while
     ND_FOR,        // for
     ND_BLOCK,      // ブロック
+    ND_GOTO,       // goto
+    ND_LABEL,      // ラベル
 } NodeKind;
 
 // トークン型
@@ -100,31 +102,33 @@ struct Type {
 
 // 抽象構文木のノードの型
 struct Node {
-    NodeKind kind;   // ノードの型
-    Token *tok;      // トークン
-    Type *type;      // 式の型
-    Node *next;      // 次のステートメント
-    Node *lhs;       // 左辺
-    Node *rhs;       // 右辺
-    Node *cond;      // kind が ND_IF, ND_WHILE, ND_FOR の場合のみ
-    Node *then;      // kind が ND_IF, ND_WHILE, ND_FOR の場合のみ
-    Node *els;       // kind が ND_IF の場合のみ
-    Node *init;      // kind が ND_FOR の場合のみ
-    Node *upd;       // kind が ND_FOR の場合のみ
-    Node *body;      // kind が ND_BLOCK, ND_EXPR_STMT の場合のみ
-    int64_t val;     // kind が ND_NUM の場合の数値
-    Object *var;     // kind が ND_LVAR, ND_GVAR の場合のみ
-    Type *functype;  // kind が ND_CALL の場合のみ
-    char *funcname;  // kind が ND_CALL の場合のみ
-    Node *args;      // kind が ND_CALL の場合のみ
-    Member *member;  // kind が ND_MEMBER の場合のみ
+    NodeKind kind;
+    Token *tok;
+    Type *type;
+    Node *next;
+    Node *lhs;
+    Node *rhs;
+    Node *cond;
+    Node *then;
+    Node *els;
+    Node *init;
+    Node *upd;
+    Node *body;
+    int64_t val;
+    Object *var;
+    Type *functype;
+    char *funcname;
+    Node *args;
+    Member *member;
+    char *label;
+    char *unique_label;
+    Node *goto_next;
 };
 
-// 関数
 struct Object {
     char *name;
-    Type *type;    // 返り値の型
-    Object *next;  // 次の関数
+    Type *type;
+    Object *next;
     bool is_func;
     bool is_local;
     bool is_def;
