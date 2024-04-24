@@ -450,30 +450,17 @@ static Type *declspec(VarAttr *attr) {
         }
 
         switch (counter) {
-            case VOID:
-                type = basic_type(TY_VOID);
-                break;
-            case BOOL:
-                type = basic_type(TY_BOOL);
-                break;
-            case CHAR:
-                type = basic_type(TY_CHAR);
-                break;
+            case VOID: type = basic_type(TY_VOID); break;
+            case BOOL: type = basic_type(TY_BOOL); break;
+            case CHAR: type = basic_type(TY_CHAR); break;
             case SHORT:
-            case SHORT + INT:
-                type = basic_type(TY_SHORT);
-                break;
-            case INT:
-                type = basic_type(TY_INT);
-                break;
+            case SHORT + INT: type = basic_type(TY_SHORT); break;
+            case INT: type = basic_type(TY_INT); break;
             case LONG:
             case LONG + INT:
             case LONG + LONG:
-            case LONG + LONG + INT:
-                type = basic_type(TY_LONG);
-                break;
-            default:
-                error_tok(getok()->prev, "不正な型です");
+            case LONG + LONG + INT: type = basic_type(TY_LONG); break;
+            default: error_tok(getok()->prev, "不正な型です");
         }
     }
 
@@ -970,7 +957,7 @@ static Node *compound_stmt() {
     enter_scope();
 
     while (!consume("}")) {
-        if (is_decl()) {
+        if (is_decl() && !equal(getok()->next, ":")) {
             VarAttr attr = {};
             Type *base_type = declspec(&attr);
 
