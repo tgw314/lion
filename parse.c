@@ -41,6 +41,8 @@ static Object *current_func;
 static Node *gotos;
 static Node *labels;
 
+static char *break_label;
+
 static Scope *scope = &(Scope){};
 
 static Type *declspec(VarAttr *attr);
@@ -847,6 +849,7 @@ static void parse_typedef(Type *base_type) {
 //      | "for" "(" expr? ";" expr? ";" expr? ")" stmt
 //      | "goto" ident ";"
 //      | ident ":" stmt
+//      | "break" ";"
 //      | "return" expr ";"
 static Node *stmt() {
     Token *tok = getok();
@@ -874,7 +877,11 @@ static Node *stmt() {
         expect("(");
         node->cond = expr();
         expect(")");
+
+        char *brk = break_label;
+        break_label = node->break_label = unique_name();
         node->then = stmt();
+        break_label = brk;
 
         return node;
     }
@@ -885,6 +892,9 @@ static Node *stmt() {
         expect("(");
 
         enter_scope();
+
+        char *brk = break_label;
+        break_label = node->break_label = unique_name();
 
         if (is_decl()) {
             node->init = declaration_local(declspec(NULL));
@@ -903,6 +913,7 @@ static Node *stmt() {
         node->then = stmt();
 
         leave_scope();
+        break_label = brk;
 
         return node;
     }
@@ -932,6 +943,16 @@ static Node *stmt() {
             return node;
         }
         seek(tok);
+    }
+
+    if (consume("break")) {
+        if (!break_label) {
+            error_tok(tok, "break 文はここでは使えません");
+        }
+        Node *node = new_node(ND_GOTO, tok);
+        node->unique_label = break_label;
+        expect(";");
+        return node;
     }
 
     if (consume("return")) {

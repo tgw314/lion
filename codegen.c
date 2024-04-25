@@ -365,10 +365,10 @@ static void gen_stmt(Node *node) {
             println(".L.begin.%03d:", i);
             gen_expr(node->cond);
             println("  cmp rax, 0");
-            println("  je  .L.end.%03d", i);
+            println("  je %s", node->break_label);
             gen_stmt(node->then);
             println("  jmp .L.begin.%03d", i);
-            println(".L.end.%03d:", i);
+            println("%s:", node->break_label);
             return;
         }
         case ND_FOR: {
@@ -380,14 +380,14 @@ static void gen_stmt(Node *node) {
             if (node->cond) {
                 gen_expr(node->cond);
                 println("  cmp rax, 0");
-                println("  je  .L.end.%03d", i);
+                println("  je %s", node->break_label);
             }
             gen_stmt(node->then);
             if (node->upd) {
                 gen_expr(node->upd);
             }
             println("  jmp .L.begin.%03d", i);
-            println(".L.end.%03d:", i);
+            println("%s:", node->break_label);
             return;
         }
         case ND_GOTO: println("  jmp %s", node->unique_label); return;
