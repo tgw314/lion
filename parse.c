@@ -42,6 +42,7 @@ static Node *gotos;
 static Node *labels;
 
 static char *break_label;
+static char *continue_label;
 
 static Scope *scope = &(Scope){};
 
@@ -850,6 +851,7 @@ static void parse_typedef(Type *base_type) {
 //      | "goto" ident ";"
 //      | ident ":" stmt
 //      | "break" ";"
+//      | "continue" ";"
 //      | "return" expr ";"
 static Node *stmt() {
     Token *tok = getok();
@@ -879,9 +881,14 @@ static Node *stmt() {
         expect(")");
 
         char *brk = break_label;
+        char *cont = continue_label;
         break_label = node->break_label = unique_name();
+        continue_label = node->continue_label = unique_name();
+
         node->then = stmt();
+
         break_label = brk;
+        continue_label = cont;
 
         return node;
     }
@@ -894,7 +901,9 @@ static Node *stmt() {
         enter_scope();
 
         char *brk = break_label;
+        char *cont = continue_label;
         break_label = node->break_label = unique_name();
+        continue_label = node->continue_label = unique_name();
 
         if (is_decl()) {
             node->init = declaration_local(declspec(NULL));
@@ -913,7 +922,9 @@ static Node *stmt() {
         node->then = stmt();
 
         leave_scope();
+
         break_label = brk;
+        continue_label = cont;
 
         return node;
     }
@@ -951,6 +962,16 @@ static Node *stmt() {
         }
         Node *node = new_node(ND_GOTO, tok);
         node->unique_label = break_label;
+        expect(";");
+        return node;
+    }
+
+    if (consume("continue")) {
+        if (!continue_label) {
+            error_tok(tok, "continue 文はここでは使えません");
+        }
+        Node *node = new_node(ND_GOTO, tok);
+        node->unique_label = continue_label;
         expect(";");
         return node;
     }

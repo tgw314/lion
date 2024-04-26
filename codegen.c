@@ -372,6 +372,7 @@ static void gen_stmt(Node *node) {
                 println("  je %s", node->break_label);
             }
             gen_stmt(node->then);
+            println("%s:", node->continue_label);
             if (node->upd) {
                 gen_expr(node->upd);
             }

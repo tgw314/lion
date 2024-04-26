@@ -122,6 +122,7 @@ struct Node {
     char *label;
     char *unique_label;
     char *break_label;
+    char *continue_label;
     Node *goto_next;
 };
 
