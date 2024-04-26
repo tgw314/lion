@@ -360,17 +360,6 @@ static void gen_stmt(Node *node) {
             println(".L.end.%03d:", i);
             return;
         }
-        case ND_WHILE: {
-            int i = count();
-            println(".L.begin.%03d:", i);
-            gen_expr(node->cond);
-            println("  cmp rax, 0");
-            println("  je %s", node->break_label);
-            gen_stmt(node->then);
-            println("  jmp .L.begin.%03d", i);
-            println("%s:", node->break_label);
-            return;
-        }
         case ND_FOR: {
             int i = count();
             if (node->init) {

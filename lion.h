@@ -65,7 +65,6 @@ typedef enum {
     ND_RETURN,     // return
     ND_IF,         // if
     ND_ELSE,       // else
-    ND_WHILE,      // while
     ND_FOR,        // for
     ND_BLOCK,      // ブロック
     ND_GOTO,       // goto

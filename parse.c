@@ -872,7 +872,7 @@ static Node *stmt() {
     }
 
     if (consume("while")) {
-        Node *node = new_node(ND_WHILE, tok);
+        Node *node = new_node(ND_FOR, tok);
 
         expect("(");
         node->cond = expr();
