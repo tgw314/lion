@@ -69,6 +69,8 @@ typedef enum {
     ND_BLOCK,      // ブロック
     ND_GOTO,       // goto
     ND_LABEL,      // ラベル
+    ND_SWITCH,     // switch
+    ND_CASE,       // case
 } NodeKind;
 
 // トークン型
@@ -124,6 +126,8 @@ struct Node {
     char *break_label;
     char *continue_label;
     Node *goto_next;
+    Node *case_next;
+    Node *default_case;
 };
 
 struct Object {

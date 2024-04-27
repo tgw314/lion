@@ -44,6 +44,8 @@ static Node *labels;
 static char *break_label;
 static char *continue_label;
 
+static Node *current_switch;
+
 static Scope *scope = &(Scope){};
 
 static Type *declspec(VarAttr *attr);
@@ -852,6 +854,8 @@ static void parse_typedef(Type *base_type) {
 //      | ident ":" stmt
 //      | "break" ";"
 //      | "continue" ";"
+//      | "switch" "(" expr ")" stmt
+//      | (case num | "default") ":" stmt
 //      | "return" expr ";"
 static Node *stmt() {
     Token *tok = getok();
@@ -973,6 +977,51 @@ static Node *stmt() {
         Node *node = new_node(ND_GOTO, tok);
         node->unique_label = continue_label;
         expect(";");
+        return node;
+    }
+
+    if (consume("switch")) {
+        Node *node = new_node(ND_SWITCH, tok);
+        expect("(");
+        node->cond = expr();
+        expect(")");
+
+        Node *sw = current_switch;
+        char *brk = break_label;
+        current_switch = node;
+        break_label = node->break_label = unique_name();
+
+        node->then = stmt();
+
+        current_switch = sw;
+        break_label = brk;
+        return node;
+    }
+
+    if (consume("case")) {
+        if (!current_switch) {
+            error_tok(tok, "case 文はここでは使えません");
+        }
+        int val = expect_number();
+        expect(":");
+
+        Node *node = new_node_unary(ND_CASE, tok, stmt());
+        node->label = unique_name();
+        node->val = val;
+        node->case_next = current_switch->case_next;
+        current_switch->case_next = node;
+        return node;
+    }
+
+    if (consume("default")) {
+        if (!current_switch) {
+            error_tok(tok, "default 文はここでは使えません");
+        }
+        expect(":");
+
+        Node *node = new_node_unary(ND_CASE, tok, stmt());
+        node->label = unique_name();
+        current_switch->default_case = node;
         return node;
     }
 
