@@ -208,9 +208,7 @@ Type *new_type_ptr(Type *type);
 
 Type *new_type_array(Type *type, size_t size);
 
-Type *new_type_struct(Member *member);
-
-Type *new_type_union(Member *members);
+Type *new_type_struct_union(TypeKind kind, Member *members);
 
 bool is_pointer(Type *type);
 

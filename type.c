@@ -59,7 +59,7 @@ Type *new_type_array(Type *base_type, size_t size) {
     return type;
 }
 
-Type *new_type_struct(Member *members) {
+static Type *new_type_struct(Member *members) {
     Type *type = new_type(TY_STRUCT);
     type->members = members;
     type->align = 1;
@@ -79,7 +79,7 @@ Type *new_type_struct(Member *members) {
     return type;
 }
 
-Type *new_type_union(Member *members) {
+static Type *new_type_union(Member *members) {
     Type *type = new_type(TY_UNION);
     type->members = members;
     type->align = 1;
@@ -95,6 +95,16 @@ Type *new_type_union(Member *members) {
     type->size = align(type->size, type->align);
 
     return type;
+}
+
+Type *new_type_struct_union(TypeKind kind, Member *members) {
+    if (kind == TY_STRUCT) {
+        return new_type_struct(members);
+    }
+    if (kind == TY_UNION) {
+        return new_type_union(members);
+    }
+    unreachable();
 }
 
 bool is_pointer(Type *type) { return type->ptr_to != NULL; }

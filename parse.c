@@ -50,6 +50,7 @@ static Scope *scope = &(Scope){};
 
 static Type *declspec(VarAttr *attr);
 static Type *declarator(Type *type);
+static Type *struct_union_decl(TypeKind kind);
 static Type *struct_decl();
 static Type *union_decl();
 static Type *enum_specifier();
@@ -425,9 +426,9 @@ static Type *declspec(VarAttr *attr) {
             if (counter) break;
 
             if (consume("struct")) {
-                type = struct_decl();
+                type = struct_union_decl(TY_STRUCT);
             } else if (consume("union")) {
-                type = union_decl();
+                type = struct_union_decl(TY_UNION);
             } else if (consume("enum")) {
                 type = enum_specifier();
             } else {
@@ -707,19 +708,27 @@ static Member *members() {
 }
 
 // struct-decl = ident? ("{" members)?
-static Type *struct_decl() {
+static Type *struct_union_decl(TypeKind kind) {
+    if (kind != TY_STRUCT && kind != TY_UNION) {
+        unreachable();
+    }
+
     Token *tag = consume_ident();
     if (tag && !match("{")) {
         Type *type = find_tag(tag);
 
         if (type) {
-            if (type->kind != TY_STRUCT) {
-                error_tok(tag, "構造体のタグではありません");
+            if (type->kind != kind) {
+                if (kind == TY_STRUCT) {
+                    error_tok(tag, "構造体のタグではありません");
+                } else {
+                    error_tok(tag, "共用体のタグではありません");
+                }
             }
             return type;
         }
 
-        type = new_type_struct(NULL);
+        type = new_type_struct_union(kind, NULL);
         type->size = -1;
         push_tag_scope(tag, type);
         return type;
@@ -727,42 +736,7 @@ static Type *struct_decl() {
 
     expect("{");
 
-    Type *type = new_type_struct(members());
-    if (tag) {
-        for (TagScope *sc = scope->tags; sc; sc = sc->next) {
-            if (equal(tag, sc->name)) {
-                *sc->type = *type;
-                return sc->type;
-            }
-        }
-        push_tag_scope(tag, type);
-    }
-
-    return type;
-}
-
-// union-decl = ident? ("{" members)?
-static Type *union_decl() {
-    Token *tag = consume_ident();
-    if (tag && !match("{")) {
-        Type *type = find_tag(tag);
-
-        if (type) {
-            if (type->kind != TY_UNION) {
-                error_tok(tag, "共用体のタグではありません");
-            }
-            return type;
-        }
-
-        type = new_type_union(NULL);
-        type->size = -1;
-        push_tag_scope(tag, type);
-        return type;
-    }
-
-    expect("{");
-
-    Type *type = new_type_union(members());
+    Type *type = new_type_struct_union(kind, members());
     if (tag) {
         for (TagScope *sc = scope->tags; sc; sc = sc->next) {
             if (equal(tag, sc->name)) {
