@@ -68,6 +68,7 @@ static Node *bit_or();
 static Node *bitxor();
 static Node *bitand();
 static Node *equality();
+static Node *shift();
 static Node *relational();
 static Node *add();
 static Node *mul();
@@ -1115,8 +1116,8 @@ static Node *to_assign(Node *binary) {
 }
 
 // assign = logor (
-//            ("=" | "+=" | "-=" | "*=" | "/=" | "%=" | "&=" | "|=" | "^=")
-//            assign
+//            ("=" | "+=" | "-=" | "*=" | "/=" | "%=" | "&=" | "|=" | "^=" |
+//            "<<=" | ">>=") assign
 //          )?
 static Node *assign() {
     Token *tok = getok();
@@ -1148,6 +1149,12 @@ static Node *assign() {
     }
     if (consume("^=")) {
         node = to_assign(new_node_binary(ND_BITXOR, tok, node, assign()));
+    }
+    if (consume("<<=")) {
+        node = to_assign(new_node_binary(ND_BITSHL, tok, node, assign()));
+    }
+    if (consume(">>=")) {
+        node = to_assign(new_node_binary(ND_BITSHR, tok, node, assign()));
     }
     return node;
 }
@@ -1212,20 +1219,36 @@ static Node *equality() {
     }
 }
 
-// relational = add ("<" add | "<=" add | ">" add | ">=" add)*
+// relational = shift ("<" shift | "<=" shift | ">" shift | ">=" shift)*
 static Node *relational() {
-    Node *node = add();
+    Node *node = shift();
 
     while (true) {
         Token *tok = getok();
         if (consume("<=")) {
-            node = new_node_binary(ND_LEQ, tok, node, add());
+            node = new_node_binary(ND_LEQ, tok, node, shift());
         } else if (consume("<")) {
-            node = new_node_binary(ND_LS, tok, node, add());
+            node = new_node_binary(ND_LS, tok, node, shift());
         } else if (consume(">=")) {
-            node = new_node_binary(ND_LEQ, tok, add(), node);
+            node = new_node_binary(ND_LEQ, tok, shift(), node);
         } else if (consume(">")) {
-            node = new_node_binary(ND_LS, tok, add(), node);
+            node = new_node_binary(ND_LS, tok, shift(), node);
+        } else {
+            return node;
+        }
+    }
+}
+
+// shift = add ("<<" add | ">>" add)
+static Node *shift() {
+    Node *node = add();
+
+    while (true) {
+        Token *tok = getok();
+        if (consume("<<")) {
+            node = new_node_binary(ND_BITSHL, tok, node, add());
+        } else if (consume(">>")) {
+            node = new_node_binary(ND_BITSHR, tok, node, add());
         } else {
             return node;
         }

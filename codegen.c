@@ -333,6 +333,14 @@ static void gen_expr(Node *node) {
         case ND_BITAND: println("  and %s, %s", rax, rdi); return;
         case ND_BITOR: println("  or %s, %s", rax, rdi); return;
         case ND_BITXOR: println("  xor %s, %s", rax, rdi); return;
+        case ND_BITSHL:
+            println("  mov rcx, rdi");
+            println("  shl %s, cl", rax);
+            return;
+        case ND_BITSHR:
+            println("  mov rcx, rdi");
+            println("  sar %s, cl", rax);
+            return;
     }
 }
 

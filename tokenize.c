@@ -123,8 +123,9 @@ static bool is_keyword(Token *tok) {
 }
 
 static int read_reserved(char *p) {
-    static char *ops[] = {"==", "!=", "<=", ">=", "->", "+=", "-=", "*=", "/=",
-                          "++", "--", "%=", "&=", "|=", "^=", "&&", "||"};
+    static char *ops[] = {"<<=", ">>=", "==", "!=", "<=", ">=", "->",
+                          "+=",  "-=",  "*=", "/=", "++", "--", "%=",
+                          "&=",  "|=",  "^=", "&&", "||", "<<", ">>"};
     static int len = sizeof(ops) / sizeof(*ops);
     for (int i = 0; i < len; i++) {
         if (startswith(p, ops[i])) {

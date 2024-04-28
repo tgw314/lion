@@ -48,6 +48,8 @@ typedef enum {
     ND_BITAND,     // &
     ND_BITOR,      // |
     ND_BITXOR,     // ^
+    ND_BITSHL,     // <<
+    ND_BITSHR,     // >>
     ND_ASSIGN,     // =
     ND_COMMA,      // ,
     ND_MEMBER,     // .
