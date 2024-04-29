@@ -52,6 +52,7 @@ typedef enum {
     ND_BITSHR,     // >>
     ND_ASSIGN,     // =
     ND_COMMA,      // ,
+    ND_COND,       // ? :
     ND_MEMBER,     // .
     ND_NEG,        // 単項 -
     ND_ADDR,       // 単項 &

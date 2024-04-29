@@ -195,6 +195,15 @@ void set_node_type(Node *node) {
         case ND_BITSHR: node->type = node->lhs->type; return;
         case ND_CALL: node->type = basic_type(TY_LONG); return;
         case ND_COMMA: node->type = node->rhs->type; return;
+        case ND_COND:
+            if (node->then->type->kind == TY_VOID ||
+                node->els->type->kind == TY_VOID) {
+                node->type = basic_type(TY_VOID);
+            } else {
+                usual_arith_conv(&node->then, &node->els);
+                node->type = node->then->type;
+            }
+            return;
         case ND_MEMBER: node->type = node->member->type; return;
         case ND_ADDR:
             if (node->lhs->type->kind == TY_ARRAY) {

@@ -63,6 +63,7 @@ static Node *compound_stmt();
 static Node *expr_stmt();
 static Node *expr();
 static Node *assign();
+static Node *conditional();
 static Node *logor();
 static Node *logand();
 static Node *bit_or();
@@ -1089,14 +1090,14 @@ static Node *to_assign(Node *binary) {
     return new_node_binary(ND_COMMA, tok, expr1, expr2);
 }
 
-// assign = logor (
+// assign = conditional (
 //            ("=" | "+=" | "-=" | "*=" | "/=" | "%=" | "&=" | "|=" | "^=" |
 //            "<<=" | ">>=") assign
 //          )?
 static Node *assign() {
     Token *tok = getok();
 
-    Node *node = logor();
+    Node *node = conditional();
     if (consume("=")) {
         node = new_node_binary(ND_ASSIGN, tok, node, assign());
     }
@@ -1130,6 +1131,23 @@ static Node *assign() {
     if (consume(">>=")) {
         node = to_assign(new_node_binary(ND_BITSHR, tok, node, assign()));
     }
+    return node;
+}
+
+// conditional = logor ("?" expr ":" conditional)?
+static Node *conditional() {
+    Token *tok = getok();
+
+    Node *cond = logor();
+
+    if (!consume("?")) return cond;
+
+    Node *node = new_node(ND_COND, tok);
+    node->cond = cond;
+    node->then = expr();
+    expect(":");
+    node->els = conditional();
+
     return node;
 }
 

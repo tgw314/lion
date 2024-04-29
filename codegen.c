@@ -259,6 +259,18 @@ static void gen_expr(Node *node) {
             gen_expr(node->lhs);
             gen_expr(node->rhs);
             return;
+        case ND_COND: {
+            int c = count();
+            gen_expr(node->cond);
+            println("  cmp eax, 0");
+            println("  je .L.else.%03d", c);
+            gen_expr(node->then);
+            println("  jmp .L.end.%03d", c);
+            println(".L.else.%03d:", c);
+            gen_expr(node->els);
+            println(".L.end.%03d:", c);
+            return;
+        }
         case ND_ADDR: gen_lval(node->lhs); return;
         case ND_DEREF:
             gen_expr(node->lhs);
