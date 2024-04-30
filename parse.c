@@ -1,3 +1,4 @@
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -62,6 +63,7 @@ static Node *stmt();
 static Node *compound_stmt();
 static Node *expr_stmt();
 static Node *expr();
+static int64_t const_expr();
 static Node *assign();
 static Node *conditional();
 static Node *logor();
@@ -278,12 +280,12 @@ static Node *new_node_add(Token *tok, Node *lhs, Node *rhs) {
     set_node_type(lhs);
     set_node_type(rhs);
 
-    if (is_number(lhs->type) && is_number(rhs->type)) {
+    if (is_integer(lhs->type) && is_integer(rhs->type)) {
         return new_node_binary(ND_ADD, tok, lhs, rhs);
     }
 
     // 左右の入れ替え
-    if (is_number(lhs->type) && is_pointer(rhs->type)) {
+    if (is_integer(lhs->type) && is_pointer(rhs->type)) {
         Node *tmp = lhs;
         lhs = rhs;
         rhs = tmp;
@@ -303,11 +305,11 @@ static Node *new_node_sub(Token *tok, Node *lhs, Node *rhs) {
     set_node_type(lhs);
     set_node_type(rhs);
 
-    if (is_number(lhs->type) && is_number(rhs->type)) {
+    if (is_integer(lhs->type) && is_integer(rhs->type)) {
         return new_node_binary(ND_SUB, tok, lhs, rhs);
     }
 
-    if (is_pointer(lhs->type) && is_number(rhs->type)) {
+    if (is_pointer(lhs->type) && is_integer(rhs->type)) {
         rhs = new_node_binary(ND_MUL, tok, rhs,
                               new_node_long(tok, lhs->type->ptr_to->size));
         set_node_type(rhs);
@@ -475,7 +477,7 @@ static Type *declspec(VarAttr *attr) {
     return type;
 }
 
-// declsuffix = "(" params ")" |  "[" num? "]" declsuffix
+// declsuffix = "(" params ")" |  "[" const_expr? "]" declsuffix
 static Type *declsuffix(Type *type) {
     if (consume("(")) {
         type = new_type_func(type, params());
@@ -488,7 +490,7 @@ static Type *declsuffix(Type *type) {
         if (consume("]")) {
             len = -1;
         } else {
-            len = expect_number();
+            len = const_expr();
             expect("]");
         }
 
@@ -754,7 +756,7 @@ static Type *struct_union_decl(TypeKind kind) {
 // enum-specifier = ident? "{" enum-list? "}"
 //                | ident ("{" enum-list? "}")?
 //
-// enum-list      = ident ("=" num)? ("," ident ("=" num)?)*
+// enum-list      = ident ("=" const_expr)? ("," ident ("=" const_expr)?)*
 static Type *enum_specifier() {
     Token *tag = consume_ident();
     if (tag && !match("{")) {
@@ -778,7 +780,7 @@ static Type *enum_specifier() {
             char *name = strndup(tok->loc, tok->len);
 
             if (consume("=")) {
-                val = expect_number();
+                val = const_expr();
             }
 
             VarScope *sc = push_scope(name);
@@ -831,7 +833,7 @@ static void parse_typedef(Type *base_type) {
 //      | "break" ";"
 //      | "continue" ";"
 //      | "switch" "(" expr ")" stmt
-//      | (case num | "default") ":" stmt
+//      | (case const_expr | "default") ":" stmt
 //      | "return" expr ";"
 static Node *stmt() {
     Token *tok = getok();
@@ -978,7 +980,7 @@ static Node *stmt() {
         if (!current_switch) {
             error_tok(tok, "case 文はここでは使えません");
         }
-        int val = expect_number();
+        int val = const_expr();
         expect(":");
 
         Node *node = new_node_unary(ND_CASE, tok, stmt());
@@ -1067,6 +1069,48 @@ static Node *expr() {
     }
     return node;
 }
+
+static int64_t eval(Node *node) {
+    set_node_type(node);
+    switch (node->kind) {
+        case ND_ADD: return eval(node->lhs) + eval(node->rhs);
+        case ND_SUB: return eval(node->lhs) - eval(node->rhs);
+        case ND_MUL: return eval(node->lhs) * eval(node->rhs);
+        case ND_DIV: return eval(node->lhs) / eval(node->rhs);
+        case ND_MOD: return eval(node->lhs) % eval(node->rhs);
+        case ND_EQ: return eval(node->lhs) == eval(node->rhs);
+        case ND_NEQ: return eval(node->lhs) != eval(node->rhs);
+        case ND_LS: return eval(node->lhs) < eval(node->rhs);
+        case ND_LEQ: return eval(node->lhs) <= eval(node->rhs);
+        case ND_AND: return eval(node->lhs) && eval(node->rhs);
+        case ND_OR: return eval(node->lhs) || eval(node->rhs);
+        case ND_BITAND: return eval(node->lhs) & eval(node->rhs);
+        case ND_BITOR: return eval(node->lhs) | eval(node->rhs);
+        case ND_BITXOR: return eval(node->lhs) ^ eval(node->rhs);
+        case ND_BITSHL: return eval(node->lhs) << eval(node->rhs);
+        case ND_BITSHR: return eval(node->lhs) >> eval(node->rhs);
+        case ND_COMMA: return eval(node->rhs);
+        case ND_COND:
+            return eval(node->cond) ? eval(node->then) : eval(node->els);
+        case ND_NEG: return -eval(node->lhs);
+        case ND_NOT: return !eval(node->lhs);
+        case ND_BITNOT: return ~eval(node->lhs);
+        case ND_CAST:
+            if (is_integer(node->type)) {
+                switch (node->type->size) {
+                    case 1: return (uint8_t)eval(node->lhs);
+                    case 2: return (uint16_t)eval(node->lhs);
+                    case 4: return (uint32_t)eval(node->lhs);
+                }
+            }
+            return eval(node->lhs);
+        case ND_NUM: return node->val;
+    }
+
+    error_tok(node->tok, "コンパイル時に定数ではありません");
+}
+
+static int64_t const_expr() { return eval(conditional()); }
 
 static Node *to_assign(Node *binary) {
     set_node_type(binary->lhs);

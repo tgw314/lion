@@ -213,7 +213,7 @@ Type *new_type_struct_union(TypeKind kind, Member *members);
 
 bool is_pointer(Type *type);
 
-bool is_number(Type *type);
+bool is_integer(Type *type);
 
 void set_node_type(Node *node);
 

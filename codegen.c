@@ -445,7 +445,7 @@ void emit_data(Object *obj) {
     println("%s:", obj->name);
 
     if (obj->init_data) {
-        if (!is_number(obj->type)) {
+        if (!is_integer(obj->type)) {
             for (int i = 0; i < obj->type->array_size; i++) {
                 println("  .byte %d", obj->init_data[i]);
             }

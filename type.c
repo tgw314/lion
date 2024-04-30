@@ -109,7 +109,7 @@ Type *new_type_struct_union(TypeKind kind, Member *members) {
 
 bool is_pointer(Type *type) { return type->ptr_to != NULL; }
 
-bool is_number(Type *type) {
+bool is_integer(Type *type) {
     return type->kind == TY_BOOL || type->kind == TY_CHAR ||
            type->kind == TY_SHORT || type->kind == TY_INT ||
            type->kind == TY_LONG || type->kind == TY_ENUM;
