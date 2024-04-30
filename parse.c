@@ -107,7 +107,7 @@ static void push_tag_scope(Token *tok, Type *type) {
 
 static char *unique_name() {
     static int index = 0;
-    char *name = calloc(1, 20);
+    char *name = calloc(20, sizeof(char));
     sprintf(name, ".LC%d", index++);
     return name;
 }
