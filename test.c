@@ -616,6 +616,15 @@ int main() {
     ASSERT(12, ({ char x[(int*)16-1]; sizeof(x); }));
     ASSERT(3, ({ char x[(int*)16-(int*)4]; sizeof(x); }));
 
+    ASSERT(1, ({ int x[3]={1,2,3}; x[0]; }));
+    ASSERT(2, ({ int x[3]={1,2,3}; x[1]; }));
+    ASSERT(3, ({ int x[3]={1,2,3}; x[2]; }));
+    ASSERT(3, ({ int x[3]={1,2,3}; x[2]; }));
+
+    ASSERT(2, ({ int x[2][3]={{1,2,3},{4,5,6}}; x[0][1]; }));
+    ASSERT(4, ({ int x[2][3]={{1,2,3},{4,5,6}}; x[1][0]; }));
+    ASSERT(6, ({ int x[2][3]={{1,2,3},{4,5,6}}; x[1][2]; }));
+
     printf("OK\n");
     return 0;
 }

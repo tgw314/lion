@@ -34,6 +34,7 @@ typedef enum {
 
 // 抽象構文木のノードの種類
 typedef enum {
+    ND_NULL_EXPR,  // 何もしない
     ND_ADD,        // +
     ND_SUB,        // -
     ND_MUL,        // *

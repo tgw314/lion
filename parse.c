@@ -35,6 +35,22 @@ struct VarAttr {
     bool is_static;
 };
 
+typedef struct Initializer Initializer;
+struct Initializer {
+    Initializer *next;
+    Type *type;
+    Token *tok;
+    Node *expr;              // 配列や構造体以外の型の場合
+    Initializer **children;  // 配列や構造体の場合
+};
+
+typedef struct InitDesign InitDesign;
+struct InitDesign {
+    InitDesign *next;
+    int index;
+    Object *var;
+};
+
 static Object *locals;
 static Object *globals = &(Object){};
 static Object *current_func;
@@ -56,6 +72,7 @@ static Type *struct_decl();
 static Type *union_decl();
 static Type *enum_specifier();
 static void declaration_global(Type *base_type);
+static Node *lvar_initializer(Object *var);
 static void function(Type *type, VarAttr *attr);
 static Type *params();
 static void parse_typedef(Type *base_type);
@@ -160,6 +177,20 @@ static Object *new_temp_lvar(Type *type) {
     lvar->is_local = true;
     lvar->is_func = false;
     return lvar;
+}
+
+static Initializer *new_initializer(Type *type) {
+    Initializer *init = calloc(1, sizeof(Initializer));
+    init->type = type;
+
+    if (type->kind == TY_ARRAY) {
+        init->children = calloc(type->array_size, sizeof(Initializer *));
+        for (int i = 0; i < type->array_size; i++) {
+            init->children[i] = new_initializer(type->ptr_to);
+        }
+    }
+
+    return init;
 }
 
 static VarScope *find_var(Token *tok) {
@@ -329,7 +360,7 @@ static Node *new_node_sub(Token *tok, Node *lhs, Node *rhs) {
     error_tok(tok, "誤ったオペランドです");
 }
 
-static Node *new_node_var(Object *var, Token *tok) {
+static Node *new_node_var(Token *tok, Object *var) {
     Node *node = new_node(ND_VAR, tok);
     node->var = var;
     return node;
@@ -574,10 +605,8 @@ static Node *declaration_local(Type *base_type) {
 
             if (consume("=")) {
                 Token *tok = getok();
-                cur = cur->next = new_node(ND_EXPR_STMT, tok);
-                cur->lhs =
-                    new_node_binary(ND_ASSIGN, tok->next,
-                                    new_node_var(var, type->tok), assign());
+                Node *expr = lvar_initializer(var);
+                cur = cur->next = new_node_unary(ND_EXPR_STMT, tok, expr);
             }
         } while (consume(","));
         expect(";");
@@ -611,6 +640,63 @@ static void declaration_global(Type *base_type) {
 
     } while (consume(","));
     expect(";");
+}
+
+static void parse_init(Initializer *init) {
+    if (init->type->kind == TY_ARRAY) {
+        expect("{");
+        for (int i = 0; i < init->type->array_size; i++) {
+            if (i > 0) expect(",");
+            parse_init(init->children[i]);
+        }
+        expect("}");
+        return;
+    }
+
+    init->expr = assign();
+}
+
+static Initializer *initializer(Type *type) {
+    Initializer *init = new_initializer(type);
+    parse_init(init);
+    return init;
+}
+
+static Node *init_design_expr(InitDesign *design) {
+    Token *tok = getok();
+    if (design->var) {
+        return new_node_var(tok, design->var);
+    }
+    Node *lhs = init_design_expr(design->next);
+    Node *rhs = new_node_num(tok, design->index);
+    return new_node_unary(ND_DEREF, tok, new_node_add(tok, lhs, rhs));
+}
+
+static Node *create_lvar_init(Initializer *init, Type *type,
+                              InitDesign *design) {
+    Token *tok = getok();
+    if (type->kind == TY_ARRAY) {
+        Node *node = new_node(ND_NULL_EXPR, tok);
+
+        for (int i = 0; i < type->array_size; i++) {
+            InitDesign design2 = {design, i};
+            Node *rhs =
+                create_lvar_init(init->children[i], type->ptr_to, &design2);
+            node = new_node_binary(ND_COMMA, tok, node, rhs);
+        }
+
+        return node;
+    }
+
+    Node *lhs = init_design_expr(design);
+    Node *rhs = init->expr;
+    return new_node_binary(ND_ASSIGN, tok, lhs, rhs);
+}
+
+static Node *lvar_initializer(Object *var) {
+    Initializer *init = initializer(var->type);
+    InitDesign desg = {NULL, 0, var};
+    return create_lvar_init(init, var->type, &desg);
 }
 
 static void add_params_lvar(Type *param) {
@@ -1123,12 +1209,12 @@ static Node *to_assign(Node *binary) {
     Node *expr1, *expr2;
 
     expr1 = new_node_unary(ND_ADDR, tok, binary->lhs);
-    expr1 = new_node_binary(ND_ASSIGN, tok, new_node_var(var, tok), expr1);
+    expr1 = new_node_binary(ND_ASSIGN, tok, new_node_var(tok, var), expr1);
 
-    expr2 = new_node_unary(ND_DEREF, tok, new_node_var(var, tok));
+    expr2 = new_node_unary(ND_DEREF, tok, new_node_var(tok, var));
     expr2 = new_node_binary(binary->kind, tok, expr2, binary->rhs);
     expr2 = new_node_binary(
-        ND_ASSIGN, tok, new_node_unary(ND_DEREF, tok, new_node_var(var, tok)),
+        ND_ASSIGN, tok, new_node_unary(ND_DEREF, tok, new_node_var(tok, var)),
         expr2);
 
     return new_node_binary(ND_COMMA, tok, expr1, expr2);
@@ -1520,7 +1606,7 @@ static Node *primary() {
             return new_node_num(tok, sc->enum_val);
         }
 
-        return new_node_var(sc->var, tok);
+        return new_node_var(tok, sc->var);
     }
 
     if (tok->kind == TK_STR) {
