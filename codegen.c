@@ -256,6 +256,12 @@ static void gen_expr(Node *node) {
                         reg(RAX, id));
             }
             return;
+        case ND_MEMZERO:
+            println("  mov rcx, %d", node->var->type->size);
+            println("  lea rdi, [rbp%+d]", node->var->offset);
+            println("  mov al, 0");
+            println("  rep stosb");
+            return;
         case ND_COMMA:
             gen_expr(node->lhs);
             gen_expr(node->rhs);

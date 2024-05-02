@@ -645,7 +645,7 @@ static void declaration_global(Type *base_type) {
 static void parse_init(Initializer *init) {
     if (init->type->kind == TY_ARRAY) {
         expect("{");
-        for (int i = 0; i < init->type->array_size; i++) {
+        for (int i = 0; i < init->type->array_size && !match("}"); i++) {
             if (i > 0) expect(",");
             parse_init(init->children[i]);
         }
@@ -688,6 +688,8 @@ static Node *create_lvar_init(Initializer *init, Type *type,
         return node;
     }
 
+    if (!init->expr) return new_node(ND_NULL_EXPR, tok);
+
     Node *lhs = init_design_expr(design);
     Node *rhs = init->expr;
     return new_node_binary(ND_ASSIGN, tok, lhs, rhs);
@@ -696,7 +698,14 @@ static Node *create_lvar_init(Initializer *init, Type *type,
 static Node *lvar_initializer(Object *var) {
     Initializer *init = initializer(var->type);
     InitDesign desg = {NULL, 0, var};
-    return create_lvar_init(init, var->type, &desg);
+    Token *tok = getok();
+
+    Node *lhs = new_node(ND_MEMZERO, tok);
+    lhs->var = var;
+
+    Node *rhs = create_lvar_init(init, var->type, &desg);
+
+    return new_node_binary(ND_COMMA, tok, lhs, rhs);
 }
 
 static void add_params_lvar(Type *param) {

@@ -75,6 +75,7 @@ typedef enum {
     ND_LABEL,      // ラベル
     ND_SWITCH,     // switch
     ND_CASE,       // case
+    ND_MEMZERO,    // スタックの変数をゼロ初期化
 } NodeKind;
 
 // トークン型
