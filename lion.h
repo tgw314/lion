@@ -2,6 +2,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+
 typedef struct Token Token;
 typedef struct Node Node;
 typedef struct Object Object;

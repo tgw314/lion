@@ -72,6 +72,7 @@ static Type *struct_decl();
 static Type *union_decl();
 static Type *enum_specifier();
 static void declaration_global(Type *base_type);
+static void parse_initializer(Initializer *init);
 static Node *lvar_initializer(Object *var);
 static void function(Type *type, VarAttr *attr);
 static Type *params();
@@ -653,29 +654,44 @@ static void skip_excess_element() {
     assign();
 }
 
-// initializer = "{" initializer ("," initializer)* "}"
-//             | assign
-static void parse_init(Initializer *init) {
-    if (init->type->kind == TY_ARRAY) {
-        expect("{");
-        for (int i = 0; !consume("}"); i++) {
-            if (i > 0) expect(",");
-
-            if (i < init->type->array_size) {
-                parse_init(init->children[i]);
-            } else {
-                skip_excess_element();
-            }
-        }
-        return;
+// string-initializer = string
+static void string_initalizer(Initializer *init) {
+    Token *tok = getok();
+    int len = MIN(init->type->array_size, strlen(tok->str));
+    for (int i = 0; i < len; i++) {
+        init->children[i]->expr = new_node_num(tok, tok->str[i]);
     }
-
-    init->expr = assign();
+    seek(tok->next);
 }
 
+// array-initializer = "{" initializer ("," initializer)* "}"
+static void array_initializer(Initializer *init) {
+    expect("{");
+    for (int i = 0; !consume("}"); i++) {
+        if (i > 0) expect(",");
+
+        if (i < init->type->array_size) {
+            parse_initializer(init->children[i]);
+        } else {
+            skip_excess_element();
+        }
+    }
+}
+
+static void parse_initializer(Initializer *init) {
+    if (init->type->kind == TY_ARRAY && getok()->kind == TK_STR) {
+        string_initalizer(init);
+    } else if (init->type->kind == TY_ARRAY) {
+        array_initializer(init);
+    } else {
+        init->expr = assign();
+    }
+}
+
+// initializer = string_initalizer | array-initializer | assign
 static Initializer *initializer(Type *type) {
     Initializer *init = new_initializer(type);
-    parse_init(init);
+    parse_initializer(init);
     return init;
 }
 
