@@ -642,14 +642,31 @@ static void declaration_global(Type *base_type) {
     expect(";");
 }
 
+static void skip_excess_element() {
+    if (consume("{")) {
+        do {
+            skip_excess_element();
+        } while (consume(","));
+        expect("}");
+        return;
+    }
+    assign();
+}
+
+// initializer = "{" initializer ("," initializer)* "}"
+//             | assign
 static void parse_init(Initializer *init) {
     if (init->type->kind == TY_ARRAY) {
         expect("{");
-        for (int i = 0; i < init->type->array_size && !match("}"); i++) {
+        for (int i = 0; !consume("}"); i++) {
             if (i > 0) expect(",");
-            parse_init(init->children[i]);
+
+            if (i < init->type->array_size) {
+                parse_init(init->children[i]);
+            } else {
+                skip_excess_element();
+            }
         }
-        expect("}");
         return;
     }
 
