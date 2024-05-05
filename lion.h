@@ -165,6 +165,7 @@ struct Member {
     Member *next;
     Type *type;
     char *name;
+    int index;
     int offset;
 };
 

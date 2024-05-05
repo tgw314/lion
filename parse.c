@@ -50,6 +50,7 @@ typedef struct InitDesign InitDesign;
 struct InitDesign {
     InitDesign *next;
     int index;
+    Member *member;
     Object *var;
 };
 
@@ -195,6 +196,16 @@ static Initializer *new_initializer(Type *type, bool is_flexible) {
         init->children = calloc(type->array_size, sizeof(Initializer *));
         for (int i = 0; i < type->array_size; i++) {
             init->children[i] = new_initializer(type->ptr_to, false);
+        }
+    } else if (type->kind == TY_STRUCT) {
+        int len = 0;
+        for (Member *mem = type->members; mem; mem = mem->next) {
+            len++;
+        }
+
+        init->children = calloc(len, sizeof(Initializer *));
+        for (Member *mem = type->members; mem; mem = mem->next) {
+            init->children[mem->index] = new_initializer(mem->type, false);
         }
     }
 
@@ -715,17 +726,45 @@ static void array_initializer(Initializer *init) {
     }
 }
 
-static void parse_initializer(Initializer *init) {
-    if (init->type->kind == TY_ARRAY && getok()->kind == TK_STR) {
-        string_initalizer(init);
-    } else if (init->type->kind == TY_ARRAY) {
-        array_initializer(init);
-    } else {
-        init->expr = assign();
+// struct-initializer = "{" initializer ("," initializer)* "}"
+static void struct_initializer(Initializer *init) {
+    expect("{");
+
+    Member *mem = init->type->members;
+    if (!consume("}")) {
+        do {
+            if (!mem) {
+                skip_excess_element();
+                continue;
+            }
+
+            parse_initializer(init->children[mem->index]);
+            mem = mem->next;
+        } while (consume(","));
+        expect("}");
     }
 }
 
-// initializer = string_initalizer | array-initializer | assign
+static void parse_initializer(Initializer *init) {
+    if (init->type->kind == TY_ARRAY) {
+        if (getok()->kind == TK_STR) {
+            string_initalizer(init);
+        } else {
+            array_initializer(init);
+        }
+        return;
+    }
+
+    if (init->type->kind == TY_STRUCT) {
+        struct_initializer(init);
+        return;
+    }
+
+    init->expr = assign();
+}
+
+// initializer = string_initalizer | array-initializer
+//             | struct-initializer | assign
 static Initializer *initializer(Type *type, Type **new_type) {
     Initializer *init = new_initializer(type, true);
     parse_initializer(init);
@@ -737,6 +776,12 @@ static Node *init_design_expr(InitDesign *design) {
     Token *tok = getok();
     if (design->var) {
         return new_node_var(tok, design->var);
+    }
+    if (design->member) {
+        Node *node =
+            new_node_unary(ND_MEMBER, tok, init_design_expr(design->next));
+        node->member = design->member;
+        return node;
     }
     Node *lhs = init_design_expr(design->next);
     Node *rhs = new_node_num(tok, design->index);
@@ -759,7 +804,20 @@ static Node *create_lvar_init(Initializer *init, Type *type,
         return node;
     }
 
-    if (!init->expr) return new_node(ND_NULL_EXPR, tok);
+    if (type->kind == TY_STRUCT) {
+        Node *node = new_node(ND_NULL_EXPR, tok);
+        for (Member *mem = type->members; mem; mem = mem->next) {
+            InitDesign design2 = {design, 0, mem};
+            Node *rhs = create_lvar_init(init->children[mem->index], mem->type,
+                                         &design2);
+            node = new_node_binary(ND_COMMA, tok, node, rhs);
+        }
+        return node;
+    }
+
+    if (!init->expr) {
+        return new_node(ND_NULL_EXPR, tok);
+    }
 
     Node *lhs = init_design_expr(design);
     Node *rhs = init->expr;
@@ -768,14 +826,13 @@ static Node *create_lvar_init(Initializer *init, Type *type,
 
 static Node *lvar_initializer(Object *var) {
     Initializer *init = initializer(var->type, &var->type);
-    InitDesign desg = {NULL, 0, var};
+    InitDesign design = {NULL, 0, NULL, var};
     Token *tok = getok();
 
     Node *lhs = new_node(ND_MEMZERO, tok);
     lhs->var = var;
 
-    Node *rhs = create_lvar_init(init, var->type, &desg);
-
+    Node *rhs = create_lvar_init(init, var->type, &design);
     return new_node_binary(ND_COMMA, tok, lhs, rhs);
 }
 
@@ -859,6 +916,7 @@ static Type *params() {
 static Member *members() {
     Member head = {};
     Member *cur = &head;
+    int index = 0;
 
     while (!consume("}")) {
         if (consume(";")) continue;
@@ -868,6 +926,7 @@ static Member *members() {
             Member *mem = calloc(1, sizeof(Member));
             mem->type = declarator(base_type);
             mem->name = strndup(mem->type->tok->loc, mem->type->tok->len);
+            mem->index = index++;
             cur = cur->next = mem;
         } while (consume(","));
         expect(";");
