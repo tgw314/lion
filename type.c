@@ -49,7 +49,7 @@ Type *new_type_ptr(Type *base_type) {
     return type;
 }
 
-Type *new_type_array(Type *base_type, size_t size) {
+Type *new_type_array(Type *base_type, int size) {
     Type *type = new_type(TY_ARRAY);
     type->ptr_to = base_type;
     type->array_size = size;

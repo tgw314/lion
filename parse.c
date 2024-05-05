@@ -1,3 +1,4 @@
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -40,6 +41,7 @@ struct Initializer {
     Initializer *next;
     Type *type;
     Token *tok;
+    bool is_flexible;
     Node *expr;              // 配列や構造体以外の型の場合
     Initializer **children;  // 配列や構造体の場合
 };
@@ -180,14 +182,19 @@ static Object *new_temp_lvar(Type *type) {
     return lvar;
 }
 
-static Initializer *new_initializer(Type *type) {
+static Initializer *new_initializer(Type *type, bool is_flexible) {
     Initializer *init = calloc(1, sizeof(Initializer));
     init->type = type;
 
     if (type->kind == TY_ARRAY) {
+        if (is_flexible && type->size < 0) {
+            init->is_flexible = true;
+            return init;
+        }
+
         init->children = calloc(type->array_size, sizeof(Initializer *));
         for (int i = 0; i < type->array_size; i++) {
-            init->children[i] = new_initializer(type->ptr_to);
+            init->children[i] = new_initializer(type->ptr_to, false);
         }
     }
 
@@ -595,9 +602,6 @@ static Node *declaration_local(Type *base_type) {
             if (type->kind == TY_VOID) {
                 error_tok(type->tok, "void 型の変数が宣言されました");
             }
-            if (type->size < 0) {
-                error_tok(type->tok, "不完全な型です");
-            }
 
             check_var_redef(type->tok);
 
@@ -608,6 +612,13 @@ static Node *declaration_local(Type *base_type) {
                 Token *tok = getok();
                 Node *expr = lvar_initializer(var);
                 cur = cur->next = new_node_unary(ND_EXPR_STMT, tok, expr);
+            }
+
+            if (type->kind == TY_VOID) {
+                error_tok(type->tok, "void 型の変数が宣言されました");
+            }
+            if (var->type->size < 0) {
+                error_tok(type->tok, "不完全な型です");
             }
         } while (consume(","));
         expect(";");
@@ -657,16 +668,42 @@ static void skip_excess_element() {
 // string-initializer = string
 static void string_initalizer(Initializer *init) {
     Token *tok = getok();
-    int len = MIN(init->type->array_size, strlen(tok->str));
+    int slen = strlen(tok->str) + 1;
+
+    if (init->is_flexible) {
+        *init =
+            *new_initializer(new_type_array(init->type->ptr_to, slen), false);
+    }
+
+    int len = MIN(init->type->array_size, slen);
     for (int i = 0; i < len; i++) {
         init->children[i]->expr = new_node_num(tok, tok->str[i]);
     }
     seek(tok->next);
 }
 
+static int count_array_init_elements(Type *type) {
+    Initializer *dummy = new_initializer(type->ptr_to, false);
+    Token *tok = getok();
+    int i;
+    for (i = 0; !match("}"); i++) {
+        if (i > 0) expect(",");
+        parse_initializer(dummy);
+    }
+    seek(tok);
+    return i;
+}
+
 // array-initializer = "{" initializer ("," initializer)* "}"
 static void array_initializer(Initializer *init) {
     expect("{");
+
+    if (init->is_flexible) {
+        int len = count_array_init_elements(init->type);
+        *init =
+            *new_initializer(new_type_array(init->type->ptr_to, len), false);
+    }
+
     for (int i = 0; !consume("}"); i++) {
         if (i > 0) expect(",");
 
@@ -689,9 +726,10 @@ static void parse_initializer(Initializer *init) {
 }
 
 // initializer = string_initalizer | array-initializer | assign
-static Initializer *initializer(Type *type) {
-    Initializer *init = new_initializer(type);
+static Initializer *initializer(Type *type, Type **new_type) {
+    Initializer *init = new_initializer(type, true);
     parse_initializer(init);
+    *new_type = init->type;
     return init;
 }
 
@@ -729,7 +767,7 @@ static Node *create_lvar_init(Initializer *init, Type *type,
 }
 
 static Node *lvar_initializer(Object *var) {
-    Initializer *init = initializer(var->type);
+    Initializer *init = initializer(var->type, &var->type);
     InitDesign desg = {NULL, 0, var};
     Token *tok = getok();
 

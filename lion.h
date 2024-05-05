@@ -96,12 +96,12 @@ struct Token {
 // 型
 struct Type {
     TypeKind kind;
-    size_t size;
+    int size;
     int align;
     Token *tok;
 
     Type *ptr_to;
-    size_t array_size;
+    int array_size;
     Member *members;
 
     Type *return_type;
@@ -212,7 +212,7 @@ Type *new_type_enum();
 
 Type *new_type_ptr(Type *type);
 
-Type *new_type_array(Type *type, size_t size);
+Type *new_type_array(Type *type, int size);
 
 Type *new_type_struct_union(TypeKind kind, Member *members);
 
