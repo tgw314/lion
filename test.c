@@ -60,6 +60,14 @@ static int static_fn() { return 5; }
 
 int param_decay(int x[]) { return x[0]; }
 
+char g3 = 3;
+short g4 = 4;
+int g5 = 5;
+long g6 = 6;
+int g9[3] = {0, 1, 2};
+struct {char a; int b;} g11[2] = {{1, 2}, {3, 4}};
+struct {int a[2];} g12[2] = {{{1, 2}}};
+
 int main() {
     ASSERT(0, 0);
     ASSERT(42, 42);
@@ -676,6 +684,25 @@ int main() {
     ASSERT(3, ({ union { int a; char b[4]; } x={0x01020304}; x.b[1]; }));
 
     ASSERT(0x01020304, ({ union { struct { char a,b,c,d; } e; int f; } x={{4,3,2,1}}; x.f; }));
+
+    ASSERT(3, g3);
+    ASSERT(4, g4);
+    ASSERT(5, g5);
+    ASSERT(6, g6);
+
+    ASSERT(0, g9[0]);
+    ASSERT(1, g9[1]);
+    ASSERT(2, g9[2]);
+
+    ASSERT(1, g11[0].a);
+    ASSERT(2, g11[0].b);
+    ASSERT(3, g11[1].a);
+    ASSERT(4, g11[1].b);
+
+    ASSERT(1, g12[0].a[0]);
+    ASSERT(2, g12[0].a[1]);
+    ASSERT(0, g12[1].a[0]);
+    ASSERT(0, g12[1].a[1]);
 
     printf("OK\n");
     return 0;
