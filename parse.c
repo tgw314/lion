@@ -728,7 +728,15 @@ static void array_initializer(Initializer *init) {
 
 // struct-initializer = "{" initializer ("," initializer)* "}"
 static void struct_initializer(Initializer *init) {
-    expect("{");
+    if (!consume("{")) {
+        Node *expr = assign();
+        set_node_type(expr);
+        if (expr->type->kind == TY_STRUCT) {
+            init->expr = expr;
+            return;
+        }
+        error_tok(expr->tok, "構造体型ではありません");
+    }
 
     Member *mem = init->type->members;
     if (!consume("}")) {
@@ -804,7 +812,7 @@ static Node *create_lvar_init(Initializer *init, Type *type,
         return node;
     }
 
-    if (type->kind == TY_STRUCT) {
+    if (type->kind == TY_STRUCT && !init->expr) {
         Node *node = new_node(ND_NULL_EXPR, tok);
         for (Member *mem = type->members; mem; mem = mem->next) {
             InitDesign design2 = {design, 0, mem};
