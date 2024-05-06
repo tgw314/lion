@@ -197,7 +197,7 @@ static Initializer *new_initializer(Type *type, bool is_flexible) {
         for (int i = 0; i < type->array_size; i++) {
             init->children[i] = new_initializer(type->ptr_to, false);
         }
-    } else if (type->kind == TY_STRUCT) {
+    } else if (type->kind == TY_STRUCT || type->kind == TY_UNION) {
         int len = 0;
         for (Member *mem = type->members; mem; mem = mem->next) {
             len++;
@@ -753,6 +753,22 @@ static void struct_initializer(Initializer *init) {
     }
 }
 
+// union-initializer = "{" initializer ("," initializer)* "}"
+static void union_initializer(Initializer *init) {
+    if (!consume("{")) {
+        Node *expr = assign();
+        set_node_type(expr);
+        if (expr->type->kind == TY_UNION) {
+            init->expr = expr;
+            return;
+        }
+        error_tok(expr->tok, "共用体型ではありません");
+    }
+
+    parse_initializer(init->children[0]);
+    expect("}");
+}
+
 static void parse_initializer(Initializer *init) {
     if (init->type->kind == TY_ARRAY) {
         if (getok()->kind == TK_STR) {
@@ -768,11 +784,17 @@ static void parse_initializer(Initializer *init) {
         return;
     }
 
+    if (init->type->kind == TY_UNION) {
+        union_initializer(init);
+        return;
+    }
+
     init->expr = assign();
 }
 
 // initializer = string_initalizer | array-initializer
-//             | struct-initializer | assign
+//             | struct-initializer | union-initializer
+//             | assign
 static Initializer *initializer(Type *type, Type **new_type) {
     Initializer *init = new_initializer(type, true);
     parse_initializer(init);
@@ -821,6 +843,12 @@ static Node *create_lvar_init(Initializer *init, Type *type,
             node = new_node_binary(ND_COMMA, tok, node, rhs);
         }
         return node;
+    }
+
+    if (type->kind == TY_UNION && !init->expr) {
+        InitDesign design2 = {design, 0, type->members};
+        return create_lvar_init(init->children[0], type->members->type,
+                                &design2);
     }
 
     if (!init->expr) {
