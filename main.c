@@ -65,6 +65,9 @@ void error_at(char *loc, char *fmt, ...) {
 void error_tok(Token *tok, char *fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
+    if (tok->kind == TK_EOF) {
+        verror_at(tok->line_no, 1, tok->loc - 1, fmt, ap);
+    }
     verror_at(tok->line_no, tok->len, tok->loc, fmt, ap);
 }
 
