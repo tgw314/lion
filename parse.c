@@ -77,6 +77,7 @@ static Type *enum_specifier();
 static void declaration_global(Type *base_type);
 static void parse_initializer(Initializer *init);
 static Node *lvar_initializer(Object *var);
+static void gvar_initializer(Object *var);
 static void function(Type *type, VarAttr *attr);
 static Type *params();
 static void parse_typedef(Type *base_type);
@@ -84,6 +85,7 @@ static Node *stmt();
 static Node *compound_stmt();
 static Node *expr_stmt();
 static Node *expr();
+static int64_t eval(Node *node);
 static int64_t const_expr();
 static Node *assign();
 static Node *conditional();
@@ -655,10 +657,12 @@ static void declaration_global(Type *base_type) {
 
         // グローバル変数の再宣言は可能
         check_var_redef(type->tok);
-        add_global(new_gvar(type, type->tok));
+
+        Object *var = new_gvar(type, type->tok);
+        add_global(var);
 
         if (consume("=")) {
-            error_tok(getok()->prev, "初期化式は未対応です");
+            gvar_initializer(var);
         }
 
     } while (consume(","));
@@ -870,6 +874,48 @@ static Node *lvar_initializer(Object *var) {
 
     Node *rhs = create_lvar_init(init, var->type, &design);
     return new_node_binary(ND_COMMA, tok, lhs, rhs);
+}
+
+static void write_buf(char *buf, uint64_t val, int size) {
+    switch (size) {
+        case 1: *buf = val; return;
+        case 2: *(uint16_t *)buf = val; return;
+        case 4: *(uint32_t *)buf = val; return;
+        case 8: *(uint64_t *)buf = val; return;
+        default: unreachable();
+    }
+}
+
+static void write_gvar_data(Initializer *init, Type *type, char *buf,
+                            int offset) {
+    if (type->kind == TY_ARRAY) {
+        int size = type->ptr_to->size;
+        for (int i = 0; i < type->array_size; i++) {
+            write_gvar_data(init->children[i], type->ptr_to, buf,
+                            offset + size * i);
+        }
+        return;
+    }
+
+    if (type->kind == TY_STRUCT) {
+        for (Member *mem = type->members; mem; mem = mem->next) {
+            write_gvar_data(init->children[mem->index], mem->type, buf,
+                            offset + mem->offset);
+        }
+        return;
+    }
+
+    if (init->expr) {
+        write_buf(buf + offset, eval(init->expr), type->size);
+    }
+}
+
+static void gvar_initializer(Object *var) {
+    Initializer *init = initializer(var->type, &var->type);
+
+    char *buf = calloc(1, var->type->size);
+    write_gvar_data(init, var->type, buf, 0);
+    var->init_data = buf;
 }
 
 static void add_params_lvar(Type *param) {
@@ -1727,7 +1773,6 @@ static Node *callfunc(Token *tok) {
 
 static Node *string_literal(Token *tok) {
     Object *str_obj = new_string_literal(tok->str);
-    str_obj->init_data = tok->str;
     add_global(str_obj);
     Node *node = new_node(ND_VAR, tok);
     node->var = str_obj;
