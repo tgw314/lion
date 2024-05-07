@@ -88,6 +88,7 @@ struct Token {
     Token *next;     // 次の入力トークン
     int64_t val;     // kind が TK_NUM の場合の数値
     char *str;       // kind が TK_STR の場合の文字列
+    int str_len;     // kind が TK_STR の場合の文字列の長さ
     char *loc;       // トークン文字列
     int len;         // トークンの長さ
     int line_no;     // 行番号

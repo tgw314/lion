@@ -178,7 +178,7 @@ static int read_escaped_char(char **pos, char *p) {
     }
 }
 
-static char *read_string_literal(char **pos, char *start) {
+static char *read_string_literal(char **pos, char *start, int *len) {
     char *p = start + 1;
 
     char *buf = NULL;
@@ -202,6 +202,7 @@ static char *read_string_literal(char **pos, char *start) {
     fclose(fp);
 
     *pos = p + 1;
+    *len = size;
     return buf;
 }
 
@@ -315,7 +316,7 @@ void tokenize(char *p) {
 
         if (*p == '"') {
             cur = new_token(TK_STR, cur, p);
-            cur->str = read_string_literal(&p, p);
+            cur->str = read_string_literal(&p, p, &cur->str_len);
             cur->len = p - cur->loc;
             continue;
         }

@@ -164,8 +164,8 @@ static Object *new_anon_gvar(Type *type) {
     return gvar;
 }
 
-static Object *new_string_literal(char *str) {
-    Type *type = new_type_array(basic_type(TY_CHAR), strlen(str) + 1);
+static Object *new_string_literal(char *str, int len) {
+    Type *type = new_type_array(basic_type(TY_CHAR), len);
     Object *gvar = new_anon_gvar(type);
     gvar->init_data = str;
     return gvar;
@@ -683,14 +683,13 @@ static void skip_excess_element() {
 // string-initializer = string
 static void string_initalizer(Initializer *init) {
     Token *tok = getok();
-    int slen = strlen(tok->str) + 1;
 
     if (init->is_flexible) {
-        *init =
-            *new_initializer(new_type_array(init->type->ptr_to, slen), false);
+        *init = *new_initializer(
+            new_type_array(init->type->ptr_to, tok->str_len), false);
     }
 
-    int len = MIN(init->type->array_size, slen);
+    int len = MIN(init->type->array_size, tok->str_len);
     for (int i = 0; i < len; i++) {
         init->children[i]->expr = new_node_num(tok, tok->str[i]);
     }
@@ -1772,7 +1771,7 @@ static Node *callfunc(Token *tok) {
 }
 
 static Node *string_literal(Token *tok) {
-    Object *str_obj = new_string_literal(tok->str);
+    Object *str_obj = new_string_literal(tok->str, tok->str_len);
     add_global(str_obj);
     Node *node = new_node(ND_VAR, tok);
     node->var = str_obj;
