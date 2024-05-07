@@ -86,6 +86,8 @@ static Node *compound_stmt();
 static Node *expr_stmt();
 static Node *expr();
 static int64_t eval(Node *node);
+static int64_t eval2(Node *node, char **label);
+static int64_t eval_rval(Node *node, char **label);
 static int64_t const_expr();
 static Node *assign();
 static Node *conditional();
@@ -651,9 +653,6 @@ static void declaration_global(Type *base_type) {
         if (type->kind == TY_VOID) {
             error_tok(type->tok, "void 型の変数が宣言されました");
         }
-        if (type->size < 0) {
-            error_tok(type->tok, "不完全な型です");
-        }
 
         // グローバル変数の再宣言は可能
         check_var_redef(type->tok);
@@ -885,36 +884,58 @@ static void write_buf(char *buf, uint64_t val, int size) {
     }
 }
 
-static void write_gvar_data(Initializer *init, Type *type, char *buf,
-                            int offset) {
+static Relocation *write_gvar_data(Relocation *cur, Initializer *init,
+                                   Type *type, char *buf, int offset) {
     if (type->kind == TY_ARRAY) {
         int size = type->ptr_to->size;
         for (int i = 0; i < type->array_size; i++) {
-            write_gvar_data(init->children[i], type->ptr_to, buf,
-                            offset + size * i);
+            cur = write_gvar_data(cur, init->children[i], type->ptr_to, buf,
+                                  offset + size * i);
         }
-        return;
+        return cur;
     }
 
     if (type->kind == TY_STRUCT) {
         for (Member *mem = type->members; mem; mem = mem->next) {
-            write_gvar_data(init->children[mem->index], mem->type, buf,
-                            offset + mem->offset);
+            cur = write_gvar_data(cur, init->children[mem->index], mem->type,
+                                  buf, offset + mem->offset);
         }
-        return;
+        return cur;
     }
 
-    if (init->expr) {
-        write_buf(buf + offset, eval(init->expr), type->size);
+    if (type->kind == TY_UNION) {
+        return write_gvar_data(cur, init->children[0], type->members->type, buf,
+                               offset);
     }
+
+    if (!init->expr) {
+        return cur;
+    }
+
+    char *label = NULL;
+    uint64_t val = eval2(init->expr, &label);
+
+    if (!label) {
+        write_buf(buf + offset, val, type->size);
+        return cur;
+    }
+
+    Relocation *rel = calloc(1, sizeof(Relocation));
+    rel->offset = offset;
+    rel->label = label;
+    rel->addend = val;
+    cur->next = rel;
+    return cur->next;
 }
 
 static void gvar_initializer(Object *var) {
     Initializer *init = initializer(var->type, &var->type);
 
+    Relocation head = {};
     char *buf = calloc(1, var->type->size);
-    write_gvar_data(init, var->type, buf, 0);
+    write_gvar_data(&head, init, var->type, buf, 0);
     var->init_data = buf;
+    var->rel = head.next;
 }
 
 static void add_params_lvar(Type *param) {
@@ -1376,11 +1397,13 @@ static Node *expr() {
     return node;
 }
 
-static int64_t eval(Node *node) {
+static int64_t eval(Node *node) { return eval2(node, NULL); }
+
+static int64_t eval2(Node *node, char **label) {
     set_node_type(node);
     switch (node->kind) {
-        case ND_ADD: return eval(node->lhs) + eval(node->rhs);
-        case ND_SUB: return eval(node->lhs) - eval(node->rhs);
+        case ND_ADD: return eval2(node->lhs, label) + eval(node->rhs);
+        case ND_SUB: return eval2(node->lhs, label) - eval(node->rhs);
         case ND_MUL: return eval(node->lhs) * eval(node->rhs);
         case ND_DIV: return eval(node->lhs) / eval(node->rhs);
         case ND_MOD: return eval(node->lhs) % eval(node->rhs);
@@ -1395,25 +1418,63 @@ static int64_t eval(Node *node) {
         case ND_BITXOR: return eval(node->lhs) ^ eval(node->rhs);
         case ND_BITSHL: return eval(node->lhs) << eval(node->rhs);
         case ND_BITSHR: return eval(node->lhs) >> eval(node->rhs);
-        case ND_COMMA: return eval(node->rhs);
+        case ND_COMMA: return eval2(node->rhs, label);
         case ND_COND:
-            return eval(node->cond) ? eval(node->then) : eval(node->els);
+            return eval(node->cond) ? eval2(node->then, label)
+                                    : eval2(node->els, NULL);
         case ND_NEG: return -eval(node->lhs);
         case ND_NOT: return !eval(node->lhs);
         case ND_BITNOT: return ~eval(node->lhs);
-        case ND_CAST:
+        case ND_CAST: {
+            int64_t val = eval2(node->lhs, label);
             if (is_integer(node->type)) {
                 switch (node->type->size) {
-                    case 1: return (uint8_t)eval(node->lhs);
-                    case 2: return (uint16_t)eval(node->lhs);
-                    case 4: return (uint32_t)eval(node->lhs);
+                    case 1: return (uint8_t)val;
+                    case 2: return (uint16_t)val;
+                    case 4: return (uint32_t)val;
                 }
             }
-            return eval(node->lhs);
+            return val;
+        }
+        case ND_ADDR: return eval_rval(node->lhs, label);
+        case ND_MEMBER:
+            if (!label) {
+                error_tok(node->tok, "コンパイル時に定数ではありません");
+            }
+            if (node->type->kind != TY_ARRAY) {
+                error_tok(node->tok, "誤った初期化子です");
+            }
+            return eval_rval(node->lhs, label) + node->member->offset;
+        case ND_VAR:
+            if (!label) {
+                error_tok(node->tok, "コンパイル時に定数ではありません");
+            }
+            if (node->var->type->kind != TY_ARRAY &&
+                node->var->type->kind != TY_FUNC) {
+                error_tok(node->tok, "誤った初期化子です");
+            }
+            *label = node->var->name;
+            return 0;
         case ND_NUM: return node->val;
     }
 
     error_tok(node->tok, "コンパイル時に定数ではありません");
+}
+
+static int64_t eval_rval(Node *node, char **label) {
+    switch (node->kind) {
+        case ND_VAR:
+            if (node->var->is_local) {
+                error_tok(node->tok, "コンパイル時に定数ではありません");
+            }
+            *label = node->var->name;
+            return 0;
+        case ND_DEREF: return eval2(node->lhs, label);
+        case ND_MEMBER:
+            return eval_rval(node->lhs, label) + node->member->offset;
+    }
+
+    error_tok(node->tok, "誤った初期化子です");
 }
 
 static int64_t const_expr() { return eval(conditional()); }

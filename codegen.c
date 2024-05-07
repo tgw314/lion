@@ -452,8 +452,16 @@ void emit_data(Object *obj) {
     println("%s:", obj->name);
 
     if (obj->init_data) {
-        for (int i = 0; i < obj->type->size; i++) {
-            println("  .byte %d", obj->init_data[i]);
+        Relocation *rel = obj->rel;
+        int pos = 0;
+        while (pos < obj->type->size) {
+            if (rel && rel->offset == pos) {
+                println("  .quad %s%+ld", rel->label, rel->addend);
+                rel = rel->next;
+                pos += 8;
+            } else {
+                println("  .byte %d", obj->init_data[pos++]);
+            }
         }
     } else {
         println("  .zero %d", (int)obj->type->size);
