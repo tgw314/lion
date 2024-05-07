@@ -10,6 +10,7 @@ typedef struct Node Node;
 typedef struct Object Object;
 typedef struct Type Type;
 typedef struct Member Member;
+typedef struct Relocation Relocation;
 
 // トークンの種類
 typedef enum {
@@ -152,6 +153,7 @@ struct Object {
 
     // グローバル変数
     char *init_data;
+    Relocation *rel;
 
     // 関数
     int stack_size;
@@ -167,6 +169,13 @@ struct Member {
     char *name;
     int index;
     int offset;
+};
+
+struct Relocation {
+    Relocation *next;
+    int offset;
+    char *label;
+    long addend;
 };
 
 // エラーを報告するための関数
