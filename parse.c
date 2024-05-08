@@ -707,10 +707,8 @@ static int count_array_init_elements(Type *type) {
     return i;
 }
 
-// array-initializer = "{" initializer ("," initializer)* "}"
-static void array_initializer(Initializer *init) {
-    expect("{");
-
+// array-initializer1 = initializer ("," initializer)* "}"
+static void array_initializer1(Initializer *init) {
     if (init->is_flexible) {
         int len = count_array_init_elements(init->type);
         *init =
@@ -728,20 +726,24 @@ static void array_initializer(Initializer *init) {
     }
 }
 
-// struct-initializer = "{" initializer ("," initializer)* "}"
-static void struct_initializer(Initializer *init) {
-    if (!consume("{")) {
-        Node *expr = assign();
-        set_node_type(expr);
-        if (expr->type->kind == TY_STRUCT) {
-            init->expr = expr;
-            return;
-        }
-        error_tok(expr->tok, "構造体型ではありません");
+// array-initializer2 = initializer ("," initializer)*
+static void array_initializer2(Initializer *init) {
+    if (init->is_flexible) {
+        int len = count_array_init_elements(init->type);
+        *init =
+            *new_initializer(new_type_array(init->type->ptr_to, len), false);
     }
 
-    Member *mem = init->type->members;
+    for (int i = 0; i < init->type->array_size && !match("}"); i++) {
+        if (i > 0) expect(",");
+        parse_initializer(init->children[i]);
+    }
+}
+
+// struct-initializer1 = initializer ("," initializer)* "}"
+static void struct_initializer1(Initializer *init) {
     if (!consume("}")) {
+        Member *mem = init->type->members;
         do {
             if (!mem) {
                 skip_excess_element();
@@ -754,35 +756,67 @@ static void struct_initializer(Initializer *init) {
         expect("}");
     }
 }
+// struct-initializer2 = initializer ("," initializer)*
+static void struct_initializer2(Initializer *init) {
+    Token *tok = getok();
+    Node *expr = assign();
+    set_node_type(expr);
 
-// union-initializer = "{" initializer ("," initializer)* "}"
-static void union_initializer(Initializer *init) {
-    if (!consume("{")) {
-        Node *expr = assign();
-        set_node_type(expr);
-        if (expr->type->kind == TY_UNION) {
-            init->expr = expr;
-            return;
-        }
-        error_tok(expr->tok, "共用体型ではありません");
+    if (expr->type->kind == TY_STRUCT) {
+        init->expr = expr;
+        return;
     }
 
+    seek(tok);
+    if (!match("}")) {
+        Member *mem = init->type->members;
+        do {
+            parse_initializer(init->children[mem->index]);
+            mem = mem->next;
+        } while (mem && consume(","));
+    }
+}
+// union-initializer = "{" initializer ("," initializer)* "}"
+static void union_initializer(Initializer *init) {
+    if (consume("{")) {
+        parse_initializer(init->children[0]);
+        expect("}");
+        return;
+    }
+
+    Token *tok = getok();
+    Node *expr = assign();
+
+    set_node_type(expr);
+    if (expr->type->kind == TY_UNION) {
+        init->expr = expr;
+        return;
+    }
+
+    seek(tok);
     parse_initializer(init->children[0]);
-    expect("}");
 }
 
 static void parse_initializer(Initializer *init) {
     if (init->type->kind == TY_ARRAY) {
         if (getok()->kind == TK_STR) {
             string_initalizer(init);
+            return;
+        }
+        if (consume("{")) {
+            array_initializer1(init);
         } else {
-            array_initializer(init);
+            array_initializer2(init);
         }
         return;
     }
 
     if (init->type->kind == TY_STRUCT) {
-        struct_initializer(init);
+        if (consume("{")) {
+            struct_initializer1(init);
+        } else {
+            struct_initializer2(init);
+        }
         return;
     }
 
