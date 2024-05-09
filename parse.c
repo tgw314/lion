@@ -825,6 +825,12 @@ static void parse_initializer(Initializer *init) {
         return;
     }
 
+    if (consume("{")) {
+        init->expr = assign();
+        expect("}");
+        return;
+    }
+
     init->expr = assign();
 }
 
