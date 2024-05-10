@@ -668,12 +668,30 @@ static void declaration_global(Type *base_type) {
     expect(";");
 }
 
+static bool is_end() {
+    return match("}") || (match(",") && equal(getok()->next, "}"));
+}
+
+static bool consume_end() {
+    Token *tok = getok();
+    if (match("}")) {
+        seek(tok->next);
+        return true;
+    }
+
+    if (match(",") && equal(tok->next, "}")) {
+        seek(tok->next->next);
+        return true;
+    }
+
+    return false;
+}
+
 static void skip_excess_element() {
     if (consume("{")) {
         do {
             skip_excess_element();
-        } while (consume(","));
-        expect("}");
+        } while (!consume_end());
         return;
     }
     assign();
@@ -699,7 +717,7 @@ static int count_array_init_elements(Type *type) {
     Initializer *dummy = new_initializer(type->ptr_to, false);
     Token *tok = getok();
     int i;
-    for (i = 0; !match("}"); i++) {
+    for (i = 0; !is_end(); i++) {
         if (i > 0) expect(",");
         parse_initializer(dummy);
     }
@@ -707,7 +725,7 @@ static int count_array_init_elements(Type *type) {
     return i;
 }
 
-// array-initializer1 = initializer ("," initializer)* "}"
+// array-initializer1 = initializer ("," initializer)* ","? "}"
 static void array_initializer1(Initializer *init) {
     if (init->is_flexible) {
         int len = count_array_init_elements(init->type);
@@ -715,7 +733,7 @@ static void array_initializer1(Initializer *init) {
             *new_initializer(new_type_array(init->type->ptr_to, len), false);
     }
 
-    for (int i = 0; !consume("}"); i++) {
+    for (int i = 0; !consume_end(); i++) {
         if (i > 0) expect(",");
 
         if (i < init->type->array_size) {
@@ -734,26 +752,21 @@ static void array_initializer2(Initializer *init) {
             *new_initializer(new_type_array(init->type->ptr_to, len), false);
     }
 
-    for (int i = 0; i < init->type->array_size && !match("}"); i++) {
+    for (int i = 0; i < init->type->array_size && !is_end(); i++) {
         if (i > 0) expect(",");
         parse_initializer(init->children[i]);
     }
 }
 
-// struct-initializer1 = initializer ("," initializer)* "}"
+// struct-initializer1 = initializer ("," initializer)* ","? "}"
 static void struct_initializer1(Initializer *init) {
-    if (!consume("}")) {
-        Member *mem = init->type->members;
-        do {
-            if (!mem) {
-                skip_excess_element();
-                continue;
-            }
-
-            parse_initializer(init->children[mem->index]);
-            mem = mem->next;
-        } while (consume(","));
-        expect("}");
+    for (Member *mem = init->type->members; !consume_end(); mem = mem->next) {
+        if (mem != init->type->members) expect(",");
+        if (!mem) {
+            skip_excess_element();
+            continue;
+        }
+        parse_initializer(init->children[mem->index]);
     }
 }
 // struct-initializer2 = initializer ("," initializer)*
@@ -768,18 +781,16 @@ static void struct_initializer2(Initializer *init) {
     }
 
     seek(tok);
-    if (!match("}")) {
-        Member *mem = init->type->members;
-        do {
-            parse_initializer(init->children[mem->index]);
-            mem = mem->next;
-        } while (mem && consume(","));
+    for (Member *mem = init->type->members; mem && !is_end(); mem = mem->next) {
+        if (mem != init->type->members) expect(",");
+        parse_initializer(init->children[mem->index]);
     }
 }
 // union-initializer = "{" initializer ("," initializer)* "}"
 static void union_initializer(Initializer *init) {
     if (consume("{")) {
         parse_initializer(init->children[0]);
+        consume(",");
         expect("}");
         return;
     }
@@ -1123,7 +1134,7 @@ static Type *struct_union_decl(TypeKind kind) {
 // enum-specifier = ident? "{" enum-list? "}"
 //                | ident ("{" enum-list? "}")?
 //
-// enum-list      = ident ("=" const_expr)? ("," ident ("=" const_expr)?)*
+// enum-list      = ident ("=" const_expr)? ("," ident ("=" const_expr)?)* ","?
 static Type *enum_specifier() {
     Token *tag = consume_ident();
     if (tag && !match("{")) {
@@ -1140,7 +1151,7 @@ static Type *enum_specifier() {
     expect("{");
 
     Type *type = new_type_enum();
-    if (!consume("}")) {
+    if (!consume_end()) {
         int val = 0;
         do {
             Token *tok = expect_ident();
@@ -1153,8 +1164,7 @@ static Type *enum_specifier() {
             VarScope *sc = push_scope(name);
             sc->enum_type = type;
             sc->enum_val = val++;
-        } while (consume(","));
-        expect("}");
+        } while (!consume_end() && consume(","));
     }
 
     if (tag) {
