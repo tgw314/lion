@@ -426,17 +426,17 @@ Object *program() {
     return globals->next;
 }
 
-static bool is_decl() {
+static bool is_decl(Token *tok) {
     static char *keywords[] = {"void",    "_Bool", "char",   "short",
                                "int",     "long",  "struct", "union",
                                "typedef", "enum",  "static"};
     static int len = sizeof(keywords) / sizeof(*keywords);
     for (int i = 0; i < len; i++) {
-        if (match(keywords[i])) {
+        if (equal(tok, keywords[i])) {
             return true;
         }
     }
-    return find_typedef(getok());
+    return find_typedef(tok);
 }
 
 // declspec = ("void" | "_Bool" | "char" | "int" | "long" | "short"
@@ -459,7 +459,7 @@ static Type *declspec(VarAttr *attr) {
     Type *type = basic_type(TY_INT);
     int counter = 0;
 
-    while (is_decl()) {
+    while (is_decl(getok())) {
         if (match("typedef") || match("static")) {
             Token *tok = getok();
             if (!attr) {
@@ -1264,7 +1264,7 @@ static Node *stmt() {
         break_label = node->break_label = unique_name();
         continue_label = node->continue_label = unique_name();
 
-        if (is_decl()) {
+        if (is_decl(getok())) {
             node->init = declaration_local(declspec(NULL));
         } else {
             node->init = expr_stmt();
@@ -1300,19 +1300,16 @@ static Node *stmt() {
         return node;
     }
 
-    if (tok->kind == TK_IDENT) {
-        seek(tok->next);
-        if (consume(":")) {
-            Node *node = new_node_unary(ND_LABEL, tok, stmt());
+    if (tok->kind == TK_IDENT && equal(tok->next, ":")) {
+        seek(tok->next->next);
+        Node *node = new_node_unary(ND_LABEL, tok, stmt());
 
-            node->label = strndup(tok->loc, tok->len);
-            node->unique_label = unique_name();
-            node->goto_next = labels;
-            labels = node;
+        node->label = strndup(tok->loc, tok->len);
+        node->unique_label = unique_name();
+        node->goto_next = labels;
+        labels = node;
 
-            return node;
-        }
-        seek(tok);
+        return node;
     }
 
     if (consume("break")) {
@@ -1403,7 +1400,7 @@ static Node *compound_stmt() {
     enter_scope();
 
     while (!consume("}")) {
-        if (is_decl() && !equal(getok()->next, ":")) {
+        if (is_decl(getok()) && !equal(getok()->next, ":")) {
             VarAttr attr = {};
             Type *base_type = declspec(&attr);
 
@@ -1745,13 +1742,13 @@ static Node *mul() {
 // cast = "(" typename ")" cast | unary
 static Node *cast() {
     Token *tok = getok();
-    if (consume("(") && is_decl()) {
+    if (match("(") && is_decl(tok->next)) {
+        seek(tok->next);
         Type *type = typename();
         expect(")");
         return new_node_cast(tok, type, cast());
     }
 
-    seek(tok);
     return unary();
 }
 
@@ -1909,12 +1906,12 @@ static Node *primary() {
     }
 
     if (consume("sizeof")) {
-        if (consume("(") && is_decl()) {
+        if (match("(") && is_decl(getok()->next)) {
+            seek(getok()->next);
             Type *type = typename();
             expect(")");
             return new_node_num(tok, type->size);
         }
-        seek(tok->next);
 
         Node *node = unary();
         set_node_type(node);
