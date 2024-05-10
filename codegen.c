@@ -443,15 +443,12 @@ static void gen_stmt(Node *node) {
 }
 
 void emit_data(Object *obj) {
-    println(".data");
-    if (obj->is_static || obj->name[0] == '.') {
-        println(".local %s", obj->name);
-    } else {
-        println(".globl %s", obj->name);
-    }
-    println("%s:", obj->name);
+    println(".%sal %s", obj->is_static ? "loc" : "glob", obj->name);
 
     if (obj->init_data) {
+        println(".data");
+        println("%s:", obj->name);
+
         Relocation *rel = obj->rel;
         int pos = 0;
         while (pos < obj->type->size) {
@@ -463,9 +460,12 @@ void emit_data(Object *obj) {
                 println("  .byte %d", obj->init_data[pos++]);
             }
         }
-    } else {
-        println("  .zero %d", (int)obj->type->size);
+        return;
     }
+
+    println(".bss");
+    println("%s:", obj->name);
+    println("  .zero %d", (int)obj->type->size);
 }
 
 void emit_text(Object *obj) {
@@ -479,12 +479,8 @@ void emit_text(Object *obj) {
     }
     obj->stack_size = align(size, 16);
 
+    println(".%sal %s", obj->is_static ? "loc" : "glob", obj->name);
     println(".text");
-    if (obj->is_static) {
-        println(".local %s", obj->name);
-    } else {
-        println(".globl %s", obj->name);
-    }
     println("%s:", obj->name);
 
     // プロローグ

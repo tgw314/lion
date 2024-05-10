@@ -170,6 +170,7 @@ static Object *new_string_literal(char *str, int len) {
     Type *type = new_type_array(basic_type(TY_CHAR), len);
     Object *gvar = new_anon_gvar(type);
     gvar->init_data = str;
+    gvar->is_static = true;
     return gvar;
 }
 
