@@ -782,6 +782,8 @@ int main() {
     ASSERT(1, ({ union {int a; char b;} x={1,}; x.a; }));
     ASSERT(2, ({ enum {x,y,z,}; z; }));
 
+    ASSERT(4, sizeof(struct { int x, y[]; }));
+
     printf("OK\n");
     return 0;
 }

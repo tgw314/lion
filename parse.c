@@ -1086,6 +1086,11 @@ static Member *members() {
         expect(";");
     }
 
+    if (cur != &head && cur->type->kind == TY_ARRAY &&
+        cur->type->array_size < 0) {
+        cur->type = new_type_array(cur->type->ptr_to, 0);
+    }
+
     return head.next;
 }
 
