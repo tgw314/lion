@@ -10,4 +10,4 @@ void assert(int expected, int actual, char *code) {
     }
 }
 
-static int static_fn() { return 10; }
+static int static_fn(void) { return 10; }

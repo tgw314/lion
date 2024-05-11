@@ -34,7 +34,7 @@ Type *new_type_func(Type *return_type, Type *params) {
     return type;
 }
 
-Type *new_type_enum() {
+Type *new_type_enum(void) {
     Type *type = new_type(TY_ENUM);
     type->size = type->align = 4;
     return type;

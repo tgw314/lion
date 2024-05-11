@@ -9,7 +9,7 @@
 
 static Token *token;
 
-Token *getok() { return token; }
+Token *getok(void) { return token; }
 
 void seek(Token *tok) { token = tok; }
 
@@ -46,7 +46,7 @@ void expect(char *op) {
 
 // 次のトークンの kind が TK_IDENT のときには、トークンを1つ読み進めて
 // そのトークンを返す。それ以外の場合には NULL を返す。
-Token *consume_ident() {
+Token *consume_ident(void) {
     if (token->kind != TK_IDENT) {
         return NULL;
     }
@@ -57,7 +57,7 @@ Token *consume_ident() {
 
 // 次のトークンの kind が TK_IDENT のときには、トークンを1つ読み進めて
 // そのトークンを返す。それ以外の場合にはエラーを報告する。
-Token *expect_ident() {
+Token *expect_ident(void) {
     if (token->kind != TK_IDENT) {
         error_tok(token, "識別子ではありません");
     }
@@ -68,7 +68,7 @@ Token *expect_ident() {
 
 // 次のトークンが数値の場合、トークンを1つ読み進めてその数値を返す。
 // それ以外の場合にはエラーを報告する。
-int expect_number() {
+int expect_number(void) {
     if (token->kind != TK_NUM) {
         error_tok(token, "数ではありません");
     }
@@ -77,7 +77,7 @@ int expect_number() {
     return val;
 }
 
-bool at_eof() { return token->kind == TK_EOF; }
+bool at_eof(void) { return token->kind == TK_EOF; }
 
 bool equal(Token *tok, char *op) {
     return strlen(op) == tok->len && !memcmp(tok->loc, op, tok->len);

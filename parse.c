@@ -71,46 +71,46 @@ static Scope *scope = &(Scope){};
 static Type *declspec(VarAttr *attr);
 static Type *declarator(Type *type);
 static Type *struct_union_decl(TypeKind kind);
-static Type *enum_specifier();
+static Type *enum_specifier(void);
 static void declaration_global(Type *base_type);
 static void parse_initializer(Initializer *init);
 static Node *lvar_initializer(Object *var);
 static void gvar_initializer(Object *var);
 static void function(Type *type, VarAttr *attr);
-static Type *params();
+static Type *params(void);
 static void parse_typedef(Type *base_type);
-static Node *stmt();
-static Node *compound_stmt();
-static Node *expr_stmt();
-static Node *expr();
+static Node *stmt(void);
+static Node *compound_stmt(void);
+static Node *expr_stmt(void);
+static Node *expr(void);
 static int64_t eval(Node *node);
 static int64_t eval2(Node *node, char **label);
 static int64_t eval_rval(Node *node, char **label);
-static int64_t const_expr();
-static Node *assign();
-static Node *conditional();
-static Node *logor();
-static Node *logand();
-static Node *bit_or();
-static Node *bitxor();
-static Node *bitand();
-static Node *equality();
-static Node *shift();
-static Node *relational();
-static Node *add();
-static Node *mul();
-static Node *cast();
-static Node *unary();
-static Node *postfix();
-static Node *primary();
+static int64_t const_expr(void);
+static Node *assign(void);
+static Node *conditional(void);
+static Node *logor(void);
+static Node *logand(void);
+static Node *bit_or(void);
+static Node *bitxor(void);
+static Node *bitand(void);
+static Node *equality(void);
+static Node *shift(void);
+static Node *relational(void);
+static Node *add(void);
+static Node *mul(void);
+static Node *cast(void);
+static Node *unary(void);
+static Node *postfix(void);
+static Node *primary(void);
 
-static void enter_scope() {
+static void enter_scope(void) {
     Scope *sc = calloc(1, sizeof(Scope));
     sc->next = scope;
     scope = sc;
 }
 
-static void leave_scope() { scope = scope->next; }
+static void leave_scope(void) { scope = scope->next; }
 
 static VarScope *push_scope(char *name) {
     VarScope *sc = calloc(1, sizeof(VarScope));
@@ -128,7 +128,7 @@ static void push_tag_scope(Token *tok, Type *type) {
     scope->tags = sc;
 }
 
-static char *unique_name() {
+static char *unique_name(void) {
     static int index = 0;
     char *name = calloc(20, sizeof(char));
     sprintf(name, ".LC%d", index++);
@@ -405,7 +405,7 @@ Node *new_node_cast(Token *tok, Type *type, Node *expr) {
     return node;
 }
 
-static bool is_func() {
+static bool is_func(void) {
     if (match(";")) return false;
 
     Token *tok = getok();
@@ -415,7 +415,7 @@ static bool is_func() {
 }
 
 // program = (typedef | declaration_global)*
-Object *program() {
+Object *program(void) {
     while (!at_eof()) {
         VarAttr attr = {};
         Type *base_type = declspec(&attr);
@@ -609,7 +609,7 @@ static Type *abstract_declarator(Type *type) {
     return declsuffix(type);
 }
 
-static Type *typename() { return abstract_declarator(declspec(NULL)); }
+static Type *typename(void) { return abstract_declarator(declspec(NULL)); }
 
 // declaration = declspec
 //               (declarator ("=" assign)? ("," declarator ("=" assign)?)*)? ";"
@@ -676,11 +676,11 @@ static void declaration_global(Type *base_type) {
     expect(";");
 }
 
-static bool is_end() {
+static bool is_end(void) {
     return match("}") || (match(",") && equal(getok()->next, "}"));
 }
 
-static bool consume_end() {
+static bool consume_end(void) {
     Token *tok = getok();
     if (match("}")) {
         seek(tok->next);
@@ -695,7 +695,7 @@ static bool consume_end() {
     return false;
 }
 
-static void skip_excess_element() {
+static void skip_excess_element(void) {
     if (consume("{")) {
         do {
             skip_excess_element();
@@ -1033,7 +1033,7 @@ static void add_params_lvar(Type *param) {
     }
 }
 
-static void resolve_goto_labels() {
+static void resolve_goto_labels(void) {
     for (Node *jmp = gotos; jmp; jmp = jmp->goto_next) {
         for (Node *decl = labels; decl; decl = decl->goto_next) {
             if (!strcmp(jmp->label, decl->label)) {
@@ -1081,7 +1081,7 @@ static void function(Type *base_type, VarAttr *attr) {
 }
 
 // params = ("void" | declspec declarator ("," declspec declarator)*)? ")"
-static Type *params() {
+static Type *params(void) {
     if (consume(")")) return NULL;
     if (match("void") && equal(getok()->next, ")")) {
         seek(getok()->next->next);
@@ -1180,7 +1180,7 @@ static Type *struct_union_decl(TypeKind kind) {
 //                | ident ("{" enum-list? "}")?
 //
 // enum-list      = ident ("=" const_expr)? ("," ident ("=" const_expr)?)* ","?
-static Type *enum_specifier() {
+static Type *enum_specifier(void) {
     Token *tag = consume_ident();
     if (tag && !match("{")) {
         Type *type = find_tag(tag);
@@ -1257,7 +1257,7 @@ static void parse_typedef(Type *base_type) {
 //      | "switch" "(" expr ")" stmt
 //      | (case const_expr | "default") ":" stmt
 //      | "return" expr ";"
-static Node *stmt() {
+static Node *stmt(void) {
     Token *tok = getok();
     if (consume("{")) {
         return compound_stmt();
@@ -1436,7 +1436,7 @@ static Node *stmt() {
 }
 
 // compound_stmt = (typedef | declaration_local | stmt)* "}"
-static Node *compound_stmt() {
+static Node *compound_stmt(void) {
     Node *node = new_node(ND_BLOCK, getok()->prev);
 
     Node head = {};
@@ -1469,7 +1469,7 @@ static Node *compound_stmt() {
 }
 
 // expr_stmt = expr? ";"
-static Node *expr_stmt() {
+static Node *expr_stmt(void) {
     Token *tok = getok();
     if (consume(";")) {
         return new_node(ND_BLOCK, tok);
@@ -1481,7 +1481,7 @@ static Node *expr_stmt() {
 }
 
 // expr = assign ("," expr)?
-static Node *expr() {
+static Node *expr(void) {
     Node *node = assign();
     if (consume(",")) {
         node = new_node_binary(ND_COMMA, getok()->prev, node, expr());
@@ -1569,7 +1569,7 @@ static int64_t eval_rval(Node *node, char **label) {
     error_tok(node->tok, "誤った初期化子です");
 }
 
-static int64_t const_expr() { return eval(conditional()); }
+static int64_t const_expr(void) { return eval(conditional()); }
 
 static Node *to_assign(Node *binary) {
     set_node_type(binary->lhs);
@@ -1597,7 +1597,7 @@ static Node *to_assign(Node *binary) {
 //            ("=" | "+=" | "-=" | "*=" | "/=" | "%=" | "&=" | "|=" | "^=" |
 //            "<<=" | ">>=") assign
 //          )?
-static Node *assign() {
+static Node *assign(void) {
     Token *tok = getok();
 
     Node *node = conditional();
@@ -1638,7 +1638,7 @@ static Node *assign() {
 }
 
 // conditional = logor ("?" expr ":" conditional)?
-static Node *conditional() {
+static Node *conditional(void) {
     Token *tok = getok();
 
     Node *cond = logor();
@@ -1655,7 +1655,7 @@ static Node *conditional() {
 }
 
 // logor = logand ("||" logand)*
-static Node *logor() {
+static Node *logor(void) {
     Node *node = logand();
     while (consume("||")) {
         node = new_node_binary(ND_OR, getok()->prev, node, logand());
@@ -1664,7 +1664,7 @@ static Node *logor() {
 }
 
 // logand = bitor ("&&" bitor)*
-static Node *logand() {
+static Node *logand(void) {
     Node *node = bit_or();
     while (consume("&&")) {
         node = new_node_binary(ND_AND, getok()->prev, node, bit_or());
@@ -1673,7 +1673,7 @@ static Node *logand() {
 }
 
 // bitor = bitxor ("|" bitxor)*
-static Node *bit_or() {
+static Node *bit_or(void) {
     Node *node = bitxor();
     while (consume("|")) {
         node = new_node_binary(ND_BITOR, getok()->prev, node, bitxor());
@@ -1682,7 +1682,7 @@ static Node *bit_or() {
 }
 
 // bitxor = bitand ("^" bitand)*
-static Node *bitxor() {
+static Node *bitxor(void) {
     Node *node = bitand();
     while (consume("^")) {
         node = new_node_binary(ND_BITXOR, getok()->prev, node, bitand());
@@ -1690,7 +1690,7 @@ static Node *bitxor() {
     return node;
 }
 // bitand = equality ("&" equality)*
-static Node *bitand() {
+static Node *bitand(void) {
     Node *node = equality();
     while (consume("&")) {
         node = new_node_binary(ND_BITAND, getok()->prev, node, equality());
@@ -1699,7 +1699,7 @@ static Node *bitand() {
 }
 
 // equality = relational ("==" relational | "!=" relational)*
-static Node *equality() {
+static Node *equality(void) {
     Node *node = relational();
 
     while (true) {
@@ -1715,7 +1715,7 @@ static Node *equality() {
 }
 
 // relational = shift ("<" shift | "<=" shift | ">" shift | ">=" shift)*
-static Node *relational() {
+static Node *relational(void) {
     Node *node = shift();
 
     while (true) {
@@ -1735,7 +1735,7 @@ static Node *relational() {
 }
 
 // shift = add ("<<" add | ">>" add)
-static Node *shift() {
+static Node *shift(void) {
     Node *node = add();
 
     while (true) {
@@ -1751,7 +1751,7 @@ static Node *shift() {
 }
 
 // add = mul ("+" mul | "-" mul)*
-static Node *add() {
+static Node *add(void) {
     Node *node = mul();
 
     while (true) {
@@ -1767,7 +1767,7 @@ static Node *add() {
 }
 
 // mul = cast ("*" cast | "/" cast | "%" cast)*
-static Node *mul() {
+static Node *mul(void) {
     Node *node = cast();
 
     while (true) {
@@ -1785,7 +1785,7 @@ static Node *mul() {
 }
 
 // cast = "(" typename ")" cast | unary
-static Node *cast() {
+static Node *cast(void) {
     Token *tok = getok();
     if (match("(") && is_decl(tok->next)) {
         seek(tok->next);
@@ -1800,7 +1800,7 @@ static Node *cast() {
 // unary = ("+" | "-" | "*" | "&" | "!" | "~") cast
 //       | ("++" | "--") unary
 //       | postfix
-static Node *unary() {
+static Node *unary(void) {
     Token *tok = getok();
     if (consume("+")) {
         return cast();
@@ -1830,7 +1830,7 @@ static Node *unary() {
 }
 
 // postfix = primary ("[" expr "]" | ("." | "->") ident | "++" | "--")*
-static Node *postfix() {
+static Node *postfix(void) {
     Node *node = primary();
 
     while (true) {
@@ -1935,7 +1935,7 @@ static Node *string_literal(Token *tok) {
 //         | string | "(" expr ")"
 //         | "(" "{" stmt+ "}" ")"
 //         | "sizeof" (unary | "(" typename ")")
-static Node *primary() {
+static Node *primary(void) {
     Token *tok = getok();
 
     if (consume("(")) {

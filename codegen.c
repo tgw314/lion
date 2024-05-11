@@ -28,7 +28,7 @@ static void gen_lval(Node *node);
 static void gen_expr(Node *node);
 static void gen_stmt(Node *node);
 
-static int count() {
+static int count(void) {
     static int i = 0;
     return i++;
 }

@@ -193,7 +193,7 @@ void error_tok(Token *tok, char *fmt, ...);
 
 #define unreachable() error("内部エラー: %s:%d", __FILE__, __LINE__)
 
-Token *getok();
+Token *getok(void);
 
 void seek(Token *tok);
 
@@ -203,13 +203,13 @@ bool consume(char *op);
 
 void expect(char *op);
 
-Token *consume_ident();
+Token *consume_ident(void);
 
-Token *expect_ident();
+Token *expect_ident(void);
 
-int expect_number();
+int expect_number(void);
 
-bool at_eof();
+bool at_eof(void);
 
 bool equal(Token *tok, char *op);
 
@@ -222,7 +222,7 @@ Type *basic_type(TypeKind kind);
 
 Type *new_type_func(Type *return_type, Type *params);
 
-Type *new_type_enum();
+Type *new_type_enum(void);
 
 Type *new_type_ptr(Type *type);
 
@@ -238,7 +238,7 @@ bool is_integer(Type *type);
 
 void set_node_type(Node *node);
 
-Object *program();
+Object *program(void);
 
 int align(int n, int align);
 
