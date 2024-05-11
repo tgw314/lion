@@ -9,7 +9,7 @@ int printf();
 int strcmp(char *p, char *q);
 int memcmp(char *p, char *q, int n);
 
-int ret3() {
+int ret3(void) {
   return 3;
   return 5;
 }
@@ -42,7 +42,7 @@ int fib(int x) {
 
 int g1, g2[4];
 
-int *g1_ptr() {
+int *g1_ptr(void) {
   return &g1;
 }
 
@@ -58,7 +58,7 @@ _Bool bool_fn_add(_Bool x) { return x + 1; }
 
 _Bool bool_fn_sub(_Bool x) { return x - 1; }
 
-static int static_fn() { return 5; }
+static int static_fn(void) { return 5; }
 
 int param_decay(int x[]) { return x[0]; }
 

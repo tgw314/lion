@@ -1080,9 +1080,13 @@ static void function(Type *base_type, VarAttr *attr) {
     resolve_goto_labels();
 }
 
-// params = (declare ident ("," declare ident)*)? ")"
+// params = ("void" | declspec declarator ("," declspec declarator)*)? ")"
 static Type *params() {
     if (consume(")")) return NULL;
+    if (match("void") && equal(getok()->next, ")")) {
+        seek(getok()->next->next);
+        return NULL;
+    }
 
     Type head = {};
     Type *cur = &head;
