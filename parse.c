@@ -208,7 +208,14 @@ static Initializer *new_initializer(Type *type, bool is_flexible) {
 
         init->children = calloc(len, sizeof(Initializer *));
         for (Member *mem = type->members; mem; mem = mem->next) {
-            init->children[mem->index] = new_initializer(mem->type, false);
+            if (is_flexible && type->is_flexible && !mem->next) {
+                Initializer *child = calloc(1, sizeof(Initializer));
+                child->type = mem->type;
+                child->is_flexible = true;
+                init->children[mem->index] = child;
+            } else {
+                init->children[mem->index] = new_initializer(mem->type, false);
+            }
         }
     }
 
@@ -846,13 +853,42 @@ static void parse_initializer(Initializer *init) {
     init->expr = assign();
 }
 
+static Type *copy_struct_type(Type *type) {
+    type = copy_type(type);
+
+    Member head = {};
+    Member *cur = &head;
+    for (Member *mem = type->members; mem; mem = mem->next) {
+        Member *m = calloc(1, sizeof(Member));
+        *m = *mem;
+        cur = cur->next = m;
+    }
+
+    type->members = head.next;
+    return type;
+}
+
 // initializer = string_initalizer | array-initializer
 //             | struct-initializer | union-initializer
 //             | assign
 static Initializer *initializer(Type *type, Type **new_type) {
     Initializer *init = new_initializer(type, true);
     parse_initializer(init);
-    *new_type = init->type;
+
+    if ((type->kind == TY_STRUCT || type->kind == TY_UNION) &&
+        type->is_flexible) {
+        type = copy_struct_type(type);
+
+        Member *mem = type->members;
+        while (mem->next) mem = mem->next;
+        mem->type = init->children[mem->index]->type;
+        type->size += mem->type->size;
+
+        *new_type = type;
+    } else {
+        *new_type = init->type;
+    }
+
     return init;
 }
 
@@ -1052,8 +1088,7 @@ static Type *params() {
     Type *cur = &head;
 
     do {
-        Type *type = calloc(1, sizeof(Type));
-        *type = *declarator(declspec(NULL));
+        Type *type = copy_type(declarator(declspec(NULL)));
         if (type->kind == TY_ARRAY) {
             Token *tok = type->tok;
             type = new_type_ptr(type->ptr_to);
@@ -1067,7 +1102,7 @@ static Type *params() {
 }
 
 // members = (declspec declarator ("," declarator)* ";")*
-static Member *members() {
+static Member *members(bool *is_flexible) {
     Member head = {};
     Member *cur = &head;
     int index = 0;
@@ -1089,6 +1124,7 @@ static Member *members() {
     if (cur != &head && cur->type->kind == TY_ARRAY &&
         cur->type->array_size < 0) {
         cur->type = new_type_array(cur->type->ptr_to, 0);
+        *is_flexible = true;
     }
 
     return head.next;
@@ -1103,18 +1139,13 @@ static Type *struct_union_decl(TypeKind kind) {
     Token *tag = consume_ident();
     if (tag && !match("{")) {
         Type *type = find_tag(tag);
-
         if (type) {
             if (type->kind != kind) {
-                if (kind == TY_STRUCT) {
-                    error_tok(tag, "構造体のタグではありません");
-                } else {
-                    error_tok(tag, "共用体のタグではありません");
-                }
+                error_tok(tag, "%sのタグではありません",
+                          kind == TY_STRUCT ? "構造体" : "共用体");
             }
             return type;
         }
-
         type = new_type_struct_union(kind, NULL);
         type->size = -1;
         push_tag_scope(tag, type);
@@ -1123,7 +1154,11 @@ static Type *struct_union_decl(TypeKind kind) {
 
     expect("{");
 
-    Type *type = new_type_struct_union(kind, members());
+    bool is_flexible = false;
+    Member *mem = members(&is_flexible);
+    Type *type = new_type_struct_union(kind, mem);
+    type->is_flexible = is_flexible;
+
     if (tag) {
         for (TagScope *sc = scope->tags; sc; sc = sc->next) {
             if (equal(tag, sc->name)) {

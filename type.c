@@ -107,6 +107,12 @@ Type *new_type_struct_union(TypeKind kind, Member *members) {
     unreachable();
 }
 
+Type *copy_type(Type *type) {
+    Type *cp = calloc(1, sizeof(Type));
+    *cp = *type;
+    return cp;
+}
+
 bool is_pointer(Type *type) { return type->ptr_to != NULL; }
 
 bool is_integer(Type *type) {

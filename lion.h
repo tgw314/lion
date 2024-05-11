@@ -103,8 +103,11 @@ struct Type {
     Token *tok;
 
     Type *ptr_to;
+
     int array_size;
+
     Member *members;
+    bool is_flexible;
 
     Type *return_type;
     Type *params;
@@ -226,6 +229,8 @@ Type *new_type_ptr(Type *type);
 Type *new_type_array(Type *type, int size);
 
 Type *new_type_struct_union(TypeKind kind, Member *members);
+
+Type *copy_type(Type *type);
 
 bool is_pointer(Type *type);
 
