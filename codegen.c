@@ -444,6 +444,7 @@ static void gen_stmt(Node *node) {
 
 void emit_data(Object *obj) {
     println(".%sal %s", obj->is_static ? "loc" : "glob", obj->name);
+    println(".align %d", obj->type->align);
 
     if (obj->init_data) {
         println(".data");
