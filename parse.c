@@ -401,6 +401,8 @@ Node *new_node_cast(Token *tok, Type *type, Node *expr) {
 }
 
 static bool is_func() {
+    if (match(";")) return false;
+
     Token *tok = getok();
     bool is_func = declarator(&(Type){})->kind == TY_FUNC;
     seek(tok);
