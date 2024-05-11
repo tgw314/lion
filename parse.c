@@ -71,8 +71,6 @@ static Scope *scope = &(Scope){};
 static Type *declspec(VarAttr *attr);
 static Type *declarator(Type *type);
 static Type *struct_union_decl(TypeKind kind);
-static Type *struct_decl();
-static Type *union_decl();
 static Type *enum_specifier();
 static void declaration_global(Type *base_type);
 static void parse_initializer(Initializer *init);
