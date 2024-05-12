@@ -66,12 +66,12 @@ static Type *new_type_struct(Member *members) {
 
     int offset = 0;
     for (Member *mem = type->members; mem; mem = mem->next) {
-        offset = align(offset, mem->type->align);
+        offset = align(offset, mem->align);
         mem->offset = offset;
         offset += mem->type->size;
 
-        if (type->align < mem->type->align) {
-            type->align = mem->type->align;
+        if (type->align < mem->align) {
+            type->align = mem->align;
         }
     }
     type->size = align(offset, type->align);
@@ -85,8 +85,8 @@ static Type *new_type_union(Member *members) {
     type->align = 1;
 
     for (Member *mem = type->members; mem; mem = mem->next) {
-        if (type->align < mem->type->align) {
-            type->align = mem->type->align;
+        if (type->align < mem->align) {
+            type->align = mem->align;
         }
         if (type->size < mem->type->size) {
             type->size = mem->type->size;

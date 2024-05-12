@@ -40,6 +40,13 @@ int fib(int x) {
   return fib(x-1) + fib(x-2);
 }
 
+int _Alignas(512) ag1;
+int _Alignas(512) ag2;
+char ag3;
+int ag4;
+long ag5;
+char ag6;
+
 int g1, g2[4];
 
 int *g1_ptr(void) {
@@ -814,6 +821,28 @@ int main() {
 
     extern int ext_fn2(int x);
     ASSERT(8, ext_fn2(8));
+
+    ASSERT(1, _Alignof(char));
+    ASSERT(2, _Alignof(short));
+    ASSERT(4, _Alignof(int));
+    ASSERT(8, _Alignof(long));
+    ASSERT(8, _Alignof(long long));
+    ASSERT(1, _Alignof(char[3]));
+    ASSERT(4, _Alignof(int[3]));
+    ASSERT(1, _Alignof(struct {char a; char b;}[2]));
+    ASSERT(8, _Alignof(struct {char a; long b;}[2]));
+
+    ASSERT(1, ({ _Alignas(char) char x, y; &y-&x; }));
+    ASSERT(8, ({ _Alignas(long) char x, y; &y-&x; }));
+    ASSERT(32, ({ _Alignas(32) char x, y; &y-&x; }));
+    ASSERT(32, ({ _Alignas(32) int *x, *y; ((char *)&y)-((char *)&x); }));
+    ASSERT(16, ({ struct { _Alignas(16) char x, y; } a; &a.y-&a.x; }));
+    ASSERT(8, ({ struct T { _Alignas(8) char a; }; _Alignof(struct T); }));
+
+    ASSERT(0, (long)(char *)&ag1 % 512);
+    ASSERT(0, (long)(char *)&ag2 % 512);
+    ASSERT(0, (long)(char *)&ag4 % 4);
+    ASSERT(0, (long)(char *)&ag5 % 8);
 
     printf("OK\n");
     return 0;

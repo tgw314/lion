@@ -144,13 +144,14 @@ struct Node {
 };
 
 struct Object {
+    Object *next;
     char *name;
     Type *type;
-    Object *next;
-    bool is_func;
     bool is_local;
+    bool is_func;
     bool is_def;
     bool is_static;
+    int align;
 
     // ローカル変数
     int offset;  // RBP からのオフセット
@@ -169,10 +170,11 @@ struct Object {
 // 構造体のメンバ
 struct Member {
     Member *next;
-    Type *type;
     char *name;
+    Type *type;
     int index;
     int offset;
+    int align;
 };
 
 struct Relocation {

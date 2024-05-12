@@ -444,7 +444,7 @@ static void gen_stmt(Node *node) {
 
 void emit_data(Object *obj) {
     println(".%sal %s", obj->is_static ? "loc" : "glob", obj->name);
-    println(".align %d", obj->type->align);
+    println(".align %d", obj->align);
 
     if (obj->init_data) {
         println(".data");
@@ -473,10 +473,10 @@ void emit_text(Object *obj) {
     RegAlias64 param_regs[] = {RDI, RSI, RDX, RCX, R8, R9};
     // ローカル変数のオフセットを計算
     int size = 0;
-    for (Object *v = obj->locals; v; v = v->next) {
-        size += v->type->size;
-        size = align(size, v->type->align);
-        v->offset = -size;
+    for (Object *var = obj->locals; var; var = var->next) {
+        size += var->type->size;
+        size = align(size, var->align);
+        var->offset = -size;
     }
     obj->stack_size = align(size, 16);
 

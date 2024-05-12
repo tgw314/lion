@@ -35,6 +35,7 @@ struct VarAttr {
     bool is_typedef;
     bool is_static;
     bool is_extern;
+    int align;
 };
 
 typedef struct Initializer Initializer;
@@ -71,6 +72,7 @@ static Scope *scope = &(Scope){};
 
 static Type *declspec(VarAttr *attr);
 static Type *declarator(Type *type);
+static Type *typename(void);
 static Type *struct_union_decl(TypeKind kind);
 static Type *enum_specifier(void);
 static void declaration_global(Type *base_type, VarAttr *attr);
@@ -140,6 +142,7 @@ static Object *new_object(Type *type, char *name) {
     Object *var = calloc(1, sizeof(Object));
     var->type = type;
     var->name = name;
+    var->align = type->align;
     return var;
 }
 
@@ -437,9 +440,9 @@ Object *program(void) {
 }
 
 static bool is_decl(Token *tok) {
-    static char *keywords[] = {"void",    "_Bool", "char",   "short",
-                               "int",     "long",  "struct", "union",
-                               "typedef", "enum",  "static", "extern"};
+    static char *keywords[] = {"void",   "_Bool",  "char",    "short",   "int",
+                               "long",   "struct", "union",   "typedef", "enum",
+                               "static", "extern", "_Alignas"};
     static int len = sizeof(keywords) / sizeof(*keywords);
     for (int i = 0; i < len; i++) {
         if (equal(tok, keywords[i])) {
@@ -490,6 +493,20 @@ static Type *declspec(VarAttr *attr) {
                 error_tok(tok,
                           "typedef と static または extern は併用できません");
             }
+            continue;
+        }
+
+        if (consume("_Alignas")) {
+            if (!attr) {
+                error_tok(getok()->prev, "_Alignas は使えません");
+            }
+            expect("(");
+            if (is_decl(getok())) {
+                attr->align = typename()->align;
+            } else {
+                attr->align = const_expr();
+            }
+            expect(")");
             continue;
         }
 
@@ -620,7 +637,7 @@ static Type *typename(void) { return abstract_declarator(declspec(NULL)); }
 
 // declaration = declspec
 //               (declarator ("=" assign)? ("," declarator ("=" assign)?)*)? ";"
-static Node *declaration_local(Type *base_type) {
+static Node *declaration_local(Type *base_type, VarAttr *attr) {
     Node *node = new_node(ND_BLOCK, getok());
 
     if (!consume(";")) {
@@ -636,6 +653,9 @@ static Node *declaration_local(Type *base_type) {
             check_var_redef(type->tok);
 
             Object *var = new_lvar(type, type->tok);
+            if (attr && attr->align) {
+                var->align = attr->align;
+            }
             add_lvar(var);
 
             if (consume("=")) {
@@ -674,6 +694,7 @@ static void declaration_global(Type *base_type, VarAttr *attr) {
 
         Object *var = new_gvar(type, type->tok);
         var->is_def = !attr->is_extern;
+        var->align = attr->align ? attr->align : var->align;
         add_global(var);
 
         if (consume("=")) {
@@ -1123,12 +1144,15 @@ static Member *members(bool *is_flexible) {
     while (!consume("}")) {
         if (consume(";")) continue;
 
-        Type *base_type = declspec(NULL);
+        VarAttr attr = {};
+        Type *base_type = declspec(&attr);
+
         do {
             Member *mem = calloc(1, sizeof(Member));
             mem->type = declarator(base_type);
             mem->name = strndup(mem->type->tok->loc, mem->type->tok->len);
             mem->index = index++;
+            mem->align = attr.align ? attr.align : mem->type->align;
             cur = cur->next = mem;
         } while (consume(","));
         expect(";");
@@ -1319,7 +1343,7 @@ static Node *stmt(void) {
         continue_label = node->continue_label = unique_name();
 
         if (is_decl(getok())) {
-            node->init = declaration_local(declspec(NULL));
+            node->init = declaration_local(declspec(NULL), NULL);
         } else {
             node->init = expr_stmt();
         }
@@ -1473,7 +1497,7 @@ static Node *compound_stmt(void) {
                 continue;
             }
 
-            cur->next = declaration_local(base_type);
+            cur->next = declaration_local(base_type, &attr);
         } else {
             cur->next = stmt();
         }
@@ -1954,6 +1978,7 @@ static Node *string_literal(Token *tok) {
 //         | string | "(" expr ")"
 //         | "(" "{" stmt+ "}" ")"
 //         | "sizeof" (unary | "(" typename ")")
+//         | "_Alignof" "(" typename ")"
 static Node *primary(void) {
     Token *tok = getok();
 
@@ -1980,6 +2005,13 @@ static Node *primary(void) {
         Node *node = unary();
         set_node_type(node);
         return new_node_num(tok, node->type->size);
+    }
+
+    if (consume("_Alignof")) {
+        expect("(");
+        Type *type = typename();
+        expect(")");
+        return new_node_num(tok, type->align);
     }
 
     if (tok->kind == TK_IDENT) {
