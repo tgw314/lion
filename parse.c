@@ -1463,6 +1463,16 @@ static Node *compound_stmt(void) {
                 continue;
             }
 
+            if (is_func()) {
+                function(base_type, &attr);
+                continue;
+            }
+
+            if (attr.is_extern) {
+                declaration_global(base_type, &attr);
+                continue;
+            }
+
             cur->next = declaration_local(base_type);
         } else {
             cur->next = stmt();
