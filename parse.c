@@ -34,6 +34,7 @@ typedef struct VarAttr VarAttr;
 struct VarAttr {
     bool is_typedef;
     bool is_static;
+    bool is_extern;
 };
 
 typedef struct Initializer Initializer;
@@ -72,7 +73,7 @@ static Type *declspec(VarAttr *attr);
 static Type *declarator(Type *type);
 static Type *struct_union_decl(TypeKind kind);
 static Type *enum_specifier(void);
-static void declaration_global(Type *base_type);
+static void declaration_global(Type *base_type, VarAttr *attr);
 static void parse_initializer(Initializer *init);
 static Node *lvar_initializer(Object *var);
 static void gvar_initializer(Object *var);
@@ -153,6 +154,7 @@ static Object *new_gvar(Type *type, Token *tok) {
     Object *gvar = new_object(type, strndup(tok->loc, tok->len));
     gvar->is_local = false;
     gvar->is_func = false;
+    gvar->is_def = true;
     return gvar;
 }
 
@@ -160,7 +162,7 @@ static Object *new_anon_gvar(Type *type) {
     Object *gvar = new_object(type, unique_name());
     gvar->is_local = false;
     gvar->is_func = false;
-
+    gvar->is_def = true;
     return gvar;
 }
 
@@ -428,7 +430,7 @@ Object *program(void) {
             function(base_type, &attr);
             continue;
         }
-        declaration_global(base_type);
+        declaration_global(base_type, &attr);
     }
 
     return globals->next;
@@ -437,7 +439,7 @@ Object *program(void) {
 static bool is_decl(Token *tok) {
     static char *keywords[] = {"void",    "_Bool", "char",   "short",
                                "int",     "long",  "struct", "union",
-                               "typedef", "enum",  "static"};
+                               "typedef", "enum",  "static", "extern"};
     static int len = sizeof(keywords) / sizeof(*keywords);
     for (int i = 0; i < len; i++) {
         if (equal(tok, keywords[i])) {
@@ -450,7 +452,7 @@ static bool is_decl(Token *tok) {
 // declspec = ("void" | "_Bool" | "char" | "int" | "long" | "short"
 //             | "struct" struct-decl | "union" union-decl
 //             | "typedef" | typedef-name | "enum" enum-specifier
-//             | "static")+
+//             | "static" | "extern")+
 static Type *declspec(VarAttr *attr) {
     enum {
         // clang-format off
@@ -468,7 +470,7 @@ static Type *declspec(VarAttr *attr) {
     int counter = 0;
 
     while (is_decl(getok())) {
-        if (match("typedef") || match("static")) {
+        if (match("typedef") || match("static") || match("extern")) {
             Token *tok = getok();
             if (!attr) {
                 error_tok(tok, "記憶クラス指定子は使用できません");
@@ -478,10 +480,15 @@ static Type *declspec(VarAttr *attr) {
                 attr->is_typedef = true;
             } else if (consume("static")) {
                 attr->is_static = true;
+            } else if (consume("extern")) {
+                attr->is_extern = true;
+            } else {
+                unreachable();
             }
 
-            if (attr->is_typedef && attr->is_static) {
-                error_tok(tok, "`typedef`と`static`は併用できません");
+            if (attr->is_typedef && attr->is_static + attr->is_extern > 1) {
+                error_tok(tok,
+                          "typedef と static または extern は併用できません");
             }
             continue;
         }
@@ -652,7 +659,7 @@ static Node *declaration_local(Type *base_type) {
     return node;
 }
 
-static void declaration_global(Type *base_type) {
+static void declaration_global(Type *base_type, VarAttr *attr) {
     if (consume(";")) return;
 
     do {
@@ -666,6 +673,7 @@ static void declaration_global(Type *base_type) {
         check_var_redef(type->tok);
 
         Object *var = new_gvar(type, type->tok);
+        var->is_def = !attr->is_extern;
         add_global(var);
 
         if (consume("=")) {

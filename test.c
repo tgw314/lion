@@ -98,6 +98,9 @@ typedef struct { char a, b[]; } T65;
 T65 g65 = {'f','o','o',0};
 T65 g66 = {'f','o','o','b','a','r',0};
 
+extern int ext1;
+extern int *ext2;
+
 int main() {
     ASSERT(0, 0);
     ASSERT(42, 42);
@@ -799,6 +802,9 @@ int main() {
     ASSERT(7, sizeof(g66));
     ASSERT(0, strcmp(g65.b, "oo"));
     ASSERT(0, strcmp(g66.b, "oobar"));
+
+    ASSERT(5, ext1);
+    ASSERT(5, *ext2);
 
     printf("OK\n");
     return 0;

@@ -516,8 +516,9 @@ void emit_text(Object *obj) {
 void generate(Object *globals) {
     println(".intel_syntax noprefix");
     for (obj = globals; obj; obj = obj->next) {
+        if (!obj->is_def) continue;
+
         if (obj->is_func) {
-            if (!obj->is_def) continue;
             emit_text(obj);
         } else {
             emit_data(obj);
