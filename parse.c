@@ -1079,9 +1079,10 @@ static void function(Type *base_type, VarAttr *attr) {
 
     enter_scope();
 
+    expect("{");
     add_params_lvar(type->params);
     func->params = locals;
-    func->body = stmt();
+    func->body = compound_stmt();
     func->locals = locals;
 
     leave_scope();
