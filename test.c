@@ -108,6 +108,12 @@ T65 g66 = {'f','o','o','b','a','r',0};
 extern int ext1;
 extern int *ext2;
 
+int counter() {
+    static int i;
+    static int j = 1+1;
+    return i++ + j++;
+}
+
 int main() {
     ASSERT(0, 0);
     ASSERT(42, 42);
@@ -848,6 +854,10 @@ int main() {
     ASSERT(4, ({ int x; _Alignof(x); }));
     ASSERT(1, ({ char x; _Alignof x; }));
     ASSERT(4, ({ int x; _Alignof x; }));
+
+    ASSERT(2, counter());
+    ASSERT(4, counter());
+    ASSERT(6, counter());
 
     printf("OK\n");
     return 0;

@@ -650,6 +650,15 @@ static Node *declaration_local(Type *base_type, VarAttr *attr) {
                 error_tok(type->tok, "void 型の変数が宣言されました");
             }
 
+            if (attr && attr->is_static) {
+                Object *var = new_anon_gvar(type);
+                char *name = strndup(type->tok->loc, type->tok->len);
+                add_global(var);
+                push_scope(name)->var = var;
+                if (consume("=")) gvar_initializer(var);
+                continue;
+            }
+
             check_var_redef(type->tok);
 
             Object *var = new_lvar(type, type->tok);
