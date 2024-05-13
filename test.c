@@ -844,6 +844,11 @@ int main() {
     ASSERT(0, (long)(char *)&ag4 % 4);
     ASSERT(0, (long)(char *)&ag5 % 8);
 
+    ASSERT(1, ({ char x; _Alignof(x); }));
+    ASSERT(4, ({ int x; _Alignof(x); }));
+    ASSERT(1, ({ char x; _Alignof x; }));
+    ASSERT(4, ({ int x; _Alignof x; }));
+
     printf("OK\n");
     return 0;
 }

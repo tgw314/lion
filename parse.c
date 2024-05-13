@@ -1978,7 +1978,7 @@ static Node *string_literal(Token *tok) {
 //         | string | "(" expr ")"
 //         | "(" "{" stmt+ "}" ")"
 //         | "sizeof" (unary | "(" typename ")")
-//         | "_Alignof" "(" typename ")"
+//         | "_Alignof" (unary | "(" typename ")")
 static Node *primary(void) {
     Token *tok = getok();
 
@@ -2008,10 +2008,16 @@ static Node *primary(void) {
     }
 
     if (consume("_Alignof")) {
-        expect("(");
-        Type *type = typename();
-        expect(")");
-        return new_node_num(tok, type->align);
+        if (match("(") && is_decl(getok()->next)) {
+            seek(getok()->next);
+            Type *type = typename();
+            expect(")");
+            return new_node_num(tok, type->align);
+        }
+
+        Node *node = unary();
+        set_node_type(node);
+        return new_node_num(tok, node->type->align);
     }
 
     if (tok->kind == TK_IDENT) {
