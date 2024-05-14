@@ -108,6 +108,22 @@ T65 g66 = {'f','o','o','b','a','r',0};
 extern int ext1;
 extern int *ext2;
 
+typedef struct Tree {
+  int val;
+  struct Tree *lhs;
+  struct Tree *rhs;
+} Tree;
+
+Tree *tree = &(Tree){
+  1,
+  &(Tree){
+    2,
+    &(Tree){ 3, 0, 0 },
+    &(Tree){ 4, 0, 0 }
+  },
+  0
+};
+
 int counter() {
     static int i;
     static int j = 1+1;
@@ -858,6 +874,17 @@ int main() {
     ASSERT(2, counter());
     ASSERT(4, counter());
     ASSERT(6, counter());
+
+    ASSERT(1, (int){1});
+    ASSERT(2, ((int[]){0,1,2})[2]);
+    ASSERT('a', ((struct {char a; int b;}){'a', 3}).a);
+    ASSERT(3, ({ int x=3; (int){x}; }));
+    (int){3} = 5;
+
+    ASSERT(1, tree->val);
+    ASSERT(2, tree->lhs->val);
+    ASSERT(3, tree->lhs->lhs->val);
+    ASSERT(4, tree->lhs->rhs->val);
 
     printf("OK\n");
     return 0;

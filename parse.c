@@ -1,3 +1,4 @@
+#include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -1843,6 +1844,11 @@ static Node *cast(void) {
         seek(tok->next);
         Type *type = typename();
         expect(")");
+
+        if (match("{")) {
+            seek(tok);
+            return unary();
+        }
         return new_node_cast(tok, type, cast());
     }
 
@@ -1881,10 +1887,32 @@ static Node *unary(void) {
     return postfix();
 }
 
-// postfix = primary ("[" expr "]" | ("." | "->") ident | "++" | "--")*
+// postfix = "(" typename ")" initializer
+//         | primary ("[" expr "]" | ("." | "->") ident | "++" | "--")*
 static Node *postfix(void) {
-    Node *node = primary();
+    if (match("(") && is_decl(getok()->next)) {
+        Token *start = getok();
 
+        seek(start->next);
+        Type *type = typename();
+        expect(")");
+
+        if (scope->next) {
+            Object *var = new_temp_lvar(type);
+            add_lvar(var);
+            Token *tok = getok();
+            Node *lhs = lvar_initializer(var);
+            Node *rhs = new_node_var(tok, var);
+            return new_node_binary(ND_COMMA, start, lhs, rhs);
+        } else {
+            Object *var = new_anon_gvar(type);
+            add_global(var);
+            gvar_initializer(var);
+            return new_node_var(start, var);
+        }
+    }
+
+    Node *node = primary();
     while (true) {
         Token *tok = getok();
         if (consume("[")) {
