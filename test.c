@@ -134,6 +134,8 @@ void ret_none() {
     return;
 }
 
+static int sg1 = 3;
+
 int main() {
     ASSERT(0, 0);
     ASSERT(42, 42);
@@ -891,6 +893,8 @@ int main() {
     ASSERT(4, tree->lhs->rhs->val);
 
     ret_none();
+
+    ASSERT(3, sg1);
 
     printf("OK\n");
     return 0;

@@ -704,6 +704,7 @@ static void declaration_global(Type *base_type, VarAttr *attr) {
 
         Object *var = new_gvar(type, type->tok);
         var->is_def = !attr->is_extern;
+        var->is_static = attr->is_static;
         var->align = attr->align ? attr->align : var->align;
         add_global(var);
 
