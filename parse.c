@@ -1299,7 +1299,7 @@ static void parse_typedef(Type *base_type) {
 //      | "continue" ";"
 //      | "switch" "(" expr ")" stmt
 //      | (case const_expr | "default") ":" stmt
-//      | "return" expr ";"
+//      | "return" expr? ";"
 static Node *stmt(void) {
     Token *tok = getok();
     if (consume("{")) {
@@ -1466,9 +1466,10 @@ static Node *stmt(void) {
     }
 
     if (consume("return")) {
+        if (consume(";")) return new_node(ND_RETURN, tok);
+
         Node *node = expr();
         expect(";");
-
         set_node_type(node);
         node = new_node_cast(node->tok, current_func->type->return_type, node);
         node = new_node_unary(ND_RETURN, tok, node);

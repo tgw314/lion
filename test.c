@@ -130,6 +130,10 @@ int counter() {
     return i++ + j++;
 }
 
+void ret_none() {
+    return;
+}
+
 int main() {
     ASSERT(0, 0);
     ASSERT(42, 42);
@@ -885,6 +889,8 @@ int main() {
     ASSERT(2, tree->lhs->val);
     ASSERT(3, tree->lhs->lhs->val);
     ASSERT(4, tree->lhs->rhs->val);
+
+    ret_none();
 
     printf("OK\n");
     return 0;
