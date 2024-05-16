@@ -407,6 +407,17 @@ static void gen_stmt(Node *node) {
             println("%s:", node->break_label);
             return;
         }
+        case ND_DO: {
+            int i = count();
+            println(".L.begin.%03d:", i);
+            gen_stmt(node->then);
+            println("%s:", node->continue_label);
+            gen_expr(node->cond);
+            println("  cmp rax, 0");
+            println("  jne .L.begin.%03d", i);
+            println("%s:", node->break_label);
+            return;
+        }
         case ND_GOTO: println("  jmp %s", node->unique_label); return;
         case ND_LABEL:
             println("%s:", node->unique_label);

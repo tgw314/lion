@@ -1294,6 +1294,7 @@ static void parse_typedef(Type *base_type) {
 //      | "if" "(" expr ")" stmt ("else" stmt)?
 //      | "while" "(" expr ")" stmt
 //      | "for" "(" expr? ";" expr? ";" expr? ")" stmt
+//      | "do" stmt "while" "(" expr ")" ";"
 //      | "goto" ident ";"
 //      | ident ":" stmt
 //      | "break" ";"
@@ -1373,6 +1374,28 @@ static Node *stmt(void) {
 
         break_label = brk;
         continue_label = cont;
+
+        return node;
+    }
+
+    if (consume("do")) {
+        Node *node = new_node(ND_DO, tok);
+
+        char *brk = break_label;
+        char *cont = continue_label;
+        break_label = node->break_label = unique_name();
+        continue_label = node->continue_label = unique_name();
+
+        node->then = stmt();
+
+        break_label = brk;
+        continue_label = cont;
+
+        expect("while");
+        expect("(");
+        node->cond = expr();
+        expect(")");
+        expect(";");
 
         return node;
     }
