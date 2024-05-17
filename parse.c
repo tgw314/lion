@@ -1,4 +1,3 @@
-#include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -58,7 +57,7 @@ struct InitDesign {
 };
 
 static Object *locals;
-static Object *globals = &(Object){};
+static Object *globals;
 static Object *current_func;
 
 static Node *gotos;
@@ -139,57 +138,43 @@ static char *unique_name(void) {
     return name;
 }
 
-static Object *new_object(Type *type, char *name) {
+static char *tokstr(Token *tok) { return strndup(tok->loc, tok->len); }
+
+static Object *new_var(Type *type, char *name) {
     Object *var = calloc(1, sizeof(Object));
     var->type = type;
     var->name = name;
     var->align = type->align;
+    push_scope(name)->var = var;
     return var;
 }
 
-static Object *new_func(Type *type, Token *tok) {
-    Object *func = new_object(type, strndup(tok->loc, tok->len));
-    func->is_local = false;
-    func->is_func = true;
-    return func;
-}
-
-static Object *new_gvar(Type *type, Token *tok) {
-    Object *gvar = new_object(type, strndup(tok->loc, tok->len));
-    gvar->is_local = false;
-    gvar->is_func = false;
-    gvar->is_def = true;
-    return gvar;
+static Object *new_gvar(Type *type, char *name) {
+    Object *var = new_var(type, name);
+    var->is_static = true;
+    var->is_def = true;
+    var->next = globals;
+    globals = var;
+    return var;
 }
 
 static Object *new_anon_gvar(Type *type) {
-    Object *gvar = new_object(type, unique_name());
-    gvar->is_local = false;
-    gvar->is_func = false;
-    gvar->is_def = true;
-    return gvar;
+    return new_gvar(type, unique_name());
 }
 
 static Object *new_string_literal(char *str, int len) {
     Type *type = new_type_array(basic_type(TY_CHAR), len);
-    Object *gvar = new_anon_gvar(type);
-    gvar->init_data = str;
-    gvar->is_static = true;
-    return gvar;
+    Object *var = new_anon_gvar(type);
+    var->init_data = str;
+    return var;
 }
 
-static Object *new_lvar(Type *type, Token *tok) {
-    Object *lvar = new_object(type, strndup(tok->loc, tok->len));
-    lvar->is_local = true;
-    lvar->is_func = false;
-    return lvar;
-}
-
-static Object *new_temp_lvar(Type *type) {
-    Object *lvar = new_object(type, "");
-    lvar->is_local = true;
-    lvar->is_func = false;
-    return lvar;
+static Object *new_lvar(Type *type, char *name) {
+    Object *var = new_var(type, name);
+    var->is_local = true;
+    var->next = locals;
+    locals = var;
+    return var;
 }
 
 static Initializer *new_initializer(Type *type, bool is_flexible) {
@@ -287,26 +272,6 @@ static void check_var_redef(Token *tok) {
 static void check_func_redef(Token *tok) {
     if (find_func(tok)) {
         error_tok(tok, "再定義です");
-    }
-}
-
-// ローカル変数を locals の先頭に追加する
-static void add_lvar(Object *lvar) {
-    lvar->next = locals;
-    locals = lvar;
-    push_scope(lvar->name)->var = lvar;
-}
-
-// 関数とグローバル変数を globals の末尾に追加する
-static void add_global(Object *global) {
-    static Object *cur = NULL;
-
-    for (cur = globals; cur; cur = cur->next) {
-        if (cur->next == NULL) {
-            cur = cur->next = global;
-            push_scope(global->name)->var = global;
-            return;
-        }
     }
 }
 
@@ -437,7 +402,7 @@ Object *program(void) {
         declaration_global(base_type, &attr);
     }
 
-    return globals->next;
+    return globals;
 }
 
 static bool is_decl(Token *tok) {
@@ -655,8 +620,7 @@ static Node *declaration_local(Type *base_type, VarAttr *attr) {
 
             if (attr && attr->is_static) {
                 Object *var = new_anon_gvar(type);
-                char *name = strndup(type->tok->loc, type->tok->len);
-                add_global(var);
+                char *name = tokstr(type->tok);
                 push_scope(name)->var = var;
                 if (consume("=")) gvar_initializer(var);
                 continue;
@@ -664,11 +628,10 @@ static Node *declaration_local(Type *base_type, VarAttr *attr) {
 
             check_var_redef(type->tok);
 
-            Object *var = new_lvar(type, type->tok);
+            Object *var = new_lvar(type, tokstr(type->tok));
             if (attr && attr->align) {
                 var->align = attr->align;
             }
-            add_lvar(var);
 
             if (consume("=")) {
                 Token *tok = getok();
@@ -704,11 +667,10 @@ static void declaration_global(Type *base_type, VarAttr *attr) {
         // グローバル変数の再宣言は可能
         check_var_redef(type->tok);
 
-        Object *var = new_gvar(type, type->tok);
+        Object *var = new_gvar(type, tokstr(type->tok));
         var->is_def = !attr->is_extern;
         var->is_static = attr->is_static;
         var->align = attr->align ? attr->align : var->align;
-        add_global(var);
 
         if (consume("=")) {
             gvar_initializer(var);
@@ -1071,7 +1033,7 @@ static void gvar_initializer(Object *var) {
 static void add_params_lvar(Type *param) {
     if (param) {
         add_params_lvar(param->next);
-        add_lvar(new_lvar(param, param->tok));
+        new_lvar(param, tokstr(param->tok));
     }
 }
 
@@ -1099,10 +1061,10 @@ static void function(Type *base_type, VarAttr *attr) {
     check_var_redef(tok);
     check_func_redef(tok);
 
-    Object *func = new_func(type, tok);
+    Object *func = new_gvar(type, tokstr(tok));
+    func->is_func = true;
     func->is_def = !consume(";");
     func->is_static = attr->is_static;
-    add_global(func);
 
     if (!func->is_def) {
         return;
@@ -1660,8 +1622,7 @@ static Node *to_assign(Node *binary) {
     set_node_type(binary->rhs);
 
     Token *tok = binary->tok;
-    Object *var = new_temp_lvar(new_type_ptr(binary->lhs->type));
-    add_lvar(var);
+    Object *var = new_lvar(new_type_ptr(binary->lhs->type), "");
 
     Node *expr1, *expr2;
 
@@ -1929,15 +1890,13 @@ static Node *postfix(void) {
         expect(")");
 
         if (scope->next) {
-            Object *var = new_temp_lvar(type);
-            add_lvar(var);
+            Object *var = new_lvar(type, "");
             Token *tok = getok();
             Node *lhs = lvar_initializer(var);
             Node *rhs = new_node_var(tok, var);
             return new_node_binary(ND_COMMA, start, lhs, rhs);
         } else {
             Object *var = new_anon_gvar(type);
-            add_global(var);
             gvar_initializer(var);
             return new_node_var(start, var);
         }
@@ -2036,7 +1995,6 @@ static Node *callfunc(Token *tok) {
 
 static Node *string_literal(Token *tok) {
     Object *str_obj = new_string_literal(tok->str, tok->str_len);
-    add_global(str_obj);
     Node *node = new_node(ND_VAR, tok);
     node->var = str_obj;
     return node;
