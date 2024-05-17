@@ -23,6 +23,7 @@ typedef enum {
 } RegAlias64;
 
 static Object *obj;
+static int offset = 0;
 
 static void gen_lval(Node *node);
 static void gen_expr(Node *node);
@@ -84,6 +85,16 @@ static char *word(TypeId id) {
     }
 }
 
+static void push(char *r) {
+    println("  push %s", r);
+    offset += 8;
+}
+
+static void pop(const char *r) {
+    println("  pop %s", r);
+    offset -= 8;
+}
+
 static void load(Type *type) {
     if (type->kind == TY_ARRAY || type->kind == TY_STRUCT ||
         type->kind == TY_UNION) {
@@ -107,22 +118,6 @@ static void load(Type *type) {
                     reg(RAX, I64));
             return;
     }
-}
-
-static void call(const char *funcname) {
-    int i = count();
-    println("  mov rax, rsp");
-    println("  and rax, 15");
-    println("  jnz .L.call.%s.%03d", funcname, i);
-    println("  mov rax, 0");
-    println("  call %s", funcname);
-    println("  jmp .L.end.%s.%03d", funcname, i);
-    println(".L.call.%s.%03d:", funcname, i);
-    println("  sub rsp, 8");
-    println("  mov rax, 0");
-    println("  call %s", funcname);
-    println("  add rsp, 8");
-    println(".L.end.%s.%03d:", funcname, i);
 }
 
 static void cast(Type *from, Type *to) {
@@ -242,9 +237,9 @@ static void gen_expr(Node *node) {
             return;
         case ND_ASSIGN:
             gen_lval(node->lhs);
-            println("  push rax");
+            push("rax");
             gen_expr(node->rhs);
-            println("  pop rdi");
+            pop("rdi");
             if (node->type->kind == TY_STRUCT || node->type->kind == TY_UNION) {
                 for (int i = 0; i < node->type->size; i++) {
                     println("  mov r8b, [rax%+d]", i);
@@ -293,27 +288,30 @@ static void gen_expr(Node *node) {
 
             for (Node *arg = node->args; arg; arg = arg->next) {
                 gen_expr(arg);
-                println("  push rax");
+                push("rax");
                 argc++;
             }
-            for (int i = argc - 1; i >= 0; i--) {
-                println("  pop %s", arg_regs[i]);
+            for (int i = argc - 1; i >= 0; i--) pop(arg_regs[i]);
+
+            if (offset % 16) {
+                println("  sub rsp, 8");
+                println("  call %s", node->funcname);
+                println("  add rsp, 8");
+            } else {
+                println("  call %s", node->funcname);
             }
-            call(node->funcname);
             return;
         }
         case ND_STMT_EXPR:
-            for (Node *n = node->body; n; n = n->next) {
-                gen_stmt(n);
-            }
+            for (Node *n = node->body; n; n = n->next) gen_stmt(n);
             return;
     }
 
     gen_expr(node->lhs);
-    println("  push rax");
+    push("rax");
     gen_expr(node->rhs);
     println("  mov rdi, rax");
-    println("  pop rax");
+    pop("rax");
 
     Type *t = node->lhs->type;
     TypeId id = t->kind == TY_LONG || t->ptr_to ? I64 : I32;
@@ -482,27 +480,23 @@ void emit_data(Object *obj) {
 
 void emit_text(Object *obj) {
     RegAlias64 param_regs[] = {RDI, RSI, RDX, RCX, R8, R9};
-    // ローカル変数のオフセットを計算
     int size = 0;
     for (Object *var = obj->locals; var; var = var->next) {
         size += var->type->size;
         size = align(size, var->align);
         var->offset = -size;
     }
-    obj->stack_size = align(size, 16);
+    size = align(size, 16);
 
     println(".%sal %s", obj->is_static ? "loc" : "glob", obj->name);
     println(".text");
     println("%s:", obj->name);
 
-    // プロローグ
     println("  push rbp");
     println("  mov rbp, rsp");
-    if (obj->stack_size > 0) {
-        println("  sub rsp, %d", obj->stack_size);
-    }
+    println("  sub rsp, %d", size);
 
-    {  // 引数をローカル変数として代入
+    {
         int i = 0;
         for (Object *p = obj->params; p; p = p->next) {
             TypeId id = type_id(p->type);
@@ -511,13 +505,8 @@ void emit_text(Object *obj) {
         }
     }
 
-    // 先頭の式から順にコード生成
-    for (Node *s = obj->body; s; s = s->next) {
-        gen_stmt(s);
-    }
+    for (Node *s = obj->body; s; s = s->next) gen_stmt(s);
 
-    // エピローグ
-    // 最後の式の結果が RAX に残っているのでそれが返り値になる
     println(".L.return.%s:", obj->name);
     println("  mov rsp, rbp");
     println("  pop rbp");

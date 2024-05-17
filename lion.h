@@ -162,7 +162,6 @@ struct Object {
     Relocation *rel;
 
     // 関数
-    int stack_size;
     Object *locals;  // ローカル変数
     Object *params;  // 引数
     Node *body;
