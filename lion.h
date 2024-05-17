@@ -113,6 +113,7 @@ struct Type {
     Type *return_type;
     Type *params;
     Type *next;
+    bool is_variadic;
 };
 
 // 抽象構文木のノードの型

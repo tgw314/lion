@@ -81,7 +81,7 @@ static void parse_initializer(Initializer *init);
 static Node *lvar_initializer(Object *var);
 static void gvar_initializer(Object *var);
 static void function(Type *type, VarAttr *attr);
-static Type *params(void);
+static Type *params(bool *is_variadic);
 static void parse_typedef(Type *base_type);
 static Node *stmt(void);
 static Node *compound_stmt(void);
@@ -567,7 +567,9 @@ static Type *declspec(VarAttr *attr) {
 // declsuffix = "(" params ")" |  "[" const_expr? "]" declsuffix
 static Type *declsuffix(Type *type) {
     if (consume("(")) {
-        type = new_type_func(type, params());
+        bool is_variadic = false;
+        type = new_type_func(type, params(&is_variadic));
+        type->is_variadic = is_variadic;
         return type;
     }
 
@@ -1121,8 +1123,8 @@ static void function(Type *base_type, VarAttr *attr) {
     resolve_goto_labels();
 }
 
-// params = ("void" | declspec declarator ("," declspec declarator)*)? ")"
-static Type *params(void) {
+// params = ("void" | param ("," param)* ("," "...")?)? ")"
+static Type *params(bool *is_variadic) {
     if (consume(")")) return NULL;
     if (match("void") && equal(getok()->next, ")")) {
         seek(getok()->next->next);
@@ -1133,6 +1135,10 @@ static Type *params(void) {
     Type *cur = &head;
 
     do {
+        if (consume("...")) {
+            *is_variadic = true;
+            break;
+        }
         Type *type = copy_type(declarator(declspec(NULL)));
         if (type->kind == TY_ARRAY) {
             Token *tok = type->tok;
