@@ -6,6 +6,7 @@ typedef int;
 
 void assert(int expected, int actual, char *code); 
 int printf();
+int sprintf();
 int strcmp(char *p, char *q);
 int memcmp(char *p, char *q, int n);
 
@@ -135,6 +136,11 @@ void ret_none() {
 }
 
 static int sg1 = 3;
+
+_Bool true_fn();
+_Bool false_fn();
+char char_fn();
+short short_fn();
 
 int main() {
     ASSERT(0, 0);
@@ -898,6 +904,11 @@ int main() {
 
     ASSERT(7, ({ int i=0; int j=0; do { j++; } while (i++ < 6); j; }));
     ASSERT(4, ({ int i=0; int j=0; int k=0; do { if (++j > 3) break; continue; k++; } while (1); j; }));
+
+    ASSERT(1, true_fn());
+    ASSERT(0, false_fn());
+    ASSERT(3, char_fn());
+    ASSERT(5, short_fn());
 
     printf("OK\n");
     return 0;

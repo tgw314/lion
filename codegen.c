@@ -300,6 +300,12 @@ static void gen_expr(Node *node) {
             } else {
                 println("  call %s", node->funcname);
             }
+
+            switch (node->type->kind) {
+                case TY_BOOL: println("  movzx eax, al"); return;
+                case TY_CHAR: println("  movsx eax, al"); return;
+                case TY_SHORT: println("  movsx eax, ax"); return;
+            }
             return;
         }
         case ND_STMT_EXPR:
