@@ -163,8 +163,9 @@ struct Object {
     Relocation *rel;
 
     // 関数
-    Object *locals;  // ローカル変数
-    Object *params;  // 引数
+    Object *locals;
+    Object *params;
+    Object *va_area;  // 可変長引数の領域
     Node *body;
 };
 

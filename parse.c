@@ -1058,12 +1058,14 @@ static void function(Type *base_type, VarAttr *attr) {
     Type *type = declarator(base_type);
     Token *tok = type->tok;
 
-    check_var_redef(tok);
-    check_func_redef(tok);
-
+    bool is_def = !consume(";");
+    if (is_def) {
+        check_var_redef(tok);
+        check_func_redef(tok);
+    }
     Object *func = new_gvar(type, tokstr(tok));
     func->is_func = true;
-    func->is_def = !consume(";");
+    func->is_def = is_def;
     func->is_static = attr->is_static;
 
     if (!func->is_def) {
@@ -1075,10 +1077,16 @@ static void function(Type *base_type, VarAttr *attr) {
 
     enter_scope();
 
-    expect("{");
     add_params_lvar(type->params);
     func->params = locals;
+    if (type->is_variadic) {
+        func->va_area =
+            new_lvar(new_type_array(basic_type(TY_CHAR), 136), "__va_area__");
+    }
+
+    expect("{");
     func->body = compound_stmt();
+
     func->locals = locals;
 
     leave_scope();

@@ -502,6 +502,32 @@ void emit_text(Object *obj) {
     println("  mov rbp, rsp");
     println("  sub rsp, %d", size);
 
+    if (obj->va_area) {
+        int gp = 0;
+        for (Object *var = obj->params; var; var = var->next) gp++;
+        int off = obj->va_area->offset;
+
+        println("  mov DWORD PTR [rbp%+d], %d", off, gp * 8);
+        println("  mov DWORD PTR [rbp%+d], 0", off + 4);
+        println("  mov QWORD PTR [rbp%+d], rbp", off + 16);
+        println("  add QWORD PTR [rbp%+d], %d", off + 16, off + 24);
+
+        println("  mov QWORD PTR [rbp%+d], rdi", off + 24);
+        println("  mov QWORD PTR [rbp%+d], rsi", off + 32);
+        println("  mov QWORD PTR [rbp%+d], rdx", off + 40);
+        println("  mov QWORD PTR [rbp%+d], rcx", off + 48);
+        println("  mov QWORD PTR [rbp%+d], r8", off + 56);
+        println("  mov QWORD PTR [rbp%+d], r9", off + 64);
+        println("  movsd [rbp%+d], xmm0", off + 72);
+        println("  movsd [rbp%+d], xmm1", off + 80);
+        println("  movsd [rbp%+d], xmm2", off + 88);
+        println("  movsd [rbp%+d], xmm3", off + 96);
+        println("  movsd [rbp%+d], xmm4", off + 104);
+        println("  movsd [rbp%+d], xmm5", off + 112);
+        println("  movsd [rbp%+d], xmm6", off + 120);
+        println("  movsd [rbp%+d], xmm7", off + 128);
+    }
+
     {
         int i = 0;
         for (Object *p = obj->params; p; p = p->next) {
