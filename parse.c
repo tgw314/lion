@@ -1095,7 +1095,10 @@ static void function(Type *base_type, VarAttr *attr) {
 
 // params = ("void" | param ("," param)* ("," "...")?)? ")"
 static Type *params(bool *is_variadic) {
-    if (consume(")")) return NULL;
+    if (consume(")")) {
+        *is_variadic = true;
+        return NULL;
+    }
     if (match("void") && equal(getok()->next, ")")) {
         seek(getok()->next->next);
         return NULL;
@@ -1981,6 +1984,10 @@ static Node *callfunc(Token *tok) {
             Node *arg = assign();
             set_node_type(arg);
 
+            if (!param_type && !type->is_variadic) {
+                error_tok(arg->tok, "引数が多すぎます");
+            }
+
             if (param_type) {
                 if (param_type->kind == TY_STRUCT ||
                     param_type->kind == TY_UNION) {
@@ -1993,6 +2000,11 @@ static Node *callfunc(Token *tok) {
 
             cur = cur->next = arg;
         } while (consume(","));
+
+        if (param_type) {
+            error_tok(getok(), "引数が少なすぎます");
+        }
+
         expect(")");
 
         node->args = head.next;
