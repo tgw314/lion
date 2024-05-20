@@ -1,5 +1,4 @@
 #include <ctype.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -113,7 +112,7 @@ static bool is_keyword(Token *tok) {
         "sizeof",   "char",     "struct", "union", "long",    "short",
         "void",     "typedef",  "_Bool",  "enum",  "static",  "goto",
         "break",    "continue", "switch", "case",  "default", "extern",
-        "_Alignof", "_Alignas", "do"};
+        "_Alignof", "_Alignas", "do",     "signed"};
     static int len = sizeof(keywords) / sizeof(*keywords);
     for (int i = 0; i < len; i++) {
         if (equal(tok, keywords[i])) {

@@ -406,9 +406,9 @@ Object *program(void) {
 }
 
 static bool is_decl(Token *tok) {
-    static char *keywords[] = {"void",   "_Bool",  "char",    "short",   "int",
-                               "long",   "struct", "union",   "typedef", "enum",
-                               "static", "extern", "_Alignas"};
+    static char *keywords[] = {
+        "void",  "_Bool",   "char", "short",  "int",    "long",     "struct",
+        "union", "typedef", "enum", "static", "extern", "_Alignas", "signed"};
     static int len = sizeof(keywords) / sizeof(*keywords);
     for (int i = 0; i < len; i++) {
         if (equal(tok, keywords[i])) {
@@ -425,13 +425,14 @@ static bool is_decl(Token *tok) {
 static Type *declspec(VarAttr *attr) {
     enum {
         // clang-format off
-        VOID  = 1 << 0,
-        BOOL  = 1 << 2,
-        CHAR  = 1 << 4,
-        SHORT = 1 << 6,
-        INT   = 1 << 8,
-        LONG  = 1 << 10,
-        OTHER = 1 << 12,
+        VOID   = 1 << 0,
+        BOOL   = 1 << 2,
+        CHAR   = 1 << 4,
+        SHORT  = 1 << 6,
+        INT    = 1 << 8,
+        LONG   = 1 << 10,
+        OTHER  = 1 << 12,
+        SIGNED = 1 << 13,
         // clang-format on
     };
 
@@ -507,6 +508,8 @@ static Type *declspec(VarAttr *attr) {
             counter += INT;
         } else if (consume("long")) {
             counter += LONG;
+        } else if (consume("signed")) {
+            counter |= SIGNED;
         } else {
             unreachable();
         }
@@ -514,14 +517,23 @@ static Type *declspec(VarAttr *attr) {
         switch (counter) {
             case VOID: type = basic_type(TY_VOID); break;
             case BOOL: type = basic_type(TY_BOOL); break;
-            case CHAR: type = basic_type(TY_CHAR); break;
+            case CHAR:
+            case SIGNED + CHAR: type = basic_type(TY_CHAR); break;
             case SHORT:
-            case SHORT + INT: type = basic_type(TY_SHORT); break;
-            case INT: type = basic_type(TY_INT); break;
+            case SHORT + INT:
+            case SIGNED + SHORT:
+            case SIGNED + SHORT + INT: type = basic_type(TY_SHORT); break;
+            case INT:
+            case SIGNED:
+            case SIGNED + INT: type = basic_type(TY_INT); break;
             case LONG:
             case LONG + INT:
             case LONG + LONG:
-            case LONG + LONG + INT: type = basic_type(TY_LONG); break;
+            case LONG + LONG + INT:
+            case SIGNED + LONG:
+            case SIGNED + LONG + INT:
+            case SIGNED + LONG + LONG:
+            case SIGNED + LONG + LONG + INT: type = basic_type(TY_LONG); break;
             default: error_tok(getok()->prev, "不正な型です");
         }
     }
