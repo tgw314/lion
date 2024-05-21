@@ -108,11 +108,11 @@ static bool is_ident(char c) {
 
 static bool is_keyword(Token *tok) {
     static char *keywords[] = {
-        "return",   "if",       "else",   "while", "for",     "int",
-        "sizeof",   "char",     "struct", "union", "long",    "short",
-        "void",     "typedef",  "_Bool",  "enum",  "static",  "goto",
-        "break",    "continue", "switch", "case",  "default", "extern",
-        "_Alignof", "_Alignas", "do",     "signed"};
+        "return",   "if",       "else",   "while",  "for",     "int",
+        "sizeof",   "char",     "struct", "union",  "long",    "short",
+        "void",     "typedef",  "_Bool",  "enum",   "static",  "goto",
+        "break",    "continue", "switch", "case",   "default", "extern",
+        "_Alignof", "_Alignas", "do",     "signed", "unsigned"};
     static int len = sizeof(keywords) / sizeof(*keywords);
     for (int i = 0; i < len; i++) {
         if (equal(tok, keywords[i])) {
@@ -226,7 +226,7 @@ static char read_char_literal(char **pos, char *start) {
     return c;
 }
 
-static long read_int_literal(char **pos, char *start) {
+static int64_t read_int_literal(char **pos, char *start) {
     char *p = start;
 
     int base = 10;
@@ -240,7 +240,7 @@ static long read_int_literal(char **pos, char *start) {
         base = 8;
     }
 
-    long val = strtoul(p, &p, base);
+    int64_t val = strtoul(p, &p, base);
     if (isalnum(*p)) {
         error_at(p, "誤った整数定数です");
     }

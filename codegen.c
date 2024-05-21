@@ -47,16 +47,19 @@ int align(int n, int align) {
     return (n + align - 1) / align * align;
 }
 
-typedef enum { I8, I16, I32, I64 } TypeId;
+typedef enum { I8, I16, I32, I64, U8, U16, U32, U64 } TypeId;
 
 static TypeId type_id(Type *type) {
     switch (type->kind) {
+            // clang-format off
         case TY_BOOL:
-        case TY_CHAR: return I8;
-        case TY_SHORT: return I16;
-        case TY_INT: return I32;
+        case TY_CHAR:  return type->is_unsigned ? U8 : I8;
+        case TY_SHORT: return type->is_unsigned ? U16 : I16;
+        case TY_INT:   return type->is_unsigned ? U32 : I32;
+        case TY_LONG:  return type->is_unsigned ? U64 : I64;
         case TY_VOID: unreachable();
-        default: return I64;
+        default: return U64;
+            // clang-format on
     }
 }
 
@@ -72,15 +75,19 @@ static char *reg(RegAlias64 reg, TypeId id) {
         {"r14b", "r14w", "r14d", "r14"}, {"r15b", "r15w", "r15d", "r15"},
     };
 
-    return regs[reg][id];
+    return regs[reg][id % 4];
 }
 
 static char *word(TypeId id) {
     switch (id) {
-        case I8: return "BYTE PTR";
-        case I16: return "WORD PTR";
-        case I32: return "DWORD PTR";
-        case I64: return "QWORD PTR";
+        case I8:
+        case U8: return "BYTE PTR";
+        case I16:
+        case U16: return "WORD PTR";
+        case I32:
+        case U32: return "DWORD PTR";
+        case I64:
+        case U64: return "QWORD PTR";
         default: unreachable();
     }
 }
@@ -106,13 +113,17 @@ static void load(Type *type) {
     switch (id) {
         case I8:
         case I16:
-            println("  movsx %s, %s [%s]", reg(RAX, I32), word(id),
-                    reg(RAX, I64));
+        case U8:
+        case U16:
+        case U32:
+            println("  mov%cx %s, %s [%s]", type->is_unsigned ? 'z' : 's',
+                    reg(RAX, I32), word(id), reg(RAX, I64));
             return;
         case I32:
             println("  movsxd %s, %s [%s]", reg(RAX, I64), word(id),
                     reg(RAX, I64));
             return;
+        case U64:
         case I64:
             println("  mov %s, %s [%s]", reg(RAX, I64), word(id),
                     reg(RAX, I64));
@@ -122,13 +133,23 @@ static void load(Type *type) {
 
 static void cast(Type *from, Type *to) {
     static char i32i8[] = "movsx eax, al";
+    static char i32u8[] = "movzx eax, al";
     static char i32i16[] = "movsx eax, ax";
+    static char i32u16[] = "movzx eax, ax";
     static char i32i64[] = "movsxd rax, eax";
+    static char u32i64[] = "mov eax, eax";
     static char *cast_table[][8] = {
-        {NULL, NULL, NULL, i32i64},
-        {i32i8, NULL, NULL, i32i64},
-        {i32i8, i32i16, NULL, i32i64},
-        {i32i8, i32i16, NULL, NULL},
+        // clang-format off
+        // i8   i16     i32   i64     u8     u16     u32   u64
+        {NULL,  NULL,   NULL, i32i64, i32u8, i32u16, NULL, i32i64},   // i8
+        {i32i8, NULL,   NULL, i32i64, i32u8, i32u16, NULL, i32i64},   // i16
+        {i32i8, i32i16, NULL, i32i64, i32u8, i32u16, NULL, i32i64},   // i32
+        {i32i8, i32i16, NULL, NULL,   i32u8, i32u16, NULL, NULL},     // i64
+        {i32i8, NULL,   NULL, i32i64, NULL,  NULL,   NULL, i32i64},   // u8
+        {i32i8, i32i16, NULL, i32i64, i32u8, NULL,   NULL, i32i64},   // u16
+        {i32i8, i32i16, NULL, u32i64, i32u8, i32u16, NULL, u32i64},   // u32
+        {i32i8, i32i16, NULL, NULL,   i32u8, i32u16, NULL, NULL},     // u64
+        // clang-format on
     };
 
     if (to->kind == TY_VOID) return;
@@ -301,10 +322,15 @@ static void gen_expr(Node *node) {
                 println("  call %s", node->funcname);
             }
 
+            bool is_u = node->type->is_unsigned;
             switch (node->type->kind) {
                 case TY_BOOL: println("  movzx eax, al"); return;
-                case TY_CHAR: println("  movsx eax, al"); return;
-                case TY_SHORT: println("  movsx eax, ax"); return;
+                case TY_CHAR:
+                    println("  mov%cx eax, al", is_u ? 'z' : 's');
+                    return;
+                case TY_SHORT:
+                    println("  mov%cx eax, ax", is_u ? 'z' : 's');
+                    return;
             }
             return;
         }
@@ -323,6 +349,7 @@ static void gen_expr(Node *node) {
     TypeId id = t->kind == TY_LONG || t->ptr_to ? I64 : I32;
     char *rax = reg(RAX, id);
     char *rdi = reg(RDI, id);
+    char *rdx = reg(RDX, id);
 
     switch (node->kind) {
         case ND_ADD: println("  add %s, %s", rax, rdi); return;
@@ -330,12 +357,13 @@ static void gen_expr(Node *node) {
         case ND_MUL: println("  imul %s, %s", rax, rdi); return;
         case ND_MOD:
         case ND_DIV:
-            if (id == I64) {
-                println("  cqo");
+            if (node->type->is_unsigned) {
+                println("  mov %s, 0", rdx);
+                println("  div %s", rdi);
             } else {
-                println("  cdq");
+                println("  c%s", id == I64 ? "qo" : "dq");
+                println("  idiv %s", rdi);
             }
-            println("  idiv %s", rdi);
             if (node->kind == ND_MOD) {
                 println("  mov rax, rdx");
             }
@@ -343,16 +371,18 @@ static void gen_expr(Node *node) {
         case ND_EQ:
         case ND_NEQ:
         case ND_LS:
-        case ND_LEQ:
+        case ND_LEQ: {
+            bool is_u = node->lhs->type->is_unsigned;
             println("  cmp %s, %s", rax, rdi);
             switch (node->kind) {
                 case ND_EQ: println("  sete al"); break;
                 case ND_NEQ: println("  setne al"); break;
-                case ND_LS: println("  setl al"); break;
-                case ND_LEQ: println("  setle al"); break;
+                case ND_LS: println("  set%c al", is_u ? 'b' : 'l'); break;
+                case ND_LEQ: println("  set%ce al", is_u ? 'b' : 'l'); break;
             }
             println("  movzx rax, al");
             return;
+        }
         case ND_BITAND: println("  and %s, %s", rax, rdi); return;
         case ND_BITOR: println("  or %s, %s", rax, rdi); return;
         case ND_BITXOR: println("  xor %s, %s", rax, rdi); return;
@@ -360,10 +390,12 @@ static void gen_expr(Node *node) {
             println("  mov rcx, rdi");
             println("  shl %s, cl", rax);
             return;
-        case ND_BITSHR:
+        case ND_BITSHR: {
+            bool is_u = node->lhs->type->is_unsigned;
             println("  mov rcx, rdi");
-            println("  sar %s, cl", rax);
+            println("  s%cr %s, cl", is_u ? 'h' : 'a', rax);
             return;
+        }
     }
 }
 

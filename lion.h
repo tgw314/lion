@@ -101,6 +101,7 @@ struct Type {
     TypeKind kind;
     int size;
     int align;
+    bool is_unsigned;
     Token *tok;
 
     Type *ptr_to;
@@ -222,7 +223,7 @@ void tokenize(char *p);
 
 Node *new_node_cast(Token *tok, Type *type, Node *expr);
 
-Type *basic_type(TypeKind kind);
+Type *basic_type(TypeKind kind, bool is_unsigned);
 
 Type *new_type_func(Type *return_type, Type *params);
 

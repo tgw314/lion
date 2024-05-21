@@ -8,23 +8,29 @@ static Type *new_type(TypeKind kind) {
     return type;
 }
 
-Type *basic_type(TypeKind kind) {
-    static Type void_type = (Type){TY_VOID, 1, 1},
-                bool_type = (Type){TY_BOOL, 1, 1},
-                char_type = (Type){TY_CHAR, 1, 1},
-                short_type = (Type){TY_SHORT, 2, 2},
-                int_type = (Type){TY_INT, 4, 4},
-                long_type = (Type){TY_LONG, 8, 8};
+Type *basic_type(TypeKind kind, bool is_unsigned) {
+    // clang-format off
+    static Type void_type   = (Type){TY_VOID,  1, 1},
+                bool_type   = (Type){TY_BOOL,  1, 1},
+                char_type   = (Type){TY_CHAR,  1, 1},
+                short_type  = (Type){TY_SHORT, 2, 2},
+                int_type    = (Type){TY_INT,   4, 4},
+                long_type   = (Type){TY_LONG,  8, 8},
+                uchar_type  = (Type){TY_CHAR,  1, 1, true},
+                ushort_type = (Type){TY_SHORT, 2, 2, true},
+                uint_type   = (Type){TY_INT,   4, 4, true},
+                ulong_type  = (Type){TY_LONG,  8, 8, true};
 
     switch (kind) {
-        case TY_VOID: return &void_type;
-        case TY_BOOL: return &bool_type;
-        case TY_CHAR: return &char_type;
-        case TY_SHORT: return &short_type;
-        case TY_INT: return &int_type;
-        case TY_LONG: return &long_type;
+        case TY_VOID:  return &void_type;
+        case TY_BOOL:  return &bool_type;
+        case TY_CHAR:  return is_unsigned ? &uchar_type  : &char_type;
+        case TY_SHORT: return is_unsigned ? &ushort_type : &short_type;
+        case TY_INT:   return is_unsigned ? &uint_type   : &int_type;
+        case TY_LONG:  return is_unsigned ? &ulong_type  : &long_type;
         default: unreachable();
     }
+    // clang-format on
 }
 
 Type *new_type_func(Type *return_type, Type *params) {
@@ -125,10 +131,16 @@ static Type *common_type(Type *ty1, Type *ty2) {
     if (is_pointer(ty1)) {
         return new_type_ptr(ty1->ptr_to);
     }
-    if (ty1->size == 8 || ty2->size == 8) {
-        return basic_type(TY_LONG);
+
+    if (ty1->size < 4) ty1 = basic_type(TY_INT, false);
+    if (ty2->size < 4) ty2 = basic_type(TY_INT, false);
+
+    if (ty1->size != ty2->size) {
+        return (ty1->size < ty2->size) ? ty2 : ty1;
     }
-    return basic_type(TY_INT);
+
+    if (ty2->is_unsigned) return ty2;
+    return ty1;
 }
 
 static void usual_arith_conv(Node **lhs, Node **rhs) {
@@ -156,8 +168,9 @@ void set_node_type(Node *node) {
 
     switch (node->kind) {
         case ND_NUM:
-            node->type = (node->val == (int)node->val) ? basic_type(TY_INT)
-                                                       : basic_type(TY_LONG);
+            node->type = (node->val == (int)node->val)
+                             ? basic_type(TY_INT, false)
+                             : basic_type(TY_LONG, false);
             return;
         case ND_ADD:
         case ND_SUB:
@@ -171,7 +184,8 @@ void set_node_type(Node *node) {
             node->type = node->lhs->type;
             return;
         case ND_NEG: {
-            Type *type = common_type(basic_type(TY_INT), node->lhs->type);
+            Type *type =
+                common_type(basic_type(TY_INT, false), node->lhs->type);
             node->lhs = new_node_cast(node->tok, type, node->lhs);
             node->type = type;
             return;
@@ -191,20 +205,20 @@ void set_node_type(Node *node) {
         case ND_LS:
         case ND_LEQ:
             usual_arith_conv(&node->lhs, &node->rhs);
-            node->type = basic_type(TY_INT);
+            node->type = basic_type(TY_INT, false);
             return;
         case ND_NOT:
         case ND_OR:
-        case ND_AND: node->type = basic_type(TY_INT); return;
+        case ND_AND: node->type = basic_type(TY_INT, false); return;
         case ND_BITNOT:
         case ND_BITSHL:
         case ND_BITSHR: node->type = node->lhs->type; return;
-        case ND_CALL: node->type = basic_type(TY_LONG); return;
+        case ND_CALL: node->type = basic_type(TY_LONG, false); return;
         case ND_COMMA: node->type = node->rhs->type; return;
         case ND_COND:
             if (node->then->type->kind == TY_VOID ||
                 node->els->type->kind == TY_VOID) {
-                node->type = basic_type(TY_VOID);
+                node->type = basic_type(TY_VOID, false);
             } else {
                 usual_arith_conv(&node->then, &node->els);
                 node->type = node->then->type;

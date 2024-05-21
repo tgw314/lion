@@ -163,6 +163,12 @@ char *fmt(char *buf, char *fmt, ...) {
   vsprintf(buf, fmt, ap);
 }
 
+unsigned char uchar_fn();
+unsigned short ushort_fn();
+
+char schar_fn();
+short sshort_fn();
+
 int main() {
     ASSERT(0, 0);
     ASSERT(42, 42);
@@ -943,25 +949,82 @@ int main() {
     ASSERT(1, sizeof(char));
     ASSERT(1, sizeof(signed char));
     ASSERT(1, sizeof(signed char signed));
+    ASSERT(1, sizeof(unsigned char));
+    ASSERT(1, sizeof(unsigned char unsigned));
 
     ASSERT(2, sizeof(short));
     ASSERT(2, sizeof(int short));
     ASSERT(2, sizeof(short int));
     ASSERT(2, sizeof(signed short));
     ASSERT(2, sizeof(int short signed));
+    ASSERT(2, sizeof(unsigned short));
+    ASSERT(2, sizeof(int short unsigned));
 
     ASSERT(4, sizeof(int));
     ASSERT(4, sizeof(signed int));
     ASSERT(4, sizeof(signed));
     ASSERT(4, sizeof(signed signed));
+    ASSERT(4, sizeof(unsigned int));
+    ASSERT(4, sizeof(unsigned));
+    ASSERT(4, sizeof(unsigned unsigned));
 
     ASSERT(8, sizeof(long));
     ASSERT(8, sizeof(signed long));
     ASSERT(8, sizeof(signed long int));
+    ASSERT(8, sizeof(unsigned long));
+    ASSERT(8, sizeof(unsigned long int));
 
     ASSERT(8, sizeof(long long));
     ASSERT(8, sizeof(signed long long));
     ASSERT(8, sizeof(signed long long int));
+    ASSERT(8, sizeof(unsigned long long));
+    ASSERT(8, sizeof(unsigned long long int));
+
+    ASSERT(-1, (char)255);
+    ASSERT(-1, (signed char)255);
+    ASSERT(255, (unsigned char)255);
+    ASSERT(-1, (short)65535);
+    ASSERT(65535, (unsigned short)65535);
+    ASSERT(-1, (int)0xffffffff);
+    ASSERT(0xffffffff, (unsigned)0xffffffff);
+
+    ASSERT(1, -1<1);
+    ASSERT(0, -1<(unsigned)1);
+    ASSERT(254, (char)127+(char)127);
+    ASSERT(65534, (short)32767+(short)32767);
+    ASSERT(-1, -1>>1);
+    ASSERT(-1, (unsigned long)-1);
+    ASSERT(2147483647, ((unsigned)-1)>>1);
+    ASSERT(-50, (-100)/2);
+    ASSERT(2147483598, ((unsigned)-100)/2);
+    ASSERT(9223372036854775758, ((unsigned long)-100)/2);
+    ASSERT(0, ((long)-1)/(unsigned)100);
+    ASSERT(-2, (-100)%7);
+    ASSERT(2, ((unsigned)-100)%7);
+    ASSERT(6, ((unsigned long)-100)%9);
+
+    ASSERT(65535, (int)(unsigned short)65535);
+    ASSERT(65535, ({ unsigned short x = 65535; x; }));
+    ASSERT(65535, ({ unsigned short x = 65535; (int)x; }));
+
+    ASSERT(-1, ({ typedef short T; T x = 65535; (int)x; }));
+    ASSERT(65535, ({ typedef unsigned short T; T x = 65535; (int)x; }));
+
+    ASSERT(251, uchar_fn());
+    ASSERT(65528, ushort_fn());
+    ASSERT(-5, schar_fn());
+    ASSERT(-8, sshort_fn());
+
+    ASSERT(1, sizeof((char)1));
+    ASSERT(2, sizeof((short)1));
+    ASSERT(4, sizeof((int)1));
+    ASSERT(8, sizeof((long)1));
+
+    ASSERT(4, sizeof((char)1 + (char)1));
+    ASSERT(4, sizeof((short)1 + (short)1));
+    ASSERT(4, sizeof(1?2:3));
+    ASSERT(4, sizeof(1?(short)2:(char)3));
+    ASSERT(8, sizeof(1?(long)2:(char)3));
 
     printf("OK\n");
     return 0;

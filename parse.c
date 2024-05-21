@@ -163,7 +163,7 @@ static Object *new_anon_gvar(Type *type) {
 }
 
 static Object *new_string_literal(char *str, int len) {
-    Type *type = new_type_array(basic_type(TY_CHAR), len);
+    Type *type = new_type_array(basic_type(TY_CHAR, false), len);
     Object *var = new_anon_gvar(type);
     var->init_data = str;
     return var;
@@ -290,7 +290,7 @@ static Node *new_node_num(Token *tok, int64_t val) {
 
 static Node *new_node_long(Token *tok, int64_t val) {
     Node *node = new_node_num(tok, val);
-    node->type = basic_type(TY_LONG);
+    node->type = basic_type(TY_LONG, false);
     return node;
 }
 
@@ -351,7 +351,7 @@ static Node *new_node_sub(Token *tok, Node *lhs, Node *rhs) {
 
     if (is_pointer(lhs->type) && is_pointer(rhs->type)) {
         Node *node = new_node_binary(ND_SUB, tok, lhs, rhs);
-        node->type = basic_type(TY_INT);
+        node->type = basic_type(TY_INT, false);
         return new_node_binary(ND_DIV, tok, node,
                                new_node_num(tok, lhs->type->ptr_to->size));
     }
@@ -406,9 +406,10 @@ Object *program(void) {
 }
 
 static bool is_decl(Token *tok) {
-    static char *keywords[] = {
-        "void",  "_Bool",   "char", "short",  "int",    "long",     "struct",
-        "union", "typedef", "enum", "static", "extern", "_Alignas", "signed"};
+    static char *keywords[] = {"void",     "_Bool",  "char",    "short",
+                               "int",      "long",   "struct",  "union",
+                               "typedef",  "enum",   "static",  "extern",
+                               "_Alignas", "signed", "unsigned"};
     static int len = sizeof(keywords) / sizeof(*keywords);
     for (int i = 0; i < len; i++) {
         if (equal(tok, keywords[i])) {
@@ -421,22 +422,23 @@ static bool is_decl(Token *tok) {
 // declspec = ("void" | "_Bool" | "char" | "int" | "long" | "short"
 //             | "struct" struct-decl | "union" union-decl
 //             | "typedef" | typedef-name | "enum" enum-specifier
-//             | "static" | "extern")+
+//             | "static" | "extern" | "signed" | "unsigned")+
 static Type *declspec(VarAttr *attr) {
     enum {
         // clang-format off
-        VOID   = 1 << 0,
-        BOOL   = 1 << 2,
-        CHAR   = 1 << 4,
-        SHORT  = 1 << 6,
-        INT    = 1 << 8,
-        LONG   = 1 << 10,
-        OTHER  = 1 << 12,
-        SIGNED = 1 << 13,
+        VOID     = 1 << 0,
+        BOOL     = 1 << 2,
+        CHAR     = 1 << 4,
+        SHORT    = 1 << 6,
+        INT      = 1 << 8,
+        LONG     = 1 << 10,
+        OTHER    = 1 << 12,
+        SIGNED   = 1 << 13,
+        UNSIGNED = 1 << 14,
         // clang-format on
     };
 
-    Type *type = basic_type(TY_INT);
+    Type *type = basic_type(TY_INT, false);
     int counter = 0;
 
     while (is_decl(getok())) {
@@ -510,22 +512,33 @@ static Type *declspec(VarAttr *attr) {
             counter += LONG;
         } else if (consume("signed")) {
             counter |= SIGNED;
+        } else if (consume("unsigned")) {
+            counter |= UNSIGNED;
         } else {
             unreachable();
         }
 
         switch (counter) {
-            case VOID: type = basic_type(TY_VOID); break;
-            case BOOL: type = basic_type(TY_BOOL); break;
+            case VOID: type = basic_type(TY_VOID, false); break;
+            case BOOL: type = basic_type(TY_BOOL, false); break;
             case CHAR:
-            case SIGNED + CHAR: type = basic_type(TY_CHAR); break;
+            case SIGNED + CHAR: type = basic_type(TY_CHAR, false); break;
+            case UNSIGNED + CHAR: type = basic_type(TY_CHAR, true); break;
             case SHORT:
             case SHORT + INT:
             case SIGNED + SHORT:
-            case SIGNED + SHORT + INT: type = basic_type(TY_SHORT); break;
+            case SIGNED + SHORT + INT:
+                type = basic_type(TY_SHORT, false);
+                break;
+            case UNSIGNED + SHORT:
+            case UNSIGNED + SHORT + INT:
+                type = basic_type(TY_SHORT, true);
+                break;
             case INT:
             case SIGNED:
-            case SIGNED + INT: type = basic_type(TY_INT); break;
+            case SIGNED + INT: type = basic_type(TY_INT, false); break;
+            case UNSIGNED:
+            case UNSIGNED + INT: type = basic_type(TY_INT, true); break;
             case LONG:
             case LONG + INT:
             case LONG + LONG:
@@ -533,7 +546,15 @@ static Type *declspec(VarAttr *attr) {
             case SIGNED + LONG:
             case SIGNED + LONG + INT:
             case SIGNED + LONG + LONG:
-            case SIGNED + LONG + LONG + INT: type = basic_type(TY_LONG); break;
+            case SIGNED + LONG + LONG + INT:
+                type = basic_type(TY_LONG, false);
+                break;
+            case UNSIGNED + LONG:
+            case UNSIGNED + LONG + INT:
+            case UNSIGNED + LONG + LONG:
+            case UNSIGNED + LONG + LONG + INT:
+                type = basic_type(TY_LONG, true);
+                break;
             default: error_tok(getok()->prev, "不正な型です");
         }
     }
@@ -1092,8 +1113,8 @@ static void function(Type *base_type, VarAttr *attr) {
     add_params_lvar(type->params);
     func->params = locals;
     if (type->is_variadic) {
-        func->va_area =
-            new_lvar(new_type_array(basic_type(TY_CHAR), 136), "__va_area__");
+        func->va_area = new_lvar(
+            new_type_array(basic_type(TY_CHAR, false), 136), "__va_area__");
     }
 
     expect("{");
