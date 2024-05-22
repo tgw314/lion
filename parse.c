@@ -1,5 +1,3 @@
-#include <stdbool.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -748,10 +746,10 @@ static void string_initalizer(Initializer *init) {
 
     if (init->is_flexible) {
         *init = *new_initializer(
-            new_type_array(init->type->ptr_to, tok->str_len), false);
+            new_type_array(init->type->ptr_to, tok->type->array_size), false);
     }
 
-    int len = MIN(init->type->array_size, tok->str_len);
+    int len = MIN(init->type->array_size, tok->type->array_size);
     for (int i = 0; i < len; i++) {
         init->children[i]->expr = new_node_num(tok, tok->str[i]);
     }
@@ -2047,7 +2045,7 @@ static Node *callfunc(Token *tok) {
 }
 
 static Node *string_literal(Token *tok) {
-    Object *str_obj = new_string_literal(tok->str, tok->str_len);
+    Object *str_obj = new_string_literal(tok->str, tok->type->array_size);
     Node *node = new_node(ND_VAR, tok);
     node->var = str_obj;
     return node;

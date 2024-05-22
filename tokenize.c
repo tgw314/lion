@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <strings.h>
 
 #include "lion.h"
 
@@ -178,7 +177,7 @@ static int read_escaped_char(char **pos, char *p) {
     }
 }
 
-static char *read_string_literal(char **pos, char *start, int *len) {
+static char *read_string_literal(char **pos, char *start, Type **type) {
     char *p = start + 1;
 
     char *buf = NULL;
@@ -202,7 +201,7 @@ static char *read_string_literal(char **pos, char *start, int *len) {
     fclose(fp);
 
     *pos = p + 1;
-    *len = size;
+    *type = new_type_array(basic_type(TY_CHAR, false), size);
     return buf;
 }
 
@@ -371,7 +370,7 @@ void tokenize(char *p) {
 
         if (*p == '"') {
             cur = new_token(TK_STR, cur, p);
-            cur->str = read_string_literal(&p, p, &cur->str_len);
+            cur->str = read_string_literal(&p, p, &cur->type);
             cur->len = p - cur->loc;
             continue;
         }
