@@ -167,11 +167,7 @@ void set_node_type(Node *node) {
     }
 
     switch (node->kind) {
-        case ND_NUM:
-            node->type = (node->val == (int)node->val)
-                             ? basic_type(TY_INT, false)
-                             : basic_type(TY_LONG, false);
-            return;
+        case ND_NUM: node->type = basic_type(TY_INT, false); return;
         case ND_ADD:
         case ND_SUB:
         case ND_MUL:

@@ -226,14 +226,14 @@ static char read_char_literal(char **pos, char *start) {
     return c;
 }
 
-static int64_t read_int_literal(char **pos, char *start) {
+static int64_t read_int_literal(char **pos, char *start, Type **type) {
     char *p = start;
 
     int base = 10;
-    if (!strncasecmp(p, "0x", 2)) {
+    if (!strncasecmp(p, "0x", 2) && isxdigit(p[2])) {
         p += 2;
         base = 16;
-    } else if (!strncasecmp(p, "0b", 2)) {
+    } else if (!strncasecmp(p, "0b", 2) && (p[2] == '0' || p[2] == '1')) {
         p += 2;
         base = 2;
     } else if (*p == '0') {
@@ -241,8 +241,63 @@ static int64_t read_int_literal(char **pos, char *start) {
     }
 
     int64_t val = strtoul(p, &p, base);
+
+    bool l = false;
+    bool u = false;
+
+    if (startswith(p, "LLU") || startswith(p, "LLu") || startswith(p, "llU") ||
+        startswith(p, "llu") || startswith(p, "ULL") || startswith(p, "Ull") ||
+        startswith(p, "uLL") || startswith(p, "ull")) {
+        p += 3;
+        l = u = true;
+    } else if (!strncasecmp(p, "lu", 2) || !strncasecmp(p, "ul", 2)) {
+        p += 2;
+        l = u = true;
+    } else if (startswith(p, "LL") || startswith(p, "ll")) {
+        p += 2;
+        l = true;
+    } else if (!strncasecmp(p, "l", 1)) {
+        p++;
+        l = true;
+    } else if (!strncasecmp(p, "u", 1)) {
+        p++;
+        u = true;
+    }
+
     if (isalnum(*p)) {
         error_at(p, "誤った整数定数です");
+    }
+
+    if (base == 10) {
+        if (l && u) {
+            *type = basic_type(TY_LONG, true);
+        } else if (l) {
+            *type = basic_type(TY_LONG, false);
+        } else if (u) {
+            *type = (val >> 32) ? basic_type(TY_LONG, true)
+                                : basic_type(TY_INT, true);
+        } else {
+            *type = (val >> 31) ? basic_type(TY_LONG, false)
+                                : basic_type(TY_INT, false);
+        }
+    } else {
+        if (l && u) {
+            *type = basic_type(TY_LONG, true);
+        } else if (l) {
+            *type = (val >> 63) ? basic_type(TY_LONG, true)
+                                : basic_type(TY_LONG, false);
+        } else if (u) {
+            *type = (val >> 32) ? basic_type(TY_LONG, true)
+                                : basic_type(TY_INT, true);
+        } else if (val >> 63) {
+            *type = basic_type(TY_LONG, true);
+        } else if (val >> 32) {
+            *type = basic_type(TY_LONG, false);
+        } else if (val >> 31) {
+            *type = basic_type(TY_INT, true);
+        } else {
+            *type = basic_type(TY_INT, false);
+        }
     }
     *pos = p;
 
@@ -337,7 +392,7 @@ void tokenize(char *p) {
 
         if (isdigit(*p)) {
             cur = new_token(TK_NUM, cur, p);
-            cur->val = read_int_literal(&p, p);
+            cur->val = read_int_literal(&p, p, &cur->type);
             cur->len = p - cur->loc;
             continue;
         }

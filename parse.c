@@ -2122,5 +2122,12 @@ static Node *primary(void) {
         return string_literal(tok);
     }
 
-    return new_node_num(tok, expect_number());
+    if (tok->kind == TK_NUM) {
+        seek(tok->next);
+        Node *node = new_node_num(tok, tok->val);
+        node->type = tok->type;
+        return node;
+    }
+
+    error_tok(tok, "式ではありません");
 }

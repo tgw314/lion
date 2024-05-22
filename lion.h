@@ -88,6 +88,7 @@ struct Token {
     TokenKind kind;  // トークンの型
     Token *prev;     // 前の入力トークン
     Token *next;     // 次の入力トークン
+    Type *type;      // kind が TK_NUM, TK_STR の場合
     int64_t val;     // kind が TK_NUM の場合の数値
     char *str;       // kind が TK_STR の場合の文字列
     int str_len;     // kind が TK_STR の場合の文字列の長さ
