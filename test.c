@@ -1087,6 +1087,21 @@ int main() {
     ASSERT(-1, 0x1 << 31 >> 31);
     ASSERT(-1, 0b1 << 31 >> 31);
 
+    ASSERT(1, _Alignof(char) << 31 >> 31);
+    ASSERT(1, _Alignof(char) << 63 >> 63);
+    ASSERT(1, ({ char x; _Alignof(x) << 63 >> 63; }));
+
+    ASSERT(20, ({ int x; int *p=&x; p+20-p; }));
+    ASSERT(1, ({ int x; int *p=&x; p+20-p>0; }));
+    ASSERT(-20, ({ int x; int *p=&x; p-20-p; }));
+    ASSERT(1, ({ int x; int *p=&x; p-20-p<0; }));
+
+    ASSERT(15, (char *)0xffffffffffffffff - (char *)0xfffffffffffffff0);
+    ASSERT(-15, (char *)0xfffffffffffffff0 - (char *)0xffffffffffffffff);
+
+    ASSERT(1, sizeof(char) << 31 >> 31);
+    ASSERT(1, sizeof(char) << 63 >> 63);
+
     printf("OK\n");
     return 0;
 }

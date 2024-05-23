@@ -292,6 +292,12 @@ static Node *node_long(Token *tok, int64_t val) {
     return node;
 }
 
+static Node *node_ulong(Token *tok, int64_t val) {
+    Node *node = node_num(tok, val);
+    node->type = type_ulong;
+    return node;
+}
+
 static Node *node_unary(NodeKind kind, Token *tok, Node *lhs) {
     Node *node = new_node(kind, tok);
     node->lhs = lhs;
@@ -349,7 +355,7 @@ static Node *node_sub(Token *tok, Node *lhs, Node *rhs) {
 
     if (is_pointer(lhs->type) && is_pointer(rhs->type)) {
         Node *node = node_binary(ND_SUB, tok, lhs, rhs);
-        node->type = type_int;
+        node->type = type_long;
         return node_binary(ND_DIV, tok, node,
                            node_num(tok, lhs->type->ptr_to->size));
     }
@@ -2066,12 +2072,12 @@ static Node *primary(void) {
             seek(getok()->next);
             Type *type = typename();
             expect(")");
-            return node_num(tok, type->size);
+            return node_ulong(tok, type->size);
         }
 
         Node *node = unary();
         set_node_type(node);
-        return node_num(tok, node->type->size);
+        return node_ulong(tok, node->type->size);
     }
 
     if (consume("_Alignof")) {
@@ -2079,12 +2085,12 @@ static Node *primary(void) {
             seek(getok()->next);
             Type *type = typename();
             expect(")");
-            return node_num(tok, type->align);
+            return node_ulong(tok, type->align);
         }
 
         Node *node = unary();
         set_node_type(node);
-        return node_num(tok, node->type->align);
+        return node_ulong(tok, node->type->align);
     }
 
     if (tok->kind == TK_IDENT) {
