@@ -220,7 +220,7 @@ bool equal(Token *tok, char *op);
 // 入力文字列 p をトークナイズしてそれを返す
 void tokenize(char *p);
 
-Node *new_node_cast(Token *tok, Type *type, Node *expr);
+Node *node_cast(Token *tok, Type *type, Node *expr);
 
 extern Type *type_void;
 extern Type *type_bool;

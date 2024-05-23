@@ -250,13 +250,13 @@ static Type *find_typedef(Token *tok) {
     return NULL;
 }
 
-static Member *get_member(Type *type, Token *tok) {
+static Member *find_member(Type *type, Token *tok) {
     for (Member *mem = type->members; mem; mem = mem->next) {
         if (equal(tok, mem->name)) {
             return mem;
         }
     }
-    error_tok(tok, "存在しないメンバです");
+    return NULL;
 }
 
 static void check_var_redef(Token *tok) {
@@ -280,37 +280,37 @@ static Node *new_node(NodeKind kind, Token *tok) {
     return node;
 }
 
-static Node *new_node_num(Token *tok, int64_t val) {
+static Node *node_num(Token *tok, int64_t val) {
     Node *node = new_node(ND_NUM, tok);
     node->val = val;
     return node;
 }
 
-static Node *new_node_long(Token *tok, int64_t val) {
-    Node *node = new_node_num(tok, val);
+static Node *node_long(Token *tok, int64_t val) {
+    Node *node = node_num(tok, val);
     node->type = type_long;
     return node;
 }
 
-static Node *new_node_unary(NodeKind kind, Token *tok, Node *lhs) {
+static Node *node_unary(NodeKind kind, Token *tok, Node *lhs) {
     Node *node = new_node(kind, tok);
     node->lhs = lhs;
     return node;
 }
 
-static Node *new_node_binary(NodeKind kind, Token *tok, Node *lhs, Node *rhs) {
+static Node *node_binary(NodeKind kind, Token *tok, Node *lhs, Node *rhs) {
     Node *node = new_node(kind, tok);
     node->lhs = lhs;
     node->rhs = rhs;
     return node;
 }
 
-static Node *new_node_add(Token *tok, Node *lhs, Node *rhs) {
+static Node *node_add(Token *tok, Node *lhs, Node *rhs) {
     set_node_type(lhs);
     set_node_type(rhs);
 
     if (is_integer(lhs->type) && is_integer(rhs->type)) {
-        return new_node_binary(ND_ADD, tok, lhs, rhs);
+        return node_binary(ND_ADD, tok, lhs, rhs);
     }
 
     // 左右の入れ替え
@@ -325,46 +325,46 @@ static Node *new_node_add(Token *tok, Node *lhs, Node *rhs) {
     }
 
     // lhs: pointer, rhs: number
-    rhs = new_node_binary(ND_MUL, tok, rhs,
-                          new_node_long(tok, lhs->type->ptr_to->size));
-    return new_node_binary(ND_ADD, tok, lhs, rhs);
+    rhs =
+        node_binary(ND_MUL, tok, rhs, node_long(tok, lhs->type->ptr_to->size));
+    return node_binary(ND_ADD, tok, lhs, rhs);
 }
 
-static Node *new_node_sub(Token *tok, Node *lhs, Node *rhs) {
+static Node *node_sub(Token *tok, Node *lhs, Node *rhs) {
     set_node_type(lhs);
     set_node_type(rhs);
 
     if (is_integer(lhs->type) && is_integer(rhs->type)) {
-        return new_node_binary(ND_SUB, tok, lhs, rhs);
+        return node_binary(ND_SUB, tok, lhs, rhs);
     }
 
     if (is_pointer(lhs->type) && is_integer(rhs->type)) {
-        rhs = new_node_binary(ND_MUL, tok, rhs,
-                              new_node_long(tok, lhs->type->ptr_to->size));
+        rhs = node_binary(ND_MUL, tok, rhs,
+                          node_long(tok, lhs->type->ptr_to->size));
         set_node_type(rhs);
-        Node *node = new_node_binary(ND_SUB, tok, lhs, rhs);
+        Node *node = node_binary(ND_SUB, tok, lhs, rhs);
         node->type = lhs->type;
         return node;
     }
 
     if (is_pointer(lhs->type) && is_pointer(rhs->type)) {
-        Node *node = new_node_binary(ND_SUB, tok, lhs, rhs);
+        Node *node = node_binary(ND_SUB, tok, lhs, rhs);
         node->type = type_int;
-        return new_node_binary(ND_DIV, tok, node,
-                               new_node_num(tok, lhs->type->ptr_to->size));
+        return node_binary(ND_DIV, tok, node,
+                           node_num(tok, lhs->type->ptr_to->size));
     }
 
     // lhs: number, rhs: pointer
     error_tok(tok, "誤ったオペランドです");
 }
 
-static Node *new_node_var(Token *tok, Object *var) {
+static Node *node_var(Token *tok, Object *var) {
     Node *node = new_node(ND_VAR, tok);
     node->var = var;
     return node;
 }
 
-Node *new_node_cast(Token *tok, Type *type, Node *expr) {
+Node *node_cast(Token *tok, Type *type, Node *expr) {
     set_node_type(expr);
 
     Node *node = new_node(ND_CAST, tok);
@@ -659,7 +659,7 @@ static Node *declaration_local(Type *base_type, VarAttr *attr) {
             if (consume("=")) {
                 Token *tok = getok();
                 Node *expr = lvar_initializer(var);
-                cur = cur->next = new_node_unary(ND_EXPR_STMT, tok, expr);
+                cur = cur->next = node_unary(ND_EXPR_STMT, tok, expr);
             }
 
             if (type->kind == TY_VOID) {
@@ -743,7 +743,7 @@ static void string_initalizer(Initializer *init) {
 
     int len = MIN(init->type->array_size, tok->type->array_size);
     for (int i = 0; i < len; i++) {
-        init->children[i]->expr = new_node_num(tok, tok->str[i]);
+        init->children[i]->expr = node_num(tok, tok->str[i]);
     }
     seek(tok->next);
 }
@@ -920,17 +920,16 @@ static Initializer *initializer(Type *type, Type **new_type) {
 static Node *init_design_expr(InitDesign *design) {
     Token *tok = getok();
     if (design->var) {
-        return new_node_var(tok, design->var);
+        return node_var(tok, design->var);
     }
     if (design->member) {
-        Node *node =
-            new_node_unary(ND_MEMBER, tok, init_design_expr(design->next));
+        Node *node = node_unary(ND_MEMBER, tok, init_design_expr(design->next));
         node->member = design->member;
         return node;
     }
     Node *lhs = init_design_expr(design->next);
-    Node *rhs = new_node_num(tok, design->index);
-    return new_node_unary(ND_DEREF, tok, new_node_add(tok, lhs, rhs));
+    Node *rhs = node_num(tok, design->index);
+    return node_unary(ND_DEREF, tok, node_add(tok, lhs, rhs));
 }
 
 static Node *create_lvar_init(Initializer *init, Type *type,
@@ -943,7 +942,7 @@ static Node *create_lvar_init(Initializer *init, Type *type,
             InitDesign design2 = {design, i};
             Node *rhs =
                 create_lvar_init(init->children[i], type->ptr_to, &design2);
-            node = new_node_binary(ND_COMMA, tok, node, rhs);
+            node = node_binary(ND_COMMA, tok, node, rhs);
         }
 
         return node;
@@ -955,7 +954,7 @@ static Node *create_lvar_init(Initializer *init, Type *type,
             InitDesign design2 = {design, 0, mem};
             Node *rhs = create_lvar_init(init->children[mem->index], mem->type,
                                          &design2);
-            node = new_node_binary(ND_COMMA, tok, node, rhs);
+            node = node_binary(ND_COMMA, tok, node, rhs);
         }
         return node;
     }
@@ -972,7 +971,7 @@ static Node *create_lvar_init(Initializer *init, Type *type,
 
     Node *lhs = init_design_expr(design);
     Node *rhs = init->expr;
-    return new_node_binary(ND_ASSIGN, tok, lhs, rhs);
+    return node_binary(ND_ASSIGN, tok, lhs, rhs);
 }
 
 static Node *lvar_initializer(Object *var) {
@@ -984,7 +983,7 @@ static Node *lvar_initializer(Object *var) {
     lhs->var = var;
 
     Node *rhs = create_lvar_init(init, var->type, &design);
-    return new_node_binary(ND_COMMA, tok, lhs, rhs);
+    return node_binary(ND_COMMA, tok, lhs, rhs);
 }
 
 static void write_buf(char *buf, uint64_t val, int size) {
@@ -1270,8 +1269,11 @@ static Node *struct_union_ref(Node *lhs) {
 
     Token *tok = expect_ident();
 
-    Node *node = new_node_unary(ND_MEMBER, tok, lhs);
-    node->member = get_member(lhs->type, tok);
+    Node *node = node_unary(ND_MEMBER, tok, lhs);
+    node->member = find_member(lhs->type, tok);
+    if (!node->member) {
+        error_tok(tok, "存在しないメンバです");
+    }
 
     return node;
 }
@@ -1413,7 +1415,7 @@ static Node *stmt(void) {
 
     if (tok->kind == TK_IDENT && equal(tok->next, ":")) {
         seek(tok->next->next);
-        Node *node = new_node_unary(ND_LABEL, tok, stmt());
+        Node *node = node_unary(ND_LABEL, tok, stmt());
 
         node->label = strndup(tok->loc, tok->len);
         node->unique_label = unique_name();
@@ -1468,7 +1470,7 @@ static Node *stmt(void) {
         int val = const_expr();
         expect(":");
 
-        Node *node = new_node_unary(ND_CASE, tok, stmt());
+        Node *node = node_unary(ND_CASE, tok, stmt());
         node->label = unique_name();
         node->val = val;
         node->case_next = current_switch->case_next;
@@ -1482,7 +1484,7 @@ static Node *stmt(void) {
         }
         expect(":");
 
-        Node *node = new_node_unary(ND_CASE, tok, stmt());
+        Node *node = node_unary(ND_CASE, tok, stmt());
         node->label = unique_name();
         current_switch->default_case = node;
         return node;
@@ -1494,8 +1496,8 @@ static Node *stmt(void) {
         Node *node = expr();
         expect(";");
         set_node_type(node);
-        node = new_node_cast(node->tok, current_func->type->return_type, node);
-        node = new_node_unary(ND_RETURN, tok, node);
+        node = node_cast(node->tok, current_func->type->return_type, node);
+        node = node_unary(ND_RETURN, tok, node);
         return node;
     }
 
@@ -1552,7 +1554,7 @@ static Node *expr_stmt(void) {
         return new_node(ND_BLOCK, tok);
     }
 
-    Node *node = new_node_unary(ND_EXPR_STMT, tok, expr());
+    Node *node = node_unary(ND_EXPR_STMT, tok, expr());
     expect(";");
     return node;
 }
@@ -1561,7 +1563,7 @@ static Node *expr_stmt(void) {
 static Node *expr(void) {
     Node *node = assign();
     if (consume(",")) {
-        node = new_node_binary(ND_COMMA, getok()->prev, node, expr());
+        node = node_binary(ND_COMMA, getok()->prev, node, expr());
     }
     return node;
 }
@@ -1657,16 +1659,15 @@ static Node *to_assign(Node *binary) {
 
     Node *expr1, *expr2;
 
-    expr1 = new_node_unary(ND_ADDR, tok, binary->lhs);
-    expr1 = new_node_binary(ND_ASSIGN, tok, new_node_var(tok, var), expr1);
+    expr1 = node_unary(ND_ADDR, tok, binary->lhs);
+    expr1 = node_binary(ND_ASSIGN, tok, node_var(tok, var), expr1);
 
-    expr2 = new_node_unary(ND_DEREF, tok, new_node_var(tok, var));
-    expr2 = new_node_binary(binary->kind, tok, expr2, binary->rhs);
-    expr2 = new_node_binary(
-        ND_ASSIGN, tok, new_node_unary(ND_DEREF, tok, new_node_var(tok, var)),
-        expr2);
+    expr2 = node_unary(ND_DEREF, tok, node_var(tok, var));
+    expr2 = node_binary(binary->kind, tok, expr2, binary->rhs);
+    expr2 = node_binary(ND_ASSIGN, tok,
+                        node_unary(ND_DEREF, tok, node_var(tok, var)), expr2);
 
-    return new_node_binary(ND_COMMA, tok, expr1, expr2);
+    return node_binary(ND_COMMA, tok, expr1, expr2);
 }
 
 // assign = conditional (
@@ -1678,37 +1679,37 @@ static Node *assign(void) {
 
     Node *node = conditional();
     if (consume("=")) {
-        node = new_node_binary(ND_ASSIGN, tok, node, assign());
+        node = node_binary(ND_ASSIGN, tok, node, assign());
     }
     if (consume("+=")) {
-        node = to_assign(new_node_add(tok, node, assign()));
+        node = to_assign(node_add(tok, node, assign()));
     }
     if (consume("-=")) {
-        node = to_assign(new_node_sub(tok, node, assign()));
+        node = to_assign(node_sub(tok, node, assign()));
     }
     if (consume("*=")) {
-        node = to_assign(new_node_binary(ND_MUL, tok, node, assign()));
+        node = to_assign(node_binary(ND_MUL, tok, node, assign()));
     }
     if (consume("/=")) {
-        node = to_assign(new_node_binary(ND_DIV, tok, node, assign()));
+        node = to_assign(node_binary(ND_DIV, tok, node, assign()));
     }
     if (consume("%=")) {
-        node = to_assign(new_node_binary(ND_MOD, tok, node, assign()));
+        node = to_assign(node_binary(ND_MOD, tok, node, assign()));
     }
     if (consume("&=")) {
-        node = to_assign(new_node_binary(ND_BITAND, tok, node, assign()));
+        node = to_assign(node_binary(ND_BITAND, tok, node, assign()));
     }
     if (consume("|=")) {
-        node = to_assign(new_node_binary(ND_BITOR, tok, node, assign()));
+        node = to_assign(node_binary(ND_BITOR, tok, node, assign()));
     }
     if (consume("^=")) {
-        node = to_assign(new_node_binary(ND_BITXOR, tok, node, assign()));
+        node = to_assign(node_binary(ND_BITXOR, tok, node, assign()));
     }
     if (consume("<<=")) {
-        node = to_assign(new_node_binary(ND_BITSHL, tok, node, assign()));
+        node = to_assign(node_binary(ND_BITSHL, tok, node, assign()));
     }
     if (consume(">>=")) {
-        node = to_assign(new_node_binary(ND_BITSHR, tok, node, assign()));
+        node = to_assign(node_binary(ND_BITSHR, tok, node, assign()));
     }
     return node;
 }
@@ -1734,7 +1735,7 @@ static Node *conditional(void) {
 static Node *logor(void) {
     Node *node = logand();
     while (consume("||")) {
-        node = new_node_binary(ND_OR, getok()->prev, node, logand());
+        node = node_binary(ND_OR, getok()->prev, node, logand());
     }
     return node;
 }
@@ -1743,7 +1744,7 @@ static Node *logor(void) {
 static Node *logand(void) {
     Node *node = bit_or();
     while (consume("&&")) {
-        node = new_node_binary(ND_AND, getok()->prev, node, bit_or());
+        node = node_binary(ND_AND, getok()->prev, node, bit_or());
     }
     return node;
 }
@@ -1752,7 +1753,7 @@ static Node *logand(void) {
 static Node *bit_or(void) {
     Node *node = bitxor();
     while (consume("|")) {
-        node = new_node_binary(ND_BITOR, getok()->prev, node, bitxor());
+        node = node_binary(ND_BITOR, getok()->prev, node, bitxor());
     }
     return node;
 }
@@ -1761,7 +1762,7 @@ static Node *bit_or(void) {
 static Node *bitxor(void) {
     Node *node = bitand();
     while (consume("^")) {
-        node = new_node_binary(ND_BITXOR, getok()->prev, node, bitand());
+        node = node_binary(ND_BITXOR, getok()->prev, node, bitand());
     }
     return node;
 }
@@ -1769,7 +1770,7 @@ static Node *bitxor(void) {
 static Node *bitand(void) {
     Node *node = equality();
     while (consume("&")) {
-        node = new_node_binary(ND_BITAND, getok()->prev, node, equality());
+        node = node_binary(ND_BITAND, getok()->prev, node, equality());
     }
     return node;
 }
@@ -1781,9 +1782,9 @@ static Node *equality(void) {
     while (true) {
         Token *tok = getok();
         if (consume("==")) {
-            node = new_node_binary(ND_EQ, tok, node, relational());
+            node = node_binary(ND_EQ, tok, node, relational());
         } else if (consume("!=")) {
-            node = new_node_binary(ND_NEQ, tok, node, relational());
+            node = node_binary(ND_NEQ, tok, node, relational());
         } else {
             return node;
         }
@@ -1797,13 +1798,13 @@ static Node *relational(void) {
     while (true) {
         Token *tok = getok();
         if (consume("<=")) {
-            node = new_node_binary(ND_LEQ, tok, node, shift());
+            node = node_binary(ND_LEQ, tok, node, shift());
         } else if (consume("<")) {
-            node = new_node_binary(ND_LS, tok, node, shift());
+            node = node_binary(ND_LS, tok, node, shift());
         } else if (consume(">=")) {
-            node = new_node_binary(ND_LEQ, tok, shift(), node);
+            node = node_binary(ND_LEQ, tok, shift(), node);
         } else if (consume(">")) {
-            node = new_node_binary(ND_LS, tok, shift(), node);
+            node = node_binary(ND_LS, tok, shift(), node);
         } else {
             return node;
         }
@@ -1817,9 +1818,9 @@ static Node *shift(void) {
     while (true) {
         Token *tok = getok();
         if (consume("<<")) {
-            node = new_node_binary(ND_BITSHL, tok, node, add());
+            node = node_binary(ND_BITSHL, tok, node, add());
         } else if (consume(">>")) {
-            node = new_node_binary(ND_BITSHR, tok, node, add());
+            node = node_binary(ND_BITSHR, tok, node, add());
         } else {
             return node;
         }
@@ -1833,9 +1834,9 @@ static Node *add(void) {
     while (true) {
         Token *tok = getok();
         if (consume("+")) {
-            node = new_node_add(tok, node, mul());
+            node = node_add(tok, node, mul());
         } else if (consume("-")) {
-            node = new_node_sub(tok, node, mul());
+            node = node_sub(tok, node, mul());
         } else {
             return node;
         }
@@ -1849,11 +1850,11 @@ static Node *mul(void) {
     while (true) {
         Token *tok = getok();
         if (consume("*")) {
-            node = new_node_binary(ND_MUL, tok, node, cast());
+            node = node_binary(ND_MUL, tok, node, cast());
         } else if (consume("/")) {
-            node = new_node_binary(ND_DIV, tok, node, cast());
+            node = node_binary(ND_DIV, tok, node, cast());
         } else if (consume("%")) {
-            node = new_node_binary(ND_MOD, tok, node, cast());
+            node = node_binary(ND_MOD, tok, node, cast());
         } else {
             return node;
         }
@@ -1872,7 +1873,7 @@ static Node *cast(void) {
             seek(tok);
             return unary();
         }
-        return new_node_cast(tok, type, cast());
+        return node_cast(tok, type, cast());
     }
 
     return unary();
@@ -1887,25 +1888,25 @@ static Node *unary(void) {
         return cast();
     }
     if (consume("-")) {
-        return new_node_unary(ND_NEG, tok, cast());
+        return node_unary(ND_NEG, tok, cast());
     }
     if (consume("*")) {
-        return new_node_unary(ND_DEREF, tok, cast());
+        return node_unary(ND_DEREF, tok, cast());
     }
     if (consume("&")) {
-        return new_node_unary(ND_ADDR, tok, cast());
+        return node_unary(ND_ADDR, tok, cast());
     }
     if (consume("!")) {
-        return new_node_unary(ND_NOT, tok, cast());
+        return node_unary(ND_NOT, tok, cast());
     }
     if (consume("~")) {
-        return new_node_unary(ND_BITNOT, tok, cast());
+        return node_unary(ND_BITNOT, tok, cast());
     }
     if (consume("++")) {
-        return to_assign(new_node_add(tok, unary(), new_node_num(tok, 1)));
+        return to_assign(node_add(tok, unary(), node_num(tok, 1)));
     }
     if (consume("--")) {
-        return to_assign(new_node_sub(tok, unary(), new_node_num(tok, 1)));
+        return to_assign(node_sub(tok, unary(), node_num(tok, 1)));
     }
     return postfix();
 }
@@ -1924,12 +1925,12 @@ static Node *postfix(void) {
             Object *var = new_lvar(type, "");
             Token *tok = getok();
             Node *lhs = lvar_initializer(var);
-            Node *rhs = new_node_var(tok, var);
-            return new_node_binary(ND_COMMA, start, lhs, rhs);
+            Node *rhs = node_var(tok, var);
+            return node_binary(ND_COMMA, start, lhs, rhs);
         } else {
             Object *var = new_anon_gvar(type);
             gvar_initializer(var);
-            return new_node_var(start, var);
+            return node_var(start, var);
         }
     }
 
@@ -1940,7 +1941,7 @@ static Node *postfix(void) {
             Node *idx = expr();
             expect("]");
 
-            node = new_node_unary(ND_DEREF, tok, new_node_add(tok, node, idx));
+            node = node_unary(ND_DEREF, tok, node_add(tok, node, idx));
             continue;
         }
 
@@ -1950,7 +1951,7 @@ static Node *postfix(void) {
         }
 
         if (consume("->")) {
-            node = new_node_unary(ND_DEREF, tok, node);
+            node = node_unary(ND_DEREF, tok, node);
             node = struct_union_ref(node);
             continue;
         }
@@ -1959,9 +1960,9 @@ static Node *postfix(void) {
             set_node_type(node);
             Type *type = node->type;
 
-            node = to_assign(new_node_add(tok, node, new_node_num(tok, 1)));
-            node = new_node_sub(tok, node, new_node_num(tok, 1));
-            node = new_node_cast(tok, type, node);
+            node = to_assign(node_add(tok, node, node_num(tok, 1)));
+            node = node_sub(tok, node, node_num(tok, 1));
+            node = node_cast(tok, type, node);
             continue;
         }
 
@@ -1969,9 +1970,9 @@ static Node *postfix(void) {
             set_node_type(node);
             Type *type = node->type;
 
-            node = to_assign(new_node_sub(tok, node, new_node_num(tok, 1)));
-            node = new_node_add(tok, node, new_node_num(tok, 1));
-            node = new_node_cast(tok, type, node);
+            node = to_assign(node_sub(tok, node, node_num(tok, 1)));
+            node = node_add(tok, node, node_num(tok, 1));
+            node = node_cast(tok, type, node);
             continue;
         }
 
@@ -2014,7 +2015,7 @@ static Node *callfunc(Token *tok) {
                     error_tok(arg->tok,
                               "構造体または共用体の引数渡しは未対応です");
                 }
-                arg = new_node_cast(arg->tok, param_type, arg);
+                arg = node_cast(arg->tok, param_type, arg);
                 param_type = param_type->next;
             }
 
@@ -2065,12 +2066,12 @@ static Node *primary(void) {
             seek(getok()->next);
             Type *type = typename();
             expect(")");
-            return new_node_num(tok, type->size);
+            return node_num(tok, type->size);
         }
 
         Node *node = unary();
         set_node_type(node);
-        return new_node_num(tok, node->type->size);
+        return node_num(tok, node->type->size);
     }
 
     if (consume("_Alignof")) {
@@ -2078,12 +2079,12 @@ static Node *primary(void) {
             seek(getok()->next);
             Type *type = typename();
             expect(")");
-            return new_node_num(tok, type->align);
+            return node_num(tok, type->align);
         }
 
         Node *node = unary();
         set_node_type(node);
-        return new_node_num(tok, node->type->align);
+        return node_num(tok, node->type->align);
     }
 
     if (tok->kind == TK_IDENT) {
@@ -2098,10 +2099,10 @@ static Node *primary(void) {
         }
 
         if (sc->enum_type) {
-            return new_node_num(tok, sc->enum_val);
+            return node_num(tok, sc->enum_val);
         }
 
-        return new_node_var(tok, sc->var);
+        return node_var(tok, sc->var);
     }
 
     if (tok->kind == TK_STR) {
@@ -2111,7 +2112,7 @@ static Node *primary(void) {
 
     if (tok->kind == TK_NUM) {
         seek(tok->next);
-        Node *node = new_node_num(tok, tok->val);
+        Node *node = node_num(tok, tok->val);
         node->type = tok->type;
         return node;
     }

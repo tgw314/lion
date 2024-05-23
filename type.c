@@ -135,8 +135,8 @@ static Type *common_type(Type *ty1, Type *ty2) {
 
 static void usual_arith_conv(Node **lhs, Node **rhs) {
     Type *type = common_type((*lhs)->type, (*rhs)->type);
-    *lhs = new_node_cast((*lhs)->tok, type, *lhs);
-    *rhs = new_node_cast((*rhs)->tok, type, *rhs);
+    *lhs = node_cast((*lhs)->tok, type, *lhs);
+    *rhs = node_cast((*rhs)->tok, type, *rhs);
 }
 
 void set_node_type(Node *node) {
@@ -171,7 +171,7 @@ void set_node_type(Node *node) {
             return;
         case ND_NEG: {
             Type *type = common_type(type_int, node->lhs->type);
-            node->lhs = new_node_cast(node->tok, type, node->lhs);
+            node->lhs = node_cast(node->tok, type, node->lhs);
             node->type = type;
             return;
         }
@@ -180,8 +180,7 @@ void set_node_type(Node *node) {
                 error_tok(node->tok, "配列への代入はできません");
             }
             if (node->lhs->type->kind != TY_STRUCT) {
-                node->rhs =
-                    new_node_cast(node->tok, node->lhs->type, node->rhs);
+                node->rhs = node_cast(node->tok, node->lhs->type, node->rhs);
             }
             node->type = node->lhs->type;
             return;
