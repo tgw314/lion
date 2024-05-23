@@ -222,17 +222,24 @@ void tokenize(char *p);
 
 Node *new_node_cast(Token *tok, Type *type, Node *expr);
 
-Type *basic_type(TypeKind kind, bool is_unsigned);
+extern Type *type_void;
+extern Type *type_bool;
 
-Type *new_type_func(Type *return_type, Type *params);
+extern Type *type_char;
+extern Type *type_short;
+extern Type *type_int;
+extern Type *type_long;
 
-Type *new_type_enum(void);
+extern Type *type_uchar;
+extern Type *type_ushort;
+extern Type *type_uint;
+extern Type *type_ulong;
 
-Type *new_type_ptr(Type *type);
-
-Type *new_type_array(Type *type, int size);
-
-Type *new_type_struct_union(TypeKind kind, Member *members);
+Type *type_func(Type *return_type, Type *params);
+Type *type_enum(void);
+Type *type_ptr(Type *type);
+Type *type_array(Type *type, int size);
+Type *type_struct_union(TypeKind kind, Member *members);
 
 Type *copy_type(Type *type);
 

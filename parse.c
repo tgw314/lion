@@ -161,7 +161,7 @@ static Object *new_anon_gvar(Type *type) {
 }
 
 static Object *new_string_literal(char *str, int len) {
-    Type *type = new_type_array(basic_type(TY_CHAR, false), len);
+    Type *type = type_array(type_char, len);
     Object *var = new_anon_gvar(type);
     var->init_data = str;
     return var;
@@ -288,7 +288,7 @@ static Node *new_node_num(Token *tok, int64_t val) {
 
 static Node *new_node_long(Token *tok, int64_t val) {
     Node *node = new_node_num(tok, val);
-    node->type = basic_type(TY_LONG, false);
+    node->type = type_long;
     return node;
 }
 
@@ -349,7 +349,7 @@ static Node *new_node_sub(Token *tok, Node *lhs, Node *rhs) {
 
     if (is_pointer(lhs->type) && is_pointer(rhs->type)) {
         Node *node = new_node_binary(ND_SUB, tok, lhs, rhs);
-        node->type = basic_type(TY_INT, false);
+        node->type = type_int;
         return new_node_binary(ND_DIV, tok, node,
                                new_node_num(tok, lhs->type->ptr_to->size));
     }
@@ -436,7 +436,7 @@ static Type *declspec(VarAttr *attr) {
         // clang-format on
     };
 
-    Type *type = basic_type(TY_INT, false);
+    Type *type = type_int;
     int counter = 0;
 
     while (is_decl(getok())) {
@@ -517,26 +517,22 @@ static Type *declspec(VarAttr *attr) {
         }
 
         switch (counter) {
-            case VOID: type = basic_type(TY_VOID, false); break;
-            case BOOL: type = basic_type(TY_BOOL, false); break;
+            case VOID: type = type_void; break;
+            case BOOL: type = type_bool; break;
             case CHAR:
-            case SIGNED + CHAR: type = basic_type(TY_CHAR, false); break;
-            case UNSIGNED + CHAR: type = basic_type(TY_CHAR, true); break;
+            case SIGNED + CHAR: type = type_char; break;
+            case UNSIGNED + CHAR: type = type_uchar; break;
             case SHORT:
             case SHORT + INT:
             case SIGNED + SHORT:
-            case SIGNED + SHORT + INT:
-                type = basic_type(TY_SHORT, false);
-                break;
+            case SIGNED + SHORT + INT: type = type_short; break;
             case UNSIGNED + SHORT:
-            case UNSIGNED + SHORT + INT:
-                type = basic_type(TY_SHORT, true);
-                break;
+            case UNSIGNED + SHORT + INT: type = type_ushort; break;
             case INT:
             case SIGNED:
-            case SIGNED + INT: type = basic_type(TY_INT, false); break;
+            case SIGNED + INT: type = type_int; break;
             case UNSIGNED:
-            case UNSIGNED + INT: type = basic_type(TY_INT, true); break;
+            case UNSIGNED + INT: type = type_uint; break;
             case LONG:
             case LONG + INT:
             case LONG + LONG:
@@ -544,15 +540,11 @@ static Type *declspec(VarAttr *attr) {
             case SIGNED + LONG:
             case SIGNED + LONG + INT:
             case SIGNED + LONG + LONG:
-            case SIGNED + LONG + LONG + INT:
-                type = basic_type(TY_LONG, false);
-                break;
+            case SIGNED + LONG + LONG + INT: type = type_long; break;
             case UNSIGNED + LONG:
             case UNSIGNED + LONG + INT:
             case UNSIGNED + LONG + LONG:
-            case UNSIGNED + LONG + LONG + INT:
-                type = basic_type(TY_LONG, true);
-                break;
+            case UNSIGNED + LONG + LONG + INT: type = type_ulong; break;
             default: error_tok(getok()->prev, "不正な型です");
         }
     }
@@ -564,7 +556,7 @@ static Type *declspec(VarAttr *attr) {
 static Type *declsuffix(Type *type) {
     if (consume("(")) {
         bool is_variadic = false;
-        type = new_type_func(type, params(&is_variadic));
+        type = type_func(type, params(&is_variadic));
         type->is_variadic = is_variadic;
         return type;
     }
@@ -580,7 +572,7 @@ static Type *declsuffix(Type *type) {
         }
 
         type = declsuffix(type);
-        return new_type_array(type, len);
+        return type_array(type, len);
     }
 
     return type;
@@ -589,7 +581,7 @@ static Type *declsuffix(Type *type) {
 // declarator = "*"* ("(" ident ")" | "(" declarator ")" | ident) declsuffix
 static Type *declarator(Type *type) {
     while (consume("*")) {
-        type = new_type_ptr(type);
+        type = type_ptr(type);
     }
 
     if (consume("(")) {
@@ -614,7 +606,7 @@ static Type *declarator(Type *type) {
 // abstract-declarator = "*"* ("(" abstract-declarator ")")? declsuffix
 static Type *abstract_declarator(Type *type) {
     while (consume("*")) {
-        type = new_type_ptr(type);
+        type = type_ptr(type);
     }
 
     if (consume("(")) {
@@ -746,7 +738,7 @@ static void string_initalizer(Initializer *init) {
 
     if (init->is_flexible) {
         *init = *new_initializer(
-            new_type_array(init->type->ptr_to, tok->type->array_size), false);
+            type_array(init->type->ptr_to, tok->type->array_size), false);
     }
 
     int len = MIN(init->type->array_size, tok->type->array_size);
@@ -772,8 +764,7 @@ static int count_array_init_elements(Type *type) {
 static void array_initializer1(Initializer *init) {
     if (init->is_flexible) {
         int len = count_array_init_elements(init->type);
-        *init =
-            *new_initializer(new_type_array(init->type->ptr_to, len), false);
+        *init = *new_initializer(type_array(init->type->ptr_to, len), false);
     }
 
     for (int i = 0; !consume_end(); i++) {
@@ -791,8 +782,7 @@ static void array_initializer1(Initializer *init) {
 static void array_initializer2(Initializer *init) {
     if (init->is_flexible) {
         int len = count_array_init_elements(init->type);
-        *init =
-            *new_initializer(new_type_array(init->type->ptr_to, len), false);
+        *init = *new_initializer(type_array(init->type->ptr_to, len), false);
     }
 
     for (int i = 0; i < init->type->array_size && !is_end(); i++) {
@@ -1111,8 +1101,7 @@ static void function(Type *base_type, VarAttr *attr) {
     add_params_lvar(type->params);
     func->params = locals;
     if (type->is_variadic) {
-        func->va_area = new_lvar(
-            new_type_array(basic_type(TY_CHAR, false), 136), "__va_area__");
+        func->va_area = new_lvar(type_array(type_char, 136), "__va_area__");
     }
 
     expect("{");
@@ -1146,7 +1135,7 @@ static Type *params(bool *is_variadic) {
         Type *type = copy_type(declarator(declspec(NULL)));
         if (type->kind == TY_ARRAY) {
             Token *tok = type->tok;
-            type = new_type_ptr(type->ptr_to);
+            type = type_ptr(type->ptr_to);
             type->tok = tok;
         }
         cur = cur->next = type;
@@ -1181,7 +1170,7 @@ static Member *members(bool *is_flexible) {
 
     if (cur != &head && cur->type->kind == TY_ARRAY &&
         cur->type->array_size < 0) {
-        cur->type = new_type_array(cur->type->ptr_to, 0);
+        cur->type = type_array(cur->type->ptr_to, 0);
         *is_flexible = true;
     }
 
@@ -1204,7 +1193,7 @@ static Type *struct_union_decl(TypeKind kind) {
             }
             return type;
         }
-        type = new_type_struct_union(kind, NULL);
+        type = type_struct_union(kind, NULL);
         type->size = -1;
         push_tag_scope(tag, type);
         return type;
@@ -1214,7 +1203,7 @@ static Type *struct_union_decl(TypeKind kind) {
 
     bool is_flexible = false;
     Member *mem = members(&is_flexible);
-    Type *type = new_type_struct_union(kind, mem);
+    Type *type = type_struct_union(kind, mem);
     type->is_flexible = is_flexible;
 
     if (tag) {
@@ -1249,7 +1238,7 @@ static Type *enum_specifier(void) {
 
     expect("{");
 
-    Type *type = new_type_enum();
+    Type *type = type_enum();
     if (!consume_end()) {
         int val = 0;
         do {
@@ -1664,7 +1653,7 @@ static Node *to_assign(Node *binary) {
     set_node_type(binary->rhs);
 
     Token *tok = binary->tok;
-    Object *var = new_lvar(new_type_ptr(binary->lhs->type), "");
+    Object *var = new_lvar(type_ptr(binary->lhs->type), "");
 
     Node *expr1, *expr2;
 

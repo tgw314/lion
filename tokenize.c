@@ -201,7 +201,7 @@ static char *read_string_literal(char **pos, char *start, Type **type) {
     fclose(fp);
 
     *pos = p + 1;
-    *type = new_type_array(basic_type(TY_CHAR, false), size);
+    *type = type_array(type_char, size);
     return buf;
 }
 
@@ -269,33 +269,29 @@ static int64_t read_int_literal(char **pos, char *start, Type **type) {
 
     if (base == 10) {
         if (l && u) {
-            *type = basic_type(TY_LONG, true);
+            *type = type_ulong;
         } else if (l) {
-            *type = basic_type(TY_LONG, false);
+            *type = type_long;
         } else if (u) {
-            *type = (val >> 32) ? basic_type(TY_LONG, true)
-                                : basic_type(TY_INT, true);
+            *type = (val >> 32) ? type_ulong : type_uint;
         } else {
-            *type = (val >> 31) ? basic_type(TY_LONG, false)
-                                : basic_type(TY_INT, false);
+            *type = (val >> 31) ? type_long : type_int;
         }
     } else {
         if (l && u) {
-            *type = basic_type(TY_LONG, true);
+            *type = type_ulong;
         } else if (l) {
-            *type = (val >> 63) ? basic_type(TY_LONG, true)
-                                : basic_type(TY_LONG, false);
+            *type = (val >> 63) ? type_ulong : type_long;
         } else if (u) {
-            *type = (val >> 32) ? basic_type(TY_LONG, true)
-                                : basic_type(TY_INT, true);
+            *type = (val >> 32) ? type_ulong : type_uint;
         } else if (val >> 63) {
-            *type = basic_type(TY_LONG, true);
+            *type = type_ulong;
         } else if (val >> 32) {
-            *type = basic_type(TY_LONG, false);
+            *type = type_long;
         } else if (val >> 31) {
-            *type = basic_type(TY_INT, true);
+            *type = type_uint;
         } else {
-            *type = basic_type(TY_INT, false);
+            *type = type_int;
         }
     }
     *pos = p;
