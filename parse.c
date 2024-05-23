@@ -1198,7 +1198,7 @@ static Type *struct_union_decl(TypeKind kind) {
             }
             return type;
         }
-        type = type_struct_union(kind, NULL);
+        type = kind == TY_STRUCT ? type_struct(NULL) : type_union(NULL);
         type->size = -1;
         push_tag_scope(tag, type);
         return type;
@@ -1208,7 +1208,7 @@ static Type *struct_union_decl(TypeKind kind) {
 
     bool is_flexible = false;
     Member *mem = members(&is_flexible);
-    Type *type = type_struct_union(kind, mem);
+    Type *type = kind == TY_STRUCT ? type_struct(mem) : type_union(mem);
     type->is_flexible = is_flexible;
 
     if (tag) {

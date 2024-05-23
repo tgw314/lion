@@ -239,7 +239,8 @@ Type *type_func(Type *return_type, Type *params);
 Type *type_enum(void);
 Type *type_ptr(Type *type);
 Type *type_array(Type *type, int size);
-Type *type_struct_union(TypeKind kind, Member *members);
+Type *type_struct(Member *members);
+Type *type_union(Member *members);
 
 Type *copy_type(Type *type);
 

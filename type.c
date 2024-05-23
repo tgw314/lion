@@ -55,7 +55,7 @@ Type *type_array(Type *base_type, int size) {
     return type;
 }
 
-static Type *type_struct(Member *members) {
+Type *type_struct(Member *members) {
     Type *type = new_type(TY_STRUCT);
     type->members = members;
     type->align = 1;
@@ -75,7 +75,7 @@ static Type *type_struct(Member *members) {
     return type;
 }
 
-static Type *type_union(Member *members) {
+Type *type_union(Member *members) {
     Type *type = new_type(TY_UNION);
     type->members = members;
     type->align = 1;
@@ -91,16 +91,6 @@ static Type *type_union(Member *members) {
     type->size = align(type->size, type->align);
 
     return type;
-}
-
-Type *type_struct_union(TypeKind kind, Member *members) {
-    if (kind == TY_STRUCT) {
-        return type_struct(members);
-    }
-    if (kind == TY_UNION) {
-        return type_union(members);
-    }
-    unreachable();
 }
 
 Type *copy_type(Type *type) {
