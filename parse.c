@@ -380,7 +380,7 @@ Node *node_cast(Token *tok, Type *type, Node *expr) {
     return node;
 }
 
-static bool is_func(void) {
+static bool is_function(void) {
     if (match(";")) return false;
 
     Token *tok = getok();
@@ -399,7 +399,7 @@ Object *program(void) {
             parse_typedef(base_type);
             continue;
         }
-        if (is_func()) {
+        if (is_function()) {
             function(base_type, &attr);
             continue;
         }
@@ -1529,7 +1529,7 @@ static Node *compound_stmt(void) {
                 continue;
             }
 
-            if (is_func()) {
+            if (is_function()) {
                 function(base_type, &attr);
                 continue;
             }
@@ -1582,19 +1582,39 @@ static int64_t eval2(Node *node, char **label) {
         case ND_ADD: return eval2(node->lhs, label) + eval(node->rhs);
         case ND_SUB: return eval2(node->lhs, label) - eval(node->rhs);
         case ND_MUL: return eval(node->lhs) * eval(node->rhs);
-        case ND_DIV: return eval(node->lhs) / eval(node->rhs);
-        case ND_MOD: return eval(node->lhs) % eval(node->rhs);
+        case ND_DIV:
+            if (node->type->is_unsigned) {
+                return (uint64_t)eval(node->lhs) / (uint64_t)eval(node->rhs);
+            }
+            return eval(node->lhs) / eval(node->rhs);
+        case ND_MOD:
+            if (node->type->is_unsigned) {
+                return (uint64_t)eval(node->lhs) % eval(node->rhs);
+            }
+            return eval(node->lhs) % eval(node->rhs);
         case ND_EQ: return eval(node->lhs) == eval(node->rhs);
         case ND_NEQ: return eval(node->lhs) != eval(node->rhs);
-        case ND_LS: return eval(node->lhs) < eval(node->rhs);
-        case ND_LEQ: return eval(node->lhs) <= eval(node->rhs);
+        case ND_LS:
+            if (node->lhs->type->is_unsigned) {
+                return (uint64_t)eval(node->lhs) < eval(node->rhs);
+            }
+            return eval(node->lhs) < eval(node->rhs);
+        case ND_LEQ:
+            if (node->lhs->type->is_unsigned) {
+                return (uint64_t)eval(node->lhs) <= eval(node->rhs);
+            }
+            return eval(node->lhs) <= eval(node->rhs);
         case ND_AND: return eval(node->lhs) && eval(node->rhs);
         case ND_OR: return eval(node->lhs) || eval(node->rhs);
         case ND_BITAND: return eval(node->lhs) & eval(node->rhs);
         case ND_BITOR: return eval(node->lhs) | eval(node->rhs);
         case ND_BITXOR: return eval(node->lhs) ^ eval(node->rhs);
         case ND_BITSHL: return eval(node->lhs) << eval(node->rhs);
-        case ND_BITSHR: return eval(node->lhs) >> eval(node->rhs);
+        case ND_BITSHR:
+            if (node->type->is_unsigned && node->type->size == 8) {
+                return (uint64_t)eval(node->lhs) >> eval(node->lhs);
+            }
+            return eval(node->lhs) >> eval(node->rhs);
         case ND_COMMA: return eval2(node->rhs, label);
         case ND_COND:
             return eval(node->cond) ? eval2(node->then, label)
@@ -1606,9 +1626,15 @@ static int64_t eval2(Node *node, char **label) {
             int64_t val = eval2(node->lhs, label);
             if (is_integer(node->type)) {
                 switch (node->type->size) {
-                    case 1: return (uint8_t)val;
-                    case 2: return (uint16_t)val;
-                    case 4: return (uint32_t)val;
+                    case 1:
+                        return node->type->is_unsigned ? (uint8_t)val
+                                                       : (int8_t)val;
+                    case 2:
+                        return node->type->is_unsigned ? (uint16_t)val
+                                                       : (int16_t)val;
+                    case 4:
+                        return node->type->is_unsigned ? (uint32_t)val
+                                                       : (int32_t)val;
                 }
             }
             return val;
