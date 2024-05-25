@@ -169,6 +169,8 @@ unsigned short ushort_fn();
 char schar_fn();
 short sshort_fn();
 
+void funcy_type(int arg[restrict static 3]) {}
+
 int main() {
     ASSERT(0, 0);
     ASSERT(42, 42);

@@ -579,15 +579,10 @@ static Type *declsuffix(Type *type) {
     }
 
     if (consume("[")) {
-        int len;
+        while (consume("static") || consume("restrict"));
 
-        if (consume("]")) {
-            len = -1;
-        } else {
-            len = const_expr();
-            expect("]");
-        }
-
+        int len = match("]") ? -1 : const_expr();
+        expect("]");
         type = declsuffix(type);
         return type_array(type, len);
     }
