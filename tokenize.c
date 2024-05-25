@@ -107,11 +107,14 @@ static bool is_ident(char c) {
 
 static bool is_keyword(Token *tok) {
     static char *keywords[] = {
-        "return",   "if",       "else",   "while",  "for",     "int",
-        "sizeof",   "char",     "struct", "union",  "long",    "short",
-        "void",     "typedef",  "_Bool",  "enum",   "static",  "goto",
-        "break",    "continue", "switch", "case",   "default", "extern",
-        "_Alignof", "_Alignas", "do",     "signed", "unsigned"};
+        "return",       "if",       "else",     "while",    "for",
+        "int",          "sizeof",   "char",     "struct",   "union",
+        "long",         "short",    "void",     "typedef",  "_Bool",
+        "enum",         "static",   "goto",     "break",    "continue",
+        "switch",       "case",     "default",  "extern",   "_Alignof",
+        "_Alignas",     "do",       "signed",   "unsigned", "const",
+        "volatile",     "auto",     "register", "restrict", "__restrict",
+        "__restrict__", "_Noreturn"};
     static int len = sizeof(keywords) / sizeof(*keywords);
     for (int i = 0; i < len; i++) {
         if (equal(tok, keywords[i])) {

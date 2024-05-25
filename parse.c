@@ -410,10 +410,12 @@ Object *program(void) {
 }
 
 static bool is_decl(Token *tok) {
-    static char *keywords[] = {"void",     "_Bool",  "char",    "short",
-                               "int",      "long",   "struct",  "union",
-                               "typedef",  "enum",   "static",  "extern",
-                               "_Alignas", "signed", "unsigned"};
+    static char *keywords[] = {
+        "void",       "_Bool",        "char",     "short",    "int",
+        "long",       "struct",       "union",    "typedef",  "enum",
+        "static",     "extern",       "_Alignas", "signed",   "unsigned",
+        "const",      "volatile",     "auto",     "register", "restrict",
+        "__restrict", "__restrict__", "_Noreturn"};
     static int len = sizeof(keywords) / sizeof(*keywords);
     for (int i = 0; i < len; i++) {
         if (equal(tok, keywords[i])) {
@@ -426,7 +428,10 @@ static bool is_decl(Token *tok) {
 // declspec = ("void" | "_Bool" | "char" | "int" | "long" | "short"
 //             | "struct" struct-decl | "union" union-decl
 //             | "typedef" | typedef-name | "enum" enum-specifier
-//             | "static" | "extern" | "signed" | "unsigned")+
+//             | "static" | "extern" | "signed" | "unsigned"
+//
+//             | "const" | "volatile" | "auto" | "register"
+//             | "restrict" | "__restrict" | "__restrict__" | "_Noreturn")+
 static Type *declspec(VarAttr *attr) {
     enum {
         // clang-format off
@@ -468,6 +473,12 @@ static Type *declspec(VarAttr *attr) {
             }
             continue;
         }
+
+        if (consume("const") || consume("volatile") || consume("auto") ||
+            consume("register") || consume("restrict") ||
+            consume("__restrict") || consume("__restrict__") ||
+            consume("_Noreturn"))
+            continue;
 
         if (consume("_Alignas")) {
             if (!attr) {
@@ -584,11 +595,20 @@ static Type *declsuffix(Type *type) {
     return type;
 }
 
-// declarator = "*"* ("(" ident ")" | "(" declarator ")" | ident) declsuffix
-static Type *declarator(Type *type) {
+// pointers = ("*" ("const" | "volatile" | "restrict")*)*
+static Type *pointers(Type *type) {
     while (consume("*")) {
         type = type_ptr(type);
+        while (consume("const") || consume("volatile") || consume("restrict") ||
+               consume("__restrict") || consume("__restrict__"));
     }
+
+    return type;
+}
+
+// declarator = pointers ("(" ident ")" | "(" declarator ")" | ident) declsuffix
+static Type *declarator(Type *type) {
+    type = pointers(type);
 
     if (consume("(")) {
         Token *start = getok();
@@ -609,11 +629,9 @@ static Type *declarator(Type *type) {
     return type;
 }
 
-// abstract-declarator = "*"* ("(" abstract-declarator ")")? declsuffix
+// abstract-declarator = pointers ("(" abstract-declarator ")")? declsuffix
 static Type *abstract_declarator(Type *type) {
-    while (consume("*")) {
-        type = type_ptr(type);
-    }
+    type = pointers(type);
 
     if (consume("(")) {
         Token *start = getok();
