@@ -105,6 +105,8 @@ static Node *unary(void);
 static Node *postfix(void);
 static Node *primary(void);
 
+static char *tokstr(Token *tok) { return strndup(tok->loc, tok->len); }
+
 static void enter_scope(void) {
     Scope *sc = calloc(1, sizeof(Scope));
     sc->next = scope;
@@ -123,7 +125,7 @@ static VarScope *push_scope(char *name) {
 
 static void push_tag_scope(Token *tok, Type *type) {
     TagScope *sc = calloc(1, sizeof(TagScope));
-    sc->name = strndup(tok->loc, tok->len);
+    sc->name = tokstr(tok);
     sc->type = type;
     sc->next = scope->tags;
     scope->tags = sc;
@@ -135,8 +137,6 @@ static char *unique_name(void) {
     sprintf(name, ".LC%d", index++);
     return name;
 }
-
-static char *tokstr(Token *tok) { return strndup(tok->loc, tok->len); }
 
 static Object *new_var(Type *type, char *name) {
     Object *var = calloc(1, sizeof(Object));
@@ -617,9 +617,13 @@ static Type *declarator(Type *type) {
         return type;
     }
 
-    Token *tok = expect_ident();
+    Token *name = getok();
+    if (name->kind == TK_IDENT) {
+        seek(name->next);
+    }
+
     type = declsuffix(type);
-    type->tok = tok;
+    type->name = name;
 
     return type;
 }
@@ -657,20 +661,23 @@ static Node *declaration_local(Type *base_type, VarAttr *attr) {
         do {
             Type *type = declarator(base_type);
             if (type->kind == TY_VOID) {
-                error_tok(type->tok, "void 型の変数が宣言されました");
+                error_tok(type->name, "void 型の変数が宣言されました");
+            }
+            if (type->name->kind != TK_IDENT) {
+                error_tok(type->name, "変数名がありません");
             }
 
             if (attr && attr->is_static) {
                 Object *var = new_anon_gvar(type);
-                char *name = tokstr(type->tok);
+                char *name = tokstr(type->name);
                 push_scope(name)->var = var;
                 if (consume("=")) gvar_initializer(var);
                 continue;
             }
 
-            check_var_redef(type->tok);
+            check_var_redef(type->name);
 
-            Object *var = new_lvar(type, tokstr(type->tok));
+            Object *var = new_lvar(type, tokstr(type->name));
             if (attr && attr->align) {
                 var->align = attr->align;
             }
@@ -682,10 +689,10 @@ static Node *declaration_local(Type *base_type, VarAttr *attr) {
             }
 
             if (type->kind == TY_VOID) {
-                error_tok(type->tok, "void 型の変数が宣言されました");
+                error_tok(type->name, "void 型の変数が宣言されました");
             }
             if (var->type->size < 0) {
-                error_tok(type->tok, "不完全な型です");
+                error_tok(type->name, "不完全な型です");
             }
         } while (consume(","));
         expect(";");
@@ -701,15 +708,17 @@ static void declaration_global(Type *base_type, VarAttr *attr) {
 
     do {
         Type *type = declarator(base_type);
-
         if (type->kind == TY_VOID) {
-            error_tok(type->tok, "void 型の変数が宣言されました");
+            error_tok(type->name, "void 型の変数が宣言されました");
+        }
+        if (type->name->kind != TK_IDENT) {
+            error_tok(type->name, "変数名がありません");
         }
 
         // グローバル変数の再宣言は可能
-        check_var_redef(type->tok);
+        check_var_redef(type->name);
 
-        Object *var = new_gvar(type, tokstr(type->tok));
+        Object *var = new_gvar(type, tokstr(type->name));
         var->is_def = !attr->is_extern;
         var->is_static = attr->is_static;
         var->align = attr->align ? attr->align : var->align;
@@ -1071,8 +1080,11 @@ static void gvar_initializer(Object *var) {
 
 static void add_params_lvar(Type *param) {
     if (param) {
+        if (param->name->kind != TK_IDENT) {
+            error_tok(param->name, "引数名がありません");
+        }
         add_params_lvar(param->next);
-        new_lvar(param, tokstr(param->tok));
+        new_lvar(param, tokstr(param->name));
     }
 }
 
@@ -1095,7 +1107,10 @@ static void resolve_goto_labels(void) {
 
 static void function(Type *base_type, VarAttr *attr) {
     Type *type = declarator(base_type);
-    Token *tok = type->tok;
+    if (type->name->kind != TK_IDENT) {
+        error_tok(type->name, "関数名がありません");
+    }
+    Token *tok = type->name;
 
     bool is_def = !consume(";");
     if (is_def) {
@@ -1152,9 +1167,7 @@ static Type *params(bool *is_variadic) {
         }
         Type *type = copy_type(declarator(declspec(NULL)));
         if (type->kind == TY_ARRAY) {
-            Token *tok = type->tok;
             type = type_ptr(type->ptr_to);
-            type->tok = tok;
         }
         cur = cur->next = type;
     } while (consume(","));
@@ -1178,7 +1191,7 @@ static Member *members(bool *is_flexible) {
         do {
             Member *mem = calloc(1, sizeof(Member));
             mem->type = declarator(base_type);
-            mem->name = strndup(mem->type->tok->loc, mem->type->tok->len);
+            mem->name = tokstr(mem->type->name);
             mem->index = index++;
             mem->align = attr.align ? attr.align : mem->type->align;
             cur = cur->next = mem;
@@ -1261,7 +1274,7 @@ static Type *enum_specifier(void) {
         int val = 0;
         do {
             Token *tok = expect_ident();
-            char *name = strndup(tok->loc, tok->len);
+            char *name = tokstr(tok);
 
             if (consume("=")) {
                 val = const_expr();
@@ -1302,8 +1315,11 @@ static void parse_typedef(Type *base_type) {
 
     do {
         Type *type = declarator(base_type);
-        char *name = strndup(type->tok->loc, type->tok->len);
-        check_var_redef(type->tok);
+        if (type->name->kind != TK_IDENT) {
+            error_tok(type->name, "型名がありません");
+        }
+        char *name = tokstr(type->name);
+        check_var_redef(type->name);
         push_scope(name)->type_def = type;
     } while (consume(","));
     expect(";");
@@ -1425,7 +1441,7 @@ static Node *stmt(void) {
         Token *label = expect_ident();
         expect(";");
 
-        node->label = strndup(label->loc, label->len);
+        node->label = tokstr(label);
         node->goto_next = gotos;
         gotos = node;
 
@@ -1436,7 +1452,7 @@ static Node *stmt(void) {
         seek(tok->next->next);
         Node *node = node_unary(ND_LABEL, tok, stmt());
 
-        node->label = strndup(tok->loc, tok->len);
+        node->label = tokstr(tok);
         node->unique_label = unique_name();
         node->goto_next = labels;
         labels = node;
@@ -2039,7 +2055,7 @@ static Node *callfunc(Token *tok) {
 
     Node *node = new_node(ND_CALL, tok);
     node->type = type->return_type;
-    node->funcname = strndup(tok->loc, tok->len);
+    node->funcname = tokstr(tok);
     node->functype = type;
 
     if (!consume(")")) {

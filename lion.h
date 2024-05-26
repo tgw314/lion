@@ -101,7 +101,7 @@ struct Type {
     int size;
     int align;
     bool is_unsigned;
-    Token *tok;
+    Token *name;
 
     Type *ptr_to;
 
