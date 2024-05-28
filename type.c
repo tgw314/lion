@@ -3,18 +3,21 @@
 #include "lion.h"
 
 // clang-format off
-Type *type_void   = &(Type){TY_VOID,  1, 1};
-Type *type_bool   = &(Type){TY_BOOL,  1, 1};
+Type *type_void   = &(Type){TY_VOID,   1, 1};
+Type *type_bool   = &(Type){TY_BOOL,   1, 1};
 
-Type *type_char   = &(Type){TY_CHAR,  1, 1};
-Type *type_short  = &(Type){TY_SHORT, 2, 2};
-Type *type_int    = &(Type){TY_INT,   4, 4};
-Type *type_long   = &(Type){TY_LONG,  8, 8};
+Type *type_char   = &(Type){TY_CHAR,   1, 1};
+Type *type_short  = &(Type){TY_SHORT,  2, 2};
+Type *type_int    = &(Type){TY_INT,    4, 4};
+Type *type_long   = &(Type){TY_LONG,   8, 8};
 
-Type *type_uchar  = &(Type){TY_CHAR,  1, 1, true};
-Type *type_ushort = &(Type){TY_SHORT, 2, 2, true};
-Type *type_uint   = &(Type){TY_INT,   4, 4, true};
-Type *type_ulong  = &(Type){TY_LONG,  8, 8, true};
+Type *type_uchar  = &(Type){TY_CHAR,   1, 1, true};
+Type *type_ushort = &(Type){TY_SHORT,  2, 2, true};
+Type *type_uint   = &(Type){TY_INT,    4, 4, true};
+Type *type_ulong  = &(Type){TY_LONG,   8, 8, true};
+
+Type *type_float  = &(Type){TY_FLOAT,  4, 4};
+Type *type_double = &(Type){TY_DOUBLE, 8, 8};
 // clang-format on
 
 static Type *new_type(TypeKind kind) {
@@ -105,6 +108,10 @@ bool is_integer(Type *type) {
     return type->kind == TY_BOOL || type->kind == TY_CHAR ||
            type->kind == TY_SHORT || type->kind == TY_INT ||
            type->kind == TY_LONG || type->kind == TY_ENUM;
+}
+
+bool is_floatnum(Type *type) {
+    return type->kind == TY_FLOAT || type->kind == TY_DOUBLE;
 }
 
 static Type *common_type(Type *ty1, Type *ty2) {

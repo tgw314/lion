@@ -101,7 +101,7 @@ static bool is_ident_head(char c) {
     return ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || (c == '_');
 }
 
-static bool is_ident(char c) {
+static bool is_ident_char(char c) {
     return is_ident_head(c) || ('0' <= c && c <= '9');
 }
 
@@ -217,7 +217,7 @@ static char *read_string_literal(char **pos, char *start, Type **type) {
     return buf;
 }
 
-static char read_char_literal(char **pos, char *start) {
+static char read_char_literal(char **pos, char *start, Type **type) {
     char *p = start + 1;
     char c;
 
@@ -234,6 +234,7 @@ static char read_char_literal(char **pos, char *start) {
     }
 
     *pos = p + 1;
+    *type = type_int;
     return c;
 }
 
@@ -275,10 +276,6 @@ static int64_t read_int_literal(char **pos, char *start, Type **type) {
         u = true;
     }
 
-    if (isalnum(*p)) {
-        error_at(p, "誤った整数定数です");
-    }
-
     if (base == 10) {
         if (l && u) {
             *type = type_ulong;
@@ -308,6 +305,24 @@ static int64_t read_int_literal(char **pos, char *start, Type **type) {
     }
     *pos = p;
 
+    return val;
+}
+
+static double read_float_literal(char **pos, char *start, Type **type) {
+    char *p = start;
+    double val = strtod(p, &p);
+
+    if (*p == 'f' || *p == 'F') {
+        *type = type_float;
+        p++;
+    } else if (*p == 'l' || *p == 'L') {
+        *type = type_double;
+        p++;
+    } else {
+        *type = type_double;
+    }
+
+    *pos = p;
     return val;
 }
 
@@ -359,6 +374,20 @@ void tokenize(char *p) {
             continue;
         }
 
+        if (isdigit(*p) || (*p == '.' && isdigit(p[1]))) {
+            cur = new_token(TK_NUM, cur, p);
+
+            cur->val = read_int_literal(&p, cur->loc, &cur->type);
+            cur->len = p - cur->loc;
+
+            if (!strchr(".eEfF", *p)) continue;
+
+            cur->val = read_float_literal(&p, cur->loc, &cur->type);
+            cur->len = p - cur->loc;
+
+            continue;
+        }
+
         {
             int len = read_reserved(p);
             if (len > 0) {
@@ -371,36 +400,23 @@ void tokenize(char *p) {
 
         if (*p == '\'') {
             cur = new_token(TK_NUM, cur, p);
-            cur->val = read_char_literal(&p, p);
+            cur->val = read_char_literal(&p, cur->loc, &cur->type);
             cur->len = p - cur->loc;
             continue;
         }
 
         if (*p == '"') {
             cur = new_token(TK_STR, cur, p);
-            cur->str = read_string_literal(&p, p, &cur->type);
+            cur->str = read_string_literal(&p, cur->loc, &cur->type);
             cur->len = p - cur->loc;
             continue;
         }
 
         if (is_ident_head(*p)) {
             cur = new_token(TK_IDENT, cur, p);
-
-            cur->len = 1;
-            while (is_ident(*(p + cur->len))) cur->len++;
-
-            if (is_keyword(cur)) {
-                cur->kind = TK_RESERVED;
-            }
-
-            p += cur->len;
-            continue;
-        }
-
-        if (isdigit(*p)) {
-            cur = new_token(TK_NUM, cur, p);
-            cur->val = read_int_literal(&p, p, &cur->type);
+            while (is_ident_char(*p)) p++;
             cur->len = p - cur->loc;
+            if (is_keyword(cur)) cur->kind = TK_RESERVED;
             continue;
         }
 

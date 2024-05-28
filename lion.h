@@ -27,6 +27,8 @@ typedef enum {
     TY_SHORT,
     TY_INT,
     TY_LONG,
+    TY_FLOAT,
+    TY_DOUBLE,
     TY_ENUM,
     TY_PTR,
     TY_ARRAY,
@@ -89,6 +91,7 @@ struct Token {
     Token *next;     // 次の入力トークン
     Type *type;      // kind が TK_NUM, TK_STR の場合
     int64_t val;     // kind が TK_NUM の場合の数値
+    double fval;     // kind が TK_NUM の場合の数値
     char *str;       // kind が TK_STR の場合の文字列
     char *loc;       // トークン文字列
     int len;         // トークンの長さ
@@ -131,6 +134,7 @@ struct Node {
     Node *upd;
     Node *body;
     int64_t val;
+    double fval;
     Object *var;
     Type *functype;
     char *funcname;
@@ -221,6 +225,7 @@ bool equal(Token *tok, char *op);
 void tokenize(char *p);
 
 Node *node_cast(Token *tok, Type *type, Node *expr);
+Object *program(void);
 
 extern Type *type_void;
 extern Type *type_bool;
@@ -235,6 +240,9 @@ extern Type *type_ushort;
 extern Type *type_uint;
 extern Type *type_ulong;
 
+extern Type *type_float;
+extern Type *type_double;
+
 Type *type_func(Type *return_type, Type *params);
 Type *type_enum(void);
 Type *type_ptr(Type *type);
@@ -245,12 +253,10 @@ Type *type_union(Member *members);
 Type *copy_type(Type *type);
 
 bool is_pointer(Type *type);
-
 bool is_integer(Type *type);
+bool is_floatnum(Type *type);
 
 void set_node_type(Node *node);
-
-Object *program(void);
 
 int align(int n, int align);
 

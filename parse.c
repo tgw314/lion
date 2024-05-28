@@ -2223,8 +2223,15 @@ static Node *primary(void) {
 
     if (tok->kind == TK_NUM) {
         seek(tok->next);
-        Node *node = node_num(tok, tok->val);
+        Node *node = new_node(ND_NUM, tok);
         node->type = tok->type;
+
+        if (is_floatnum(node->type)) {
+            node->fval = tok->fval;
+        } else {
+            node->val = tok->val;
+        }
+
         return node;
     }
 
