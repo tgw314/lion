@@ -1197,7 +1197,9 @@ static Type *params(bool *is_variadic) {
         }
         Type *type = copy_type(declarator(declspec(NULL)));
         if (type->kind == TY_ARRAY) {
+            Token *name = type->name;
             type = type_ptr(type->ptr_to);
+            type->name = name;
         }
         cur = cur->next = type;
     } while (consume(","));
