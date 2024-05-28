@@ -168,15 +168,24 @@ static int read_escaped_char(char **pos, char *p) {
 
     *pos = p + 1;
     switch (*p) {
-        case 'a': return '\a';
-        case 'b': return '\b';
-        case 't': return '\t';
-        case 'n': return '\n';
-        case 'v': return '\v';
-        case 'f': return '\f';
-        case 'r': return '\r';
-        case 'e': return 27;
-        default: return *p;
+        case 'a':
+            return '\a';
+        case 'b':
+            return '\b';
+        case 't':
+            return '\t';
+        case 'n':
+            return '\n';
+        case 'v':
+            return '\v';
+        case 'f':
+            return '\f';
+        case 'r':
+            return '\r';
+        case 'e':
+            return 27;
+        default:
+            return *p;
     }
 }
 

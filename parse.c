@@ -534,22 +534,38 @@ static Type *declspec(VarAttr *attr) {
         }
 
         switch (counter) {
-            case VOID: type = type_void; break;
-            case BOOL: type = type_bool; break;
+            case VOID:
+                type = type_void;
+                break;
+            case BOOL:
+                type = type_bool;
+                break;
             case CHAR:
-            case SIGNED + CHAR: type = type_char; break;
-            case UNSIGNED + CHAR: type = type_uchar; break;
+            case SIGNED + CHAR:
+                type = type_char;
+                break;
+            case UNSIGNED + CHAR:
+                type = type_uchar;
+                break;
             case SHORT:
             case SHORT + INT:
             case SIGNED + SHORT:
-            case SIGNED + SHORT + INT: type = type_short; break;
+            case SIGNED + SHORT + INT:
+                type = type_short;
+                break;
             case UNSIGNED + SHORT:
-            case UNSIGNED + SHORT + INT: type = type_ushort; break;
+            case UNSIGNED + SHORT + INT:
+                type = type_ushort;
+                break;
             case INT:
             case SIGNED:
-            case SIGNED + INT: type = type_int; break;
+            case SIGNED + INT:
+                type = type_int;
+                break;
             case UNSIGNED:
-            case UNSIGNED + INT: type = type_uint; break;
+            case UNSIGNED + INT:
+                type = type_uint;
+                break;
             case LONG:
             case LONG + INT:
             case LONG + LONG:
@@ -557,12 +573,17 @@ static Type *declspec(VarAttr *attr) {
             case SIGNED + LONG:
             case SIGNED + LONG + INT:
             case SIGNED + LONG + LONG:
-            case SIGNED + LONG + LONG + INT: type = type_long; break;
+            case SIGNED + LONG + LONG + INT:
+                type = type_long;
+                break;
             case UNSIGNED + LONG:
             case UNSIGNED + LONG + INT:
             case UNSIGNED + LONG + LONG:
-            case UNSIGNED + LONG + LONG + INT: type = type_ulong; break;
-            default: error_tok(getok()->prev, "不正な型です");
+            case UNSIGNED + LONG + LONG + INT:
+                type = type_ulong;
+                break;
+            default:
+                error_tok(getok()->prev, "不正な型です");
         }
     }
 
@@ -1016,11 +1037,20 @@ static Node *lvar_initializer(Object *var) {
 
 static void write_buf(char *buf, uint64_t val, int size) {
     switch (size) {
-        case 1: *buf = val; return;
-        case 2: *(uint16_t *)buf = val; return;
-        case 4: *(uint32_t *)buf = val; return;
-        case 8: *(uint64_t *)buf = val; return;
-        default: unreachable();
+        case 1:
+            *buf = val;
+            return;
+        case 2:
+            *(uint16_t *)buf = val;
+            return;
+        case 4:
+            *(uint32_t *)buf = val;
+            return;
+        case 8:
+            *(uint64_t *)buf = val;
+            return;
+        default:
+            unreachable();
     }
 }
 
@@ -1608,9 +1638,12 @@ static int64_t eval(Node *node) { return eval2(node, NULL); }
 static int64_t eval2(Node *node, char **label) {
     set_node_type(node);
     switch (node->kind) {
-        case ND_ADD: return eval2(node->lhs, label) + eval(node->rhs);
-        case ND_SUB: return eval2(node->lhs, label) - eval(node->rhs);
-        case ND_MUL: return eval(node->lhs) * eval(node->rhs);
+        case ND_ADD:
+            return eval2(node->lhs, label) + eval(node->rhs);
+        case ND_SUB:
+            return eval2(node->lhs, label) - eval(node->rhs);
+        case ND_MUL:
+            return eval(node->lhs) * eval(node->rhs);
         case ND_DIV:
             if (node->type->is_unsigned) {
                 return (uint64_t)eval(node->lhs) / (uint64_t)eval(node->rhs);
@@ -1621,8 +1654,10 @@ static int64_t eval2(Node *node, char **label) {
                 return (uint64_t)eval(node->lhs) % eval(node->rhs);
             }
             return eval(node->lhs) % eval(node->rhs);
-        case ND_EQ: return eval(node->lhs) == eval(node->rhs);
-        case ND_NEQ: return eval(node->lhs) != eval(node->rhs);
+        case ND_EQ:
+            return eval(node->lhs) == eval(node->rhs);
+        case ND_NEQ:
+            return eval(node->lhs) != eval(node->rhs);
         case ND_LS:
             if (node->lhs->type->is_unsigned) {
                 return (uint64_t)eval(node->lhs) < eval(node->rhs);
@@ -1633,24 +1668,34 @@ static int64_t eval2(Node *node, char **label) {
                 return (uint64_t)eval(node->lhs) <= eval(node->rhs);
             }
             return eval(node->lhs) <= eval(node->rhs);
-        case ND_AND: return eval(node->lhs) && eval(node->rhs);
-        case ND_OR: return eval(node->lhs) || eval(node->rhs);
-        case ND_BITAND: return eval(node->lhs) & eval(node->rhs);
-        case ND_BITOR: return eval(node->lhs) | eval(node->rhs);
-        case ND_BITXOR: return eval(node->lhs) ^ eval(node->rhs);
-        case ND_BITSHL: return eval(node->lhs) << eval(node->rhs);
+        case ND_AND:
+            return eval(node->lhs) && eval(node->rhs);
+        case ND_OR:
+            return eval(node->lhs) || eval(node->rhs);
+        case ND_BITAND:
+            return eval(node->lhs) & eval(node->rhs);
+        case ND_BITOR:
+            return eval(node->lhs) | eval(node->rhs);
+        case ND_BITXOR:
+            return eval(node->lhs) ^ eval(node->rhs);
+        case ND_BITSHL:
+            return eval(node->lhs) << eval(node->rhs);
         case ND_BITSHR:
             if (node->type->is_unsigned && node->type->size == 8) {
                 return (uint64_t)eval(node->lhs) >> eval(node->lhs);
             }
             return eval(node->lhs) >> eval(node->rhs);
-        case ND_COMMA: return eval2(node->rhs, label);
+        case ND_COMMA:
+            return eval2(node->rhs, label);
         case ND_COND:
             return eval(node->cond) ? eval2(node->then, label)
                                     : eval2(node->els, NULL);
-        case ND_NEG: return -eval(node->lhs);
-        case ND_NOT: return !eval(node->lhs);
-        case ND_BITNOT: return ~eval(node->lhs);
+        case ND_NEG:
+            return -eval(node->lhs);
+        case ND_NOT:
+            return !eval(node->lhs);
+        case ND_BITNOT:
+            return ~eval(node->lhs);
         case ND_CAST: {
             int64_t val = eval2(node->lhs, label);
             if (is_integer(node->type)) {
@@ -1668,7 +1713,8 @@ static int64_t eval2(Node *node, char **label) {
             }
             return val;
         }
-        case ND_ADDR: return eval_rval(node->lhs, label);
+        case ND_ADDR:
+            return eval_rval(node->lhs, label);
         case ND_MEMBER:
             if (!label) {
                 error_tok(node->tok, "コンパイル時に定数ではありません");
@@ -1687,7 +1733,8 @@ static int64_t eval2(Node *node, char **label) {
             }
             *label = node->var->name;
             return 0;
-        case ND_NUM: return node->val;
+        case ND_NUM:
+            return node->val;
     }
 
     error_tok(node->tok, "コンパイル時に定数ではありません");
@@ -1701,7 +1748,8 @@ static int64_t eval_rval(Node *node, char **label) {
             }
             *label = node->var->name;
             return 0;
-        case ND_DEREF: return eval2(node->lhs, label);
+        case ND_DEREF:
+            return eval2(node->lhs, label);
         case ND_MEMBER:
             return eval_rval(node->lhs, label) + node->member->offset;
     }

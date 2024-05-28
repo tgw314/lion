@@ -81,14 +81,19 @@ static char *reg(RegAlias64 reg, TypeId id) {
 static char *word(TypeId id) {
     switch (id) {
         case I8:
-        case U8: return "BYTE PTR";
+        case U8:
+            return "BYTE PTR";
         case I16:
-        case U16: return "WORD PTR";
+        case U16:
+            return "WORD PTR";
         case I32:
-        case U32: return "DWORD PTR";
+        case U32:
+            return "DWORD PTR";
         case I64:
-        case U64: return "QWORD PTR";
-        default: unreachable();
+        case U64:
+            return "QWORD PTR";
+        default:
+            unreachable();
     }
 }
 
@@ -192,12 +197,15 @@ static void gen_lval(Node *node) {
             gen_lval(node->lhs);
             println("  lea rax, [rax%+d]", node->member->offset);
             return;
-        case ND_DEREF: gen_expr(node->lhs); return;
+        case ND_DEREF:
+            gen_expr(node->lhs);
+            return;
         case ND_COMMA:
             gen_expr(node->lhs);
             gen_lval(node->rhs);
             return;
-        default: error_tok(node->tok, "左辺値ではありません");
+        default:
+            error_tok(node->tok, "左辺値ではありません");
     }
 }
 
@@ -205,8 +213,11 @@ static void gen_expr(Node *node) {
     loc(node);
 
     switch (node->kind) {
-        case ND_NULL_EXPR: return;
-        case ND_NUM: println("  mov rax, %ld", node->val); return;
+        case ND_NULL_EXPR:
+            return;
+        case ND_NUM:
+            println("  mov rax, %ld", node->val);
+            return;
         case ND_NEG:
             gen_expr(node->lhs);
             println("  neg rax");
@@ -294,7 +305,9 @@ static void gen_expr(Node *node) {
             println(".L.end.%03d:", c);
             return;
         }
-        case ND_ADDR: gen_lval(node->lhs); return;
+        case ND_ADDR:
+            gen_lval(node->lhs);
+            return;
         case ND_DEREF:
             gen_expr(node->lhs);
             load(node->type);
@@ -324,7 +337,9 @@ static void gen_expr(Node *node) {
 
             bool is_u = node->type->is_unsigned;
             switch (node->type->kind) {
-                case TY_BOOL: println("  movzx eax, al"); return;
+                case TY_BOOL:
+                    println("  movzx eax, al");
+                    return;
                 case TY_CHAR:
                     println("  mov%cx eax, al", is_u ? 'z' : 's');
                     return;
@@ -352,9 +367,15 @@ static void gen_expr(Node *node) {
     char *rdx = reg(RDX, id);
 
     switch (node->kind) {
-        case ND_ADD: println("  add %s, %s", rax, rdi); return;
-        case ND_SUB: println("  sub %s, %s", rax, rdi); return;
-        case ND_MUL: println("  imul %s, %s", rax, rdi); return;
+        case ND_ADD:
+            println("  add %s, %s", rax, rdi);
+            return;
+        case ND_SUB:
+            println("  sub %s, %s", rax, rdi);
+            return;
+        case ND_MUL:
+            println("  imul %s, %s", rax, rdi);
+            return;
         case ND_MOD:
         case ND_DIV:
             if (node->type->is_unsigned) {
@@ -375,17 +396,31 @@ static void gen_expr(Node *node) {
             bool is_u = node->lhs->type->is_unsigned;
             println("  cmp %s, %s", rax, rdi);
             switch (node->kind) {
-                case ND_EQ: println("  sete al"); break;
-                case ND_NEQ: println("  setne al"); break;
-                case ND_LS: println("  set%c al", is_u ? 'b' : 'l'); break;
-                case ND_LEQ: println("  set%ce al", is_u ? 'b' : 'l'); break;
+                case ND_EQ:
+                    println("  sete al");
+                    break;
+                case ND_NEQ:
+                    println("  setne al");
+                    break;
+                case ND_LS:
+                    println("  set%c al", is_u ? 'b' : 'l');
+                    break;
+                case ND_LEQ:
+                    println("  set%ce al", is_u ? 'b' : 'l');
+                    break;
             }
             println("  movzx rax, al");
             return;
         }
-        case ND_BITAND: println("  and %s, %s", rax, rdi); return;
-        case ND_BITOR: println("  or %s, %s", rax, rdi); return;
-        case ND_BITXOR: println("  xor %s, %s", rax, rdi); return;
+        case ND_BITAND:
+            println("  and %s, %s", rax, rdi);
+            return;
+        case ND_BITOR:
+            println("  or %s, %s", rax, rdi);
+            return;
+        case ND_BITXOR:
+            println("  xor %s, %s", rax, rdi);
+            return;
         case ND_BITSHL:
             println("  mov rcx, rdi");
             println("  shl %s, cl", rax);
@@ -403,7 +438,9 @@ static void gen_stmt(Node *node) {
     loc(node);
 
     switch (node->kind) {
-        case ND_EXPR_STMT: gen_expr(node->lhs); return;
+        case ND_EXPR_STMT:
+            gen_expr(node->lhs);
+            return;
         case ND_BLOCK:
             for (Node *n = node->body; n; n = n->next) {
                 gen_stmt(n);
@@ -454,7 +491,9 @@ static void gen_stmt(Node *node) {
             println("%s:", node->break_label);
             return;
         }
-        case ND_GOTO: println("  jmp %s", node->unique_label); return;
+        case ND_GOTO:
+            println("  jmp %s", node->unique_label);
+            return;
         case ND_LABEL:
             println("%s:", node->unique_label);
             gen_stmt(node->lhs);

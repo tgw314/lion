@@ -147,7 +147,9 @@ void set_node_type(Node *node) {
     }
 
     switch (node->kind) {
-        case ND_NUM: node->type = type_int; return;
+        case ND_NUM:
+            node->type = type_int;
+            return;
         case ND_ADD:
         case ND_SUB:
         case ND_MUL:
@@ -183,12 +185,20 @@ void set_node_type(Node *node) {
             return;
         case ND_NOT:
         case ND_OR:
-        case ND_AND: node->type = type_int; return;
+        case ND_AND:
+            node->type = type_int;
+            return;
         case ND_BITNOT:
         case ND_BITSHL:
-        case ND_BITSHR: node->type = node->lhs->type; return;
-        case ND_CALL: node->type = type_long; return;
-        case ND_COMMA: node->type = node->rhs->type; return;
+        case ND_BITSHR:
+            node->type = node->lhs->type;
+            return;
+        case ND_CALL:
+            node->type = type_long;
+            return;
+        case ND_COMMA:
+            node->type = node->rhs->type;
+            return;
         case ND_COND:
             if (node->then->type->kind == TY_VOID ||
                 node->els->type->kind == TY_VOID) {
@@ -198,7 +208,9 @@ void set_node_type(Node *node) {
                 node->type = node->then->type;
             }
             return;
-        case ND_MEMBER: node->type = node->member->type; return;
+        case ND_MEMBER:
+            node->type = node->member->type;
+            return;
         case ND_ADDR:
             if (node->lhs->type->kind == TY_ARRAY) {
                 node->type = type_ptr(node->lhs->type->ptr_to);
@@ -215,7 +227,9 @@ void set_node_type(Node *node) {
             }
             node->type = node->lhs->type->ptr_to;
             return;
-        case ND_VAR: node->type = node->var->type; return;
+        case ND_VAR:
+            node->type = node->var->type;
+            return;
         case ND_STMT_EXPR:
             if (node->body) {
                 Node *stmt = node->body;
