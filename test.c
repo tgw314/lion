@@ -11,34 +11,34 @@ int strcmp(char *p, char *q);
 int memcmp(char *p, char *q, int n);
 
 int ret3(void) {
-  return 3;
-  return 5;
+    return 3;
+    return 5;
 }
 
 int add2(int x, int y) {
-  return x + y;
+    return x + y;
 }
 
 int sub2(int x, int y) {
-  return x - y;
+    return x - y;
 }
 
 int add6(int a, int b, int c, int d, int e, int f) {
-  return a + b + c + d + e + f;
+    return a + b + c + d + e + f;
 }
 
 int addx(int *x, int y) {
-  return *x + y;
+    return *x + y;
 }
 
 int sub_char(char a, char b, char c) {
-  return a - b - c;
+    return a - b - c;
 }
 
 int fib(int x) {
-  if (x<=1)
-    return 1;
-  return fib(x-1) + fib(x-2);
+    if (x<=1)
+        return 1;
+    return fib(x-1) + fib(x-2);
 }
 
 int _Alignas(512) ag1;
@@ -51,11 +51,11 @@ char ag6;
 int g1, g2[4];
 
 int *g1_ptr(void) {
-  return &g1;
+    return &g1;
 }
 
 char int_to_char(int x) {
-  return x;
+    return x;
 }
 
 int div_long(long a, long b) {
@@ -110,19 +110,19 @@ extern int ext1;
 extern int *ext2;
 
 typedef struct Tree {
-  int val;
-  struct Tree *lhs;
-  struct Tree *rhs;
+    int val;
+    struct Tree *lhs;
+    struct Tree *rhs;
 } Tree;
 
 Tree *tree = &(Tree){
-  1,
-  &(Tree){
-    2,
-    &(Tree){ 3, 0, 0 },
-    &(Tree){ 4, 0, 0 }
-  },
-  0
+    1,
+        &(Tree){
+            2,
+            &(Tree){ 3, 0, 0 },
+            &(Tree){ 4, 0, 0 }
+        },
+        0
 };
 
 int counter() {
@@ -145,10 +145,10 @@ short short_fn();
 int add_all(int n, ...);
 
 typedef struct {
-  int gp_offset;
-  int fp_offset;
-  void *overflow_arg_area;
-  void *reg_save_area;
+    int gp_offset;
+    int fp_offset;
+    void *overflow_arg_area;
+    void *reg_save_area;
 } __va_elem;
 
 typedef __va_elem va_list[1];
@@ -158,9 +158,9 @@ int sprintf(char *buf, char *fmt, ...);
 int vsprintf(char *buf, char *fmt, va_list ap);
 
 char *fmt(char *buf, char *fmt, ...) {
-  va_list ap;
-  *ap = *(__va_elem *)__va_area__;
-  vsprintf(buf, fmt, ap);
+    va_list ap;
+    *ap = *(__va_elem *)__va_area__;
+    vsprintf(buf, fmt, ap);
 }
 
 unsigned char uchar_fn();
@@ -1112,7 +1112,7 @@ int main() {
     ASSERT(4, ({ char x[(unsigned long)-1/((long)1<<62)+1]; sizeof(x); }));
     ASSERT(1, ({ char x[(unsigned)1<-1]; sizeof(x); }));
     ASSERT(1, ({ char x[(unsigned)1<=-1]; sizeof(x); }));
-    
+
     { volatile x; }
     { int volatile x; }
     { volatile int x; }
@@ -1141,6 +1141,60 @@ int main() {
     ASSERT(8, sizeof(.0));
     ASSERT(8, sizeof(5.l));
     ASSERT(8, sizeof(2.0L));
+
+    ASSERT(0, (_Bool)0.0);
+    ASSERT(1, (_Bool)0.1);
+    ASSERT(3, (char)3.0);
+    ASSERT(1000, (short)1000.3);
+    ASSERT(3, (int)3.99);
+    ASSERT(2000000000000000, (long)2e15);
+    ASSERT(3, (float)3.5);
+    ASSERT(5, (double)(float)5.5);
+    ASSERT(3, (float)3);
+    ASSERT(3, (double)3);
+    ASSERT(3, (float)3L);
+    ASSERT(3, (double)3L);
+
+    ASSERT(35, (float)(char)35);
+    ASSERT(35, (float)(short)35);
+    ASSERT(35, (float)(int)35);
+    ASSERT(35, (float)(long)35);
+    ASSERT(35, (float)(unsigned char)35);
+    ASSERT(35, (float)(unsigned short)35);
+    ASSERT(35, (float)(unsigned int)35);
+    ASSERT(35, (float)(unsigned long)35);
+
+    ASSERT(35, (double)(char)35);
+    ASSERT(35, (double)(short)35);
+    ASSERT(35, (double)(int)35);
+    ASSERT(35, (double)(long)35);
+    ASSERT(35, (double)(unsigned char)35);
+    ASSERT(35, (double)(unsigned short)35);
+    ASSERT(35, (double)(unsigned int)35);
+    ASSERT(35, (double)(unsigned long)35);
+
+    ASSERT(35, (char)(float)35);
+    ASSERT(35, (short)(float)35);
+    ASSERT(35, (int)(float)35);
+    ASSERT(35, (long)(float)35);
+    ASSERT(35, (unsigned char)(float)35);
+    ASSERT(35, (unsigned short)(float)35);
+    ASSERT(35, (unsigned int)(float)35);
+    ASSERT(35, (unsigned long)(float)35);
+
+    ASSERT(35, (char)(double)35);
+    ASSERT(35, (short)(double)35);
+    ASSERT(35, (int)(double)35);
+    ASSERT(35, (long)(double)35);
+    ASSERT(35, (unsigned char)(double)35);
+    ASSERT(35, (unsigned short)(double)35);
+    ASSERT(35, (unsigned int)(double)35);
+    ASSERT(35, (unsigned long)(double)35);
+
+    ASSERT(-2147483648, (double)(unsigned long)(long)-1);
+
+    ASSERT(4, sizeof(float));
+    ASSERT(8, sizeof(double));
 
     printf("OK\n");
     return 0;

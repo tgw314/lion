@@ -411,11 +411,11 @@ Object *program(void) {
 
 static bool is_decl(Token *tok) {
     static char *keywords[] = {
-        "void",       "_Bool",        "char",     "short",    "int",
-        "long",       "struct",       "union",    "typedef",  "enum",
-        "static",     "extern",       "_Alignas", "signed",   "unsigned",
-        "const",      "volatile",     "auto",     "register", "restrict",
-        "__restrict", "__restrict__", "_Noreturn"};
+        "void",       "_Bool",        "char",      "short",    "int",
+        "long",       "struct",       "union",     "typedef",  "enum",
+        "static",     "extern",       "_Alignas",  "signed",   "unsigned",
+        "const",      "volatile",     "auto",      "register", "restrict",
+        "__restrict", "__restrict__", "_Noreturn", "float",    "double"};
     static int len = sizeof(keywords) / sizeof(*keywords);
     for (int i = 0; i < len; i++) {
         if (equal(tok, keywords[i])) {
@@ -425,7 +425,8 @@ static bool is_decl(Token *tok) {
     return find_typedef(tok);
 }
 
-// declspec = ("void" | "_Bool" | "char" | "int" | "long" | "short"
+// declspec = ("void" | "_Bool"
+//             | "char" | "short" | "int" | "long" | "float" | "double"
 //             | "struct" struct-decl | "union" union-decl
 //             | "typedef" | typedef-name | "enum" enum-specifier
 //             | "static" | "extern" | "signed" | "unsigned"
@@ -441,9 +442,11 @@ static Type *declspec(VarAttr *attr) {
         SHORT    = 1 << 6,
         INT      = 1 << 8,
         LONG     = 1 << 10,
-        OTHER    = 1 << 12,
-        SIGNED   = 1 << 13,
-        UNSIGNED = 1 << 14,
+        FLOAT    = 1 << 12,
+        DOUBLE   = 1 << 14,
+        OTHER    = 1 << 16,
+        SIGNED   = 1 << 17,
+        UNSIGNED = 1 << 18,
         // clang-format on
     };
 
@@ -525,6 +528,10 @@ static Type *declspec(VarAttr *attr) {
             counter += INT;
         } else if (consume("long")) {
             counter += LONG;
+        } else if (consume("float")) {
+            counter += FLOAT;
+        } else if (consume("double")) {
+            counter += DOUBLE;
         } else if (consume("signed")) {
             counter |= SIGNED;
         } else if (consume("unsigned")) {
@@ -581,6 +588,12 @@ static Type *declspec(VarAttr *attr) {
             case UNSIGNED + LONG + LONG:
             case UNSIGNED + LONG + LONG + INT:
                 type = type_ulong;
+                break;
+            case FLOAT:
+                type = type_float;
+                break;
+            case DOUBLE:
+                type = type_double;
                 break;
             default:
                 error_tok(getok()->prev, "不正な型です");

@@ -47,20 +47,22 @@ int align(int n, int align) {
     return (n + align - 1) / align * align;
 }
 
-typedef enum { I8, I16, I32, I64, U8, U16, U32, U64 } TypeId;
+typedef enum { I8, I16, I32, I64, U8, U16, U32, U64, F32, F64 } TypeId;
 
 static TypeId type_id(Type *type) {
+    // clang-format off
     switch (type->kind) {
-            // clang-format off
+        case TY_VOID:   unreachable();
         case TY_BOOL:
-        case TY_CHAR:  return type->is_unsigned ? U8 : I8;
-        case TY_SHORT: return type->is_unsigned ? U16 : I16;
-        case TY_INT:   return type->is_unsigned ? U32 : I32;
-        case TY_LONG:  return type->is_unsigned ? U64 : I64;
-        case TY_VOID: unreachable();
-        default: return U64;
-            // clang-format on
+        case TY_CHAR:   return type->is_unsigned ? U8 : I8;
+        case TY_SHORT:  return type->is_unsigned ? U16 : I16;
+        case TY_INT:    return type->is_unsigned ? U32 : I32;
+        case TY_LONG:   return type->is_unsigned ? U64 : I64;
+        case TY_FLOAT:  return F32;
+        case TY_DOUBLE: return F64;
+        default:        return U64;
     }
+    // clang-format on
 }
 
 static char *reg(RegAlias64 reg, TypeId id) {
@@ -75,6 +77,7 @@ static char *reg(RegAlias64 reg, TypeId id) {
         {"r14b", "r14w", "r14d", "r14"}, {"r15b", "r15w", "r15d", "r15"},
     };
 
+    if (id >= F32) id -= 2;
     return regs[reg][id % 4];
 }
 
@@ -88,9 +91,11 @@ static char *word(TypeId id) {
             return "WORD PTR";
         case I32:
         case U32:
+        case F32:
             return "DWORD PTR";
         case I64:
         case U64:
+        case F64:
             return "QWORD PTR";
         default:
             unreachable();
@@ -108,68 +113,113 @@ static void pop(const char *r) {
 }
 
 static void load(Type *type) {
-    if (type->kind == TY_ARRAY || type->kind == TY_STRUCT ||
-        type->kind == TY_UNION) {
-        return;
-    }
+    switch (type->kind) {
+        case TY_ARRAY:
+        case TY_STRUCT:
+        case TY_UNION:
+            return;
+        case TY_FLOAT:
+            println("  movss xmm0, [rax]");
+            return;
+        case TY_DOUBLE:
+            println("  movsd xmm0, [rax]");
+            return;
+        default: {
+            TypeId id = type_id(type);
 
-    TypeId id = type_id(type);
-
-    switch (id) {
-        case I8:
-        case I16:
-        case U8:
-        case U16:
-        case U32:
-            println("  mov%cx %s, %s [%s]", type->is_unsigned ? 'z' : 's',
-                    reg(RAX, I32), word(id), reg(RAX, I64));
-            return;
-        case I32:
-            println("  movsxd %s, %s [%s]", reg(RAX, I64), word(id),
-                    reg(RAX, I64));
-            return;
-        case U64:
-        case I64:
-            println("  mov %s, %s [%s]", reg(RAX, I64), word(id),
-                    reg(RAX, I64));
-            return;
+            switch (id) {
+                case I8:
+                case I16:
+                case U8:
+                case U16:
+                case U32:
+                    println("  mov%cx eax, %s [rax]",
+                            type->is_unsigned ? 'z' : 's', word(id));
+                    return;
+                case I32:
+                    println("  movsxd rax, %s [rax]", word(id));
+                    return;
+                case U64:
+                case I64:
+                    println("  mov rax, %s [rax]", word(id));
+                    return;
+            }
+        }
     }
 }
 
 static void cast(Type *from, Type *to) {
-    static char i32i8[] = "movsx eax, al";
-    static char i32u8[] = "movzx eax, al";
+    // clang-format off
+    static char i32i8[]  = "movsx eax, al";
+    static char i32u8[]  = "movzx eax, al";
     static char i32i16[] = "movsx eax, ax";
     static char i32u16[] = "movzx eax, ax";
+    static char i32f32[] = "cvtsi2ss xmm0, eax";
     static char i32i64[] = "movsxd rax, eax";
+    static char i32f64[] = "cvtsi2sd xmm0, eax";
+
+    static char u32f32[] = "mov eax, eax; cvtsi2ss xmm0, rax";
     static char u32i64[] = "mov eax, eax";
-    static char *cast_table[][8] = {
-        // clang-format off
-        // i8   i16     i32   i64     u8     u16     u32   u64
-        {NULL,  NULL,   NULL, i32i64, i32u8, i32u16, NULL, i32i64},   // i8
-        {i32i8, NULL,   NULL, i32i64, i32u8, i32u16, NULL, i32i64},   // i16
-        {i32i8, i32i16, NULL, i32i64, i32u8, i32u16, NULL, i32i64},   // i32
-        {i32i8, i32i16, NULL, NULL,   i32u8, i32u16, NULL, NULL},     // i64
-        {i32i8, NULL,   NULL, i32i64, NULL,  NULL,   NULL, i32i64},   // u8
-        {i32i8, i32i16, NULL, i32i64, i32u8, NULL,   NULL, i32i64},   // u16
-        {i32i8, i32i16, NULL, u32i64, i32u8, i32u16, NULL, u32i64},   // u32
-        {i32i8, i32i16, NULL, NULL,   i32u8, i32u16, NULL, NULL},     // u64
-        // clang-format on
+    static char u32f64[] = "mov eax, eax; cvtsi2sd xmm0, rax";
+
+    static char i64f32[] = "cvtsi2ss xmm0, rax";
+    static char i64f64[] = "cvtsi2sd xmm0, rax";
+
+    static char u64f32[] = "cvtsi2ss xmm0, rax";
+    static char u64f64[] =
+        "test rax, rax; js 1f; pxor xmm0, xmm0; cvtsi2sd xmm0, rax; jmp 2f; "
+        "1: mov rdi, rax; and eax, 1; pxor xmm0, xmm0; shr rdi; "
+        "or rdi, rax; cvtsi2sd xmm0, rdi; addsd xmm0, xmm0; 2:";
+
+    static char f32i8[]  = "cvttss2si eax, xmm0; movsx eax, al";
+    static char f32u8[]  = "cvttss2si eax, xmm0; movzx eax, al";
+    static char f32i16[] = "cvttss2si eax, xmm0; movsx eax, ax";
+    static char f32u16[] = "cvttss2si eax, xmm0; movzx eax, ax";
+    static char f32i32[] = "cvttss2si eax, xmm0";
+    static char f32u32[] = "cvttss2si rax, xmm0";
+    static char f32i64[] = "cvttss2si rax, xmm0";
+    static char f32u64[] = "cvttss2si rax, xmm0";
+    static char f32f64[] = "cvtss2sd xmm0, xmm0";
+
+    static char f64i8[]  = "cvttsd2si eax, xmm0; movsx eax, al";
+    static char f64u8[]  = "cvttsd2si eax, xmm0; movzx eax, al";
+    static char f64i16[] = "cvttsd2si eax, xmm0; movsx eax, ax";
+    static char f64u16[] = "cvttsd2si eax, xmm0; movzx eax, ax";
+    static char f64i32[] = "cvttsd2si eax, xmm0";
+    static char f64u32[] = "cvttsd2si rax, xmm0";
+    static char f64f32[] = "cvtsd2ss xmm0, xmm0";
+    static char f64i64[] = "cvttsd2si rax, xmm0";
+    static char f64u64[] = "cvttsd2si rax, xmm0";
+
+    static char *cast_table[][10] = {
+        // i8   i16     i32     i64     u8     u16     u32     u64     f32     f64
+        {NULL,  NULL,   NULL,   i32i64, i32u8, i32u16, NULL,   i32i64, i32f32, i32f64}, // i8
+        {i32i8, NULL,   NULL,   i32i64, i32u8, i32u16, NULL,   i32i64, i32f32, i32f64}, // i16
+        {i32i8, i32i16, NULL,   i32i64, i32u8, i32u16, NULL,   i32i64, i32f32, i32f64}, // i32
+        {i32i8, i32i16, NULL,   NULL,   i32u8, i32u16, NULL,   NULL,   i64f32, i64f64}, // i64
+
+        {i32i8, NULL,   NULL,   i32i64, NULL,  NULL,   NULL,   i32i64, i32f32, i32f64}, // u8
+        {i32i8, i32i16, NULL,   i32i64, i32u8, NULL,   NULL,   i32i64, i32f32, i32f64}, // u16
+        {i32i8, i32i16, NULL,   u32i64, i32u8, i32u16, NULL,   u32i64, u32f32, u32f64}, // u32
+        {i32i8, i32i16, NULL,   NULL,   i32u8, i32u16, NULL,   NULL,   u64f32, u64f64}, // u64
+
+        {f32i8, f32i16, f32i32, f32i64, f32u8, f32u16, f32u32, f32u64, NULL,   f32f64}, // f32
+        {f64i8, f64i16, f64i32, f64i64, f64u8, f64u16, f64u32, f64u64, f64f32, NULL},   // f64
     };
+    // clang-format on
 
     if (to->kind == TY_VOID) return;
 
-    TypeId from_id = type_id(from);
-    TypeId to_id = type_id(to);
-
     if (to->kind == TY_BOOL) {
-        char *reg = (from_id <= I32) ? "eax" : "rax";
+        char *reg = (is_integer(from) && from->size <= 4) ? "eax" : "rax";
         println("  cmp %s, 0", reg);
         println("  setne al");
         println("  movzx eax, al");
         return;
     }
 
+    TypeId from_id = type_id(from);
+    TypeId to_id = type_id(to);
     if (cast_table[from_id][to_id]) {
         println("  %s", cast_table[from_id][to_id]);
     }
@@ -293,17 +343,26 @@ static void gen_expr(Node *node) {
             push("rax");
             gen_expr(node->rhs);
             pop("rdi");
-            if (node->type->kind == TY_STRUCT || node->type->kind == TY_UNION) {
-                for (int i = 0; i < node->type->size; i++) {
-                    println("  mov r8b, [rax%+d]", i);
-                    println("  mov [rdi%+d], r8b", i);
+            switch (node->type->kind) {
+                case TY_STRUCT:
+                case TY_UNION:
+                    for (int i = 0; i < node->type->size; i++) {
+                        println("  mov r8b, [rax%+d]", i);
+                        println("  mov [rdi%+d], r8b", i);
+                    }
+                    return;
+                case TY_FLOAT:
+                    println("  movss [rdi], xmm0");
+                    return;
+                case TY_DOUBLE:
+                    println("  movsd [rdi], xmm0");
+                    return;
+                default: {
+                    TypeId id = type_id(node->type);
+                    println("  mov %s [rdi], %s", word(id), reg(RAX, id));
+                    return;
                 }
-            } else {
-                TypeId id = type_id(node->type);
-                println("  mov %s [%s], %s", word(id), reg(RDI, I64),
-                        reg(RAX, id));
             }
-            return;
         case ND_MEMZERO:
             println("  mov rcx, %d", node->var->type->size);
             println("  lea rdi, [rbp%+d]", node->var->offset);
