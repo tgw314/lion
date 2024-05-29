@@ -382,7 +382,7 @@ void tokenize(char *p) {
 
             if (!strchr(".eEfF", *p)) continue;
 
-            cur->val = read_float_literal(&p, cur->loc, &cur->type);
+            cur->fval = read_float_literal(&p, cur->loc, &cur->type);
             cur->len = p - cur->loc;
 
             continue;
