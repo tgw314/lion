@@ -65,7 +65,7 @@ static TypeId type_id(Type *type) {
     // clang-format on
 }
 
-static char *reg(RegAlias64 reg, TypeId id) {
+static char *intreg(RegAlias64 reg, TypeId id) {
     static char *regs[16][4] = {
         {"al", "ax", "eax", "rax"},      {"dil", "di", "edi", "rdi"},
         {"sil", "si", "esi", "rsi"},     {"dl", "dx", "edx", "rdx"},
@@ -77,7 +77,7 @@ static char *reg(RegAlias64 reg, TypeId id) {
         {"r14b", "r14w", "r14d", "r14"}, {"r15b", "r15w", "r15d", "r15"},
     };
 
-    if (id >= F32) id -= 2;
+    if (id >= F32) unreachable();
     return regs[reg][id % 4];
 }
 
@@ -130,11 +130,12 @@ static void load(Type *type) {
             switch (id) {
                 case I8:
                 case I16:
+                    println("  movsx eax, %s [rax]", word(id));
+                    return;
                 case U8:
                 case U16:
                 case U32:
-                    println("  mov%cx eax, %s [rax]",
-                            type->is_unsigned ? 'z' : 's', word(id));
+                    println("  movzx eax, %s [rax]", word(id));
                     return;
                 case I32:
                     println("  movsxd rax, %s [rax]", word(id));
@@ -143,6 +144,8 @@ static void load(Type *type) {
                 case I64:
                     println("  mov rax, %s [rax]", word(id));
                     return;
+                default:
+                    unreachable();
             }
         }
     }
@@ -359,7 +362,7 @@ static void gen_expr(Node *node) {
                     return;
                 default: {
                     TypeId id = type_id(node->type);
-                    println("  mov %s [rdi], %s", word(id), reg(RAX, id));
+                    println("  mov %s [rdi], %s", word(id), intreg(RAX, id));
                     return;
                 }
             }
@@ -442,9 +445,9 @@ static void gen_expr(Node *node) {
 
     Type *t = node->lhs->type;
     TypeId id = t->kind == TY_LONG || t->ptr_to ? I64 : I32;
-    char *rax = reg(RAX, id);
-    char *rdi = reg(RDI, id);
-    char *rdx = reg(RDX, id);
+    char *rax = intreg(RAX, id);
+    char *rdi = intreg(RDI, id);
+    char *rdx = intreg(RDX, id);
 
     switch (node->kind) {
         case ND_ADD:
@@ -684,7 +687,7 @@ void emit_text(Object *obj) {
         for (Object *p = obj->params; p; p = p->next) {
             TypeId id = type_id(p->type);
             println("  mov %s [rbp%+d], %s", word(id), p->offset,
-                    reg(param_regs[i++], id));
+                    intreg(param_regs[i++], id));
         }
     }
 
