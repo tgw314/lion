@@ -120,7 +120,7 @@ static Type *common_type(Type *ty1, Type *ty2) {
     }
 
     if (ty1->size < 4) ty1 = type_int;
-    if (ty1->size < 4) ty1 = type_int;
+    if (ty2->size < 4) ty2 = type_int;
 
     if (ty1->size != ty2->size) {
         return (ty1->size < ty2->size) ? ty2 : ty1;
