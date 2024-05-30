@@ -114,6 +114,8 @@ bool is_floatnum(Type *type) {
     return type->kind == TY_FLOAT || type->kind == TY_DOUBLE;
 }
 
+bool is_numeric(Type *type) { return is_integer(type) || is_floatnum(type); }
+
 static Type *common_type(Type *ty1, Type *ty2) {
     if (is_pointer(ty1)) {
         return type_ptr(ty1->ptr_to);

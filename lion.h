@@ -255,6 +255,7 @@ Type *copy_type(Type *type);
 bool is_pointer(Type *type);
 bool is_integer(Type *type);
 bool is_floatnum(Type *type);
+bool is_numeric(Type *type);
 
 void set_node_type(Node *node);
 

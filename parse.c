@@ -315,7 +315,7 @@ static Node *node_add(Token *tok, Node *lhs, Node *rhs) {
     set_node_type(lhs);
     set_node_type(rhs);
 
-    if (is_integer(lhs->type) && is_integer(rhs->type)) {
+    if (is_numeric(lhs->type) && is_numeric(rhs->type)) {
         return node_binary(ND_ADD, tok, lhs, rhs);
     }
 
@@ -330,7 +330,7 @@ static Node *node_add(Token *tok, Node *lhs, Node *rhs) {
         error_tok(tok, "ポインタ同士の加算はできません");
     }
 
-    // lhs: pointer, rhs: number
+    // lhs: pointer, rhs: integer
     rhs =
         node_binary(ND_MUL, tok, rhs, node_long(tok, lhs->type->ptr_to->size));
     return node_binary(ND_ADD, tok, lhs, rhs);
@@ -340,7 +340,7 @@ static Node *node_sub(Token *tok, Node *lhs, Node *rhs) {
     set_node_type(lhs);
     set_node_type(rhs);
 
-    if (is_integer(lhs->type) && is_integer(rhs->type)) {
+    if (is_numeric(lhs->type) && is_numeric(rhs->type)) {
         return node_binary(ND_SUB, tok, lhs, rhs);
     }
 
@@ -360,7 +360,7 @@ static Node *node_sub(Token *tok, Node *lhs, Node *rhs) {
                            node_num(tok, lhs->type->ptr_to->size));
     }
 
-    // lhs: number, rhs: pointer
+    // lhs: integer, rhs: pointer
     error_tok(tok, "誤ったオペランドです");
 }
 

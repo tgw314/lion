@@ -1216,6 +1216,36 @@ int main() {
     ASSERT(1, 5.0f<=5);
     ASSERT(1, 4.9f<=5);
 
+    ASSERT(6, 2.3+3.8);
+    ASSERT(-1, 2.3-3.8);
+    ASSERT(-3, -3.8);
+    ASSERT(13, 3.3*4);
+    ASSERT(2, 5.0/2);
+
+    ASSERT(6, 2.3f+3.8f);
+    ASSERT(6, 2.3f+3.8);
+    ASSERT(-1, 2.3f-3.8);
+    ASSERT(-3, -3.8f);
+    ASSERT(13, 3.3f*4);
+    ASSERT(2, 5.0f/2);
+
+    ASSERT(0, 0.0/0.0 == 0.0/0.0);
+    ASSERT(1, 0.0/0.0 != 0.0/0.0);
+
+    ASSERT(0, 0.0/0.0 < 0);
+    ASSERT(0, 0.0/0.0 <= 0);
+    ASSERT(0, 0.0/0.0 > 0);
+    ASSERT(0, 0.0/0.0 >= 0);
+
+    ASSERT(4, sizeof(1f+2));
+    ASSERT(8, sizeof(1.0+2));
+    ASSERT(4, sizeof(1f-2));
+    ASSERT(8, sizeof(1.0-2));
+    ASSERT(4, sizeof(1f*2));
+    ASSERT(8, sizeof(1.0*2));
+    ASSERT(4, sizeof(1f/2));
+    ASSERT(8, sizeof(1.0/2));
+
     printf("OK\n");
     return 0;
 }

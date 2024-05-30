@@ -304,8 +304,19 @@ static void gen_expr(Node *node) {
         }
         case ND_NEG:
             gen_expr(node->lhs);
-            println("  neg rax");
-            return;
+            switch (node->type->kind) {
+                case TY_FLOAT:
+                case TY_DOUBLE:
+                    println("  mov rax, 1");
+                    println("  shl rax, %d", node->type->size * 8 - 1);
+                    println("  movq xmm1, rax");
+                    println("  xorp%c xmm0, xmm1",
+                            node->type->kind == TY_FLOAT ? 's' : 'd');
+                    return;
+                default:
+                    println("  neg rax");
+                    return;
+            }
         case ND_NOT:
             gen_expr(node->lhs);
             println("  cmp rax, 0");
@@ -453,13 +464,25 @@ static void gen_expr(Node *node) {
         gen_expr(node->lhs);
         popf("xmm1");
 
+        char *sf = node->lhs->type->kind == TY_FLOAT ? "ss" : "sd";
         switch (node->kind) {
+            case ND_ADD:
+                println("  add%s xmm0, xmm1", sf);
+                return;
+            case ND_SUB:
+                println("  sub%s xmm0, xmm1", sf);
+                return;
+            case ND_MUL:
+                println("  mul%s xmm0, xmm1", sf);
+                return;
+            case ND_DIV:
+                println("  div%s xmm0, xmm1", sf);
+                return;
             case ND_EQ:
             case ND_NEQ:
             case ND_LS:
             case ND_LEQ:
-                println("  ucomis%c xmm1, xmm0",
-                        node->lhs->type->kind == TY_FLOAT ? 's' : 'd');
+                println("  ucomi%s xmm1, xmm0", sf);
                 switch (node->kind) {
                     case ND_EQ:
                         println("  sete al");
