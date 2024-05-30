@@ -118,6 +118,12 @@ static Type *common_type(Type *ty1, Type *ty2) {
     if (is_pointer(ty1)) {
         return type_ptr(ty1->ptr_to);
     }
+    if (ty1->kind == TY_DOUBLE || ty2->kind == TY_DOUBLE) {
+        return type_double;
+    }
+    if (ty1->kind == TY_FLOAT || ty2->kind == TY_FLOAT) {
+        return type_float;
+    }
 
     if (ty1->size < 4) ty1 = type_int;
     if (ty2->size < 4) ty2 = type_int;

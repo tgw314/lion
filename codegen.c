@@ -100,13 +100,25 @@ static char *intword(TypeId id) {
     }
 }
 
-static void push(char *r) {
+static void push(const char *r) {
     println("  push %s", r);
     offset += 8;
 }
 
 static void pop(const char *r) {
     println("  pop %s", r);
+    offset -= 8;
+}
+
+static void pushf(const char *r) {
+    println("  sub rsp, 8");
+    println("  movsd [rsp], %s", r);
+    offset += 8;
+}
+
+static void popf(const char *r) {
+    println("  movsd %s, [rsp]", r);
+    println("  add rsp, 8");
     offset -= 8;
 }
 
@@ -433,6 +445,45 @@ static void gen_expr(Node *node) {
         case ND_STMT_EXPR:
             for (Node *n = node->body; n; n = n->next) gen_stmt(n);
             return;
+    }
+
+    if (is_floatnum(node->lhs->type)) {
+        gen_expr(node->rhs);
+        pushf("xmm0");
+        gen_expr(node->lhs);
+        popf("xmm1");
+
+        switch (node->kind) {
+            case ND_EQ:
+            case ND_NEQ:
+            case ND_LS:
+            case ND_LEQ:
+                println("  ucomis%c xmm1, xmm0",
+                        node->lhs->type->kind == TY_FLOAT ? 's' : 'd');
+                switch (node->kind) {
+                    case ND_EQ:
+                        println("  sete al");
+                        println("  setnp dl");
+                        println("  and al, dl");
+                        break;
+                    case ND_NEQ:
+                        println("  setne al");
+                        println("  setp dl");
+                        println("  or al, dl");
+                        break;
+                    case ND_LS:
+                        println("  seta al");
+                        break;
+                    case ND_LEQ:
+                        println("  setae al");
+                        break;
+                }
+
+                println("  and al, 1");
+                println("  movzx rax, al");
+                return;
+        }
+        error_tok(node->tok, "誤った式です");
     }
 
     gen_expr(node->rhs);
