@@ -161,6 +161,24 @@ static void load(Type *type) {
     }
 }
 
+static void cmp_zero(Type *type) {
+    switch (type->kind) {
+        case TY_FLOAT:
+        case TY_DOUBLE: {
+            char sf = type->kind == TY_FLOAT ? 's' : 'd';
+            println("  xorp%c xmm1, xmm1", sf);
+            println("  ucomis%c xmm0, xmm1", sf);
+            return;
+        }
+        default:
+            if (is_integer(type) && type->size <= 4) {
+                println("  cmp eax, 0");
+            } else {
+                println("  cmp rax, 0");
+            }
+    }
+}
+
 static void cast(Type *from, Type *to) {
     // clang-format off
     static char i32i8[]  = "movsx eax, al";
@@ -224,8 +242,7 @@ static void cast(Type *from, Type *to) {
     if (to->kind == TY_VOID) return;
 
     if (to->kind == TY_BOOL) {
-        char *reg = (is_integer(from) && from->size <= 4) ? "eax" : "rax";
-        println("  cmp %s, 0", reg);
+        cmp_zero(from);
         println("  setne al");
         println("  movzx eax, al");
         return;
@@ -319,7 +336,7 @@ static void gen_expr(Node *node) {
             }
         case ND_NOT:
             gen_expr(node->lhs);
-            println("  cmp rax, 0");
+            cmp_zero(node->lhs->type);
             println("  sete al");
             println("  movzx rax, al");
             return;
@@ -330,10 +347,10 @@ static void gen_expr(Node *node) {
         case ND_AND: {
             int c = count();
             gen_expr(node->lhs);
-            println("  cmp rax, 0");
+            cmp_zero(node->lhs->type);
             println("  je .L.false.%d", c);
             gen_expr(node->rhs);
-            println("  cmp rax, 0");
+            cmp_zero(node->rhs->type);
             println("  je .L.false.%d", c);
             println("  mov rax, 1");
             println("  jmp .L.end.%d", c);
@@ -345,10 +362,10 @@ static void gen_expr(Node *node) {
         case ND_OR: {
             int c = count();
             gen_expr(node->lhs);
-            println("  cmp rax, 0");
+            cmp_zero(node->lhs->type);
             println("  jne .L.true.%d", c);
             gen_expr(node->rhs);
-            println("  cmp rax, 0");
+            cmp_zero(node->rhs->type);
             println("  jne .L.true.%d", c);
             println("  mov rax, 0");
             println("  jmp .L.end.%d", c);
@@ -400,7 +417,7 @@ static void gen_expr(Node *node) {
         case ND_COND: {
             int c = count();
             gen_expr(node->cond);
-            println("  cmp eax, 0");
+            cmp_zero(node->cond->type);
             println("  je .L.else.%03d", c);
             gen_expr(node->then);
             println("  jmp .L.end.%03d", c);
@@ -603,7 +620,7 @@ static void gen_stmt(Node *node) {
         case ND_IF: {
             int i = count();
             gen_expr(node->cond);
-            println("  cmp rax, 0");
+            cmp_zero(node->cond->type);
             println("  je  .L.else.%03d", i);
             gen_stmt(node->then);
             println("  jmp .L.end.%03d", i);
@@ -622,7 +639,7 @@ static void gen_stmt(Node *node) {
             println(".L.begin.%03d:", i);
             if (node->cond) {
                 gen_expr(node->cond);
-                println("  cmp rax, 0");
+                cmp_zero(node->cond->type);
                 println("  je %s", node->break_label);
             }
             gen_stmt(node->then);
@@ -640,7 +657,7 @@ static void gen_stmt(Node *node) {
             gen_stmt(node->then);
             println("%s:", node->continue_label);
             gen_expr(node->cond);
-            println("  cmp rax, 0");
+            cmp_zero(node->cond->type);
             println("  jne .L.begin.%03d", i);
             println("%s:", node->break_label);
             return;
