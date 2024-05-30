@@ -81,7 +81,7 @@ static char *intreg(RegAlias64 reg, TypeId id) {
     return regs[reg][id % 4];
 }
 
-static char *word(TypeId id) {
+static char *intword(TypeId id) {
     switch (id) {
         case I8:
         case U8:
@@ -91,11 +91,9 @@ static char *word(TypeId id) {
             return "WORD PTR";
         case I32:
         case U32:
-        case F32:
             return "DWORD PTR";
         case I64:
         case U64:
-        case F64:
             return "QWORD PTR";
         default:
             unreachable();
@@ -130,19 +128,19 @@ static void load(Type *type) {
             switch (id) {
                 case I8:
                 case I16:
-                    println("  movsx eax, %s [rax]", word(id));
+                    println("  movsx eax, %s [rax]", intword(id));
                     return;
                 case U8:
                 case U16:
                 case U32:
-                    println("  movzx eax, %s [rax]", word(id));
+                    println("  movzx eax, %s [rax]", intword(id));
                     return;
                 case I32:
-                    println("  movsxd rax, %s [rax]", word(id));
+                    println("  movsxd rax, %s [rax]", intword(id));
                     return;
                 case U64:
                 case I64:
-                    println("  mov rax, %s [rax]", word(id));
+                    println("  mov rax, %s [rax]", intword(id));
                     return;
                 default:
                     unreachable();
@@ -362,7 +360,7 @@ static void gen_expr(Node *node) {
                     return;
                 default: {
                     TypeId id = type_id(node->type);
-                    println("  mov %s [rdi], %s", word(id), intreg(RAX, id));
+                    println("  mov %s [rdi], %s", intword(id), intreg(RAX, id));
                     return;
                 }
             }
@@ -686,7 +684,7 @@ void emit_text(Object *obj) {
         int i = 0;
         for (Object *p = obj->params; p; p = p->next) {
             TypeId id = type_id(p->type);
-            println("  mov %s [rbp%+d], %s", word(id), p->offset,
+            println("  mov %s [rbp%+d], %s", intword(id), p->offset,
                     intreg(param_regs[i++], id));
         }
     }
