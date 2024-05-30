@@ -435,11 +435,10 @@ static void gen_expr(Node *node) {
             return;
     }
 
-    gen_expr(node->lhs);
-    push("rax");
     gen_expr(node->rhs);
-    println("  mov rdi, rax");
-    pop("rax");
+    push("rax");
+    gen_expr(node->lhs);
+    pop("rdi");
 
     Type *t = node->lhs->type;
     TypeId id = t->kind == TY_LONG || t->ptr_to ? I64 : I32;
