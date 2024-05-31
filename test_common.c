@@ -29,6 +29,10 @@ int ushort_fn() { return (2 << 20) - 1 - 7; }
 int schar_fn() { return (2 << 10) - 1 - 4; }
 int sshort_fn() { return (2 << 20) - 1 - 7; }
 
+float add_float(float x, float y) { return x + y; }
+
+double add_double(double x, double y) { return x + y; }
+
 int add_all(int n, ...) {
     va_list ap;
     va_start(ap, n);

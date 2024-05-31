@@ -116,10 +116,23 @@ static void pushf(const char *r) {
     offset += 8;
 }
 
-static void popf(const char *r) {
-    println("  movsd %s, [rsp]", r);
+static void popf(int r) {
+    println("  movsd xmm%d, [rsp]", r);
     println("  add rsp, 8");
     offset -= 8;
+}
+
+static void push_args(Node *args) {
+    if (args) {
+        push_args(args->next);
+
+        gen_expr(args);
+        if (is_floatnum(args->type)) {
+            pushf("xmm0");
+        } else {
+            push("rax");
+        }
+    }
 }
 
 static void load(Type *type) {
@@ -438,15 +451,17 @@ static void gen_expr(Node *node) {
             cast(node->lhs->type, node->type);
             return;
         case ND_CALL: {
-            int argc = 0;
-            char *arg_regs[] = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"};
+            push_args(node->args);
 
+            char *arg_regs[] = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"};
+            int iargc = 0, fargc = 0;
             for (Node *arg = node->args; arg; arg = arg->next) {
-                gen_expr(arg);
-                push("rax");
-                argc++;
+                if (is_floatnum(arg->type)) {
+                    popf(fargc++);
+                } else {
+                    pop(arg_regs[iargc++]);
+                }
             }
-            for (int i = argc - 1; i >= 0; i--) pop(arg_regs[i]);
 
             if (offset % 16) {
                 println("  sub rsp, 8");
@@ -479,7 +494,7 @@ static void gen_expr(Node *node) {
         gen_expr(node->rhs);
         pushf("xmm0");
         gen_expr(node->lhs);
-        popf("xmm1");
+        popf(1);
 
         char *sf = node->lhs->type->kind == TY_FLOAT ? "ss" : "sd";
         switch (node->kind) {
