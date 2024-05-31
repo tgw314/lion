@@ -759,12 +759,18 @@ void emit_text(Object *obj) {
     println("  sub rsp, %d", size);
 
     if (obj->va_area) {
-        int gp = 0;
-        for (Object *var = obj->params; var; var = var->next) gp++;
+        int gp = 0, fp = 0;
+        for (Object *var = obj->params; var; var = var->next) {
+            if (is_floatnum(var->type)) {
+                fp++;
+            } else {
+                gp++;
+            }
+        }
         int off = obj->va_area->offset;
 
         println("  mov DWORD PTR [rbp%+d], %d", off, gp * 8);
-        println("  mov DWORD PTR [rbp%+d], 0", off + 4);
+        println("  mov DWORD PTR [rbp%+d], %d", off + 4, fp * 8 + 48);
         println("  mov QWORD PTR [rbp%+d], rbp", off + 16);
         println("  add QWORD PTR [rbp%+d], %d", off + 16, off + 24);
 
