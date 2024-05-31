@@ -2141,6 +2141,8 @@ static Node *callfunc(Token *tok) {
                 }
                 arg = node_cast(arg->tok, param_type, arg);
                 param_type = param_type->next;
+            } else if (arg->type->kind == TY_FLOAT) {
+                arg = node_cast(arg->tok, type_double, arg);
             }
 
             cur = cur->next = arg;
