@@ -742,7 +742,6 @@ void emit_data(Object *obj) {
 }
 
 void emit_text(Object *obj) {
-    RegAlias64 param_regs[] = {RDI, RSI, RDX, RCX, R8, R9};
     int size = 0;
     for (Object *var = obj->locals; var; var = var->next) {
         size += var->type->size;
@@ -785,12 +784,16 @@ void emit_text(Object *obj) {
         println("  movsd [rbp%+d], xmm7", off + 128);
     }
 
-    {
-        int i = 0;
-        for (Object *p = obj->params; p; p = p->next) {
+    int gp = 0, fp = 0;
+    RegAlias64 param_regs[] = {RDI, RSI, RDX, RCX, R8, R9};
+    for (Object *p = obj->params; p; p = p->next) {
+        if (is_floatnum(p->type)) {
+            char sf = p->type->kind == TY_FLOAT ? 's' : 'd';
+            println("  movs%c [rbp%+d], xmm%d", sf, p->offset, fp++);
+        } else {
             TypeId id = type_id(p->type);
             println("  mov %s [rbp%+d], %s", intword(id), p->offset,
-                    intreg(param_regs[i++], id));
+                    intreg(param_regs[gp++], id));
         }
     }
 
