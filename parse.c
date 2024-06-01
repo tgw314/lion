@@ -87,6 +87,7 @@ static Node *expr(void);
 static int64_t eval(Node *node);
 static int64_t eval2(Node *node, char **label);
 static int64_t eval_rval(Node *node, char **label);
+static double eval_double(Node *node);
 static int64_t const_expr(void);
 static Node *assign(void);
 static Node *conditional(void);
@@ -1095,6 +1096,16 @@ static Relocation *write_gvar_data(Relocation *cur, Initializer *init,
         return cur;
     }
 
+    if (type->kind == TY_FLOAT) {
+        *(float *)(buf + offset) = eval_double(init->expr);
+        return cur;
+    }
+
+    if (type->kind == TY_DOUBLE) {
+        *(double *)(buf + offset) = eval_double(init->expr);
+        return cur;
+    }
+
     char *label = NULL;
     uint64_t val = eval2(init->expr, &label);
 
@@ -1652,6 +1663,9 @@ static int64_t eval(Node *node) { return eval2(node, NULL); }
 
 static int64_t eval2(Node *node, char **label) {
     set_node_type(node);
+
+    if (is_floatnum(node->type)) return eval_double(node);
+
     switch (node->kind) {
         case ND_ADD:
             return eval2(node->lhs, label) + eval(node->rhs);
@@ -1770,6 +1784,39 @@ static int64_t eval_rval(Node *node, char **label) {
     }
 
     error_tok(node->tok, "誤った初期化子です");
+}
+
+static double eval_double(Node *node) {
+    set_node_type(node);
+
+    if (is_integer(node->type)) {
+        return (node->type->is_unsigned) ? (unsigned long)eval(node)
+                                         : eval(node);
+    }
+
+    switch (node->kind) {
+        case ND_ADD:
+            return eval_double(node->lhs) + eval_double(node->rhs);
+        case ND_SUB:
+            return eval_double(node->lhs) - eval_double(node->rhs);
+        case ND_MUL:
+            return eval_double(node->lhs) * eval_double(node->rhs);
+        case ND_DIV:
+            return eval_double(node->lhs) / eval_double(node->rhs);
+        case ND_NEG:
+            return -eval_double(node->lhs);
+        case ND_COND:
+            return eval_double(node->cond) ? eval_double(node->then)
+                                           : eval_double(node->els);
+        case ND_COMMA:
+            return eval_double(node->rhs);
+        case ND_CAST:
+            return is_floatnum(node->lhs->type) ? eval_double(node->lhs)
+                                                : eval(node->lhs);
+        case ND_NUM:
+            return node->fval;
+    }
+    error_tok(node->tok, "コンパイル時に定数ではありません");
 }
 
 static int64_t const_expr(void) { return eval(conditional()); }
