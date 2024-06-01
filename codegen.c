@@ -178,9 +178,9 @@ static void cmp_zero(Type *type) {
     switch (type->kind) {
         case TY_FLOAT:
         case TY_DOUBLE: {
-            char sf = type->kind == TY_FLOAT ? 's' : 'd';
-            println("  xorp%c xmm1, xmm1", sf);
-            println("  ucomis%c xmm0, xmm1", sf);
+            char sfx = (type->kind == TY_FLOAT) ? 's' : 'd';
+            println("  xorp%c xmm1, xmm1", sfx);
+            println("  ucomis%c xmm0, xmm1", sfx);
             return;
         }
         default:
@@ -341,7 +341,7 @@ static void gen_expr(Node *node) {
                     println("  shl rax, %d", node->type->size * 8 - 1);
                     println("  movq xmm1, rax");
                     println("  xorp%c xmm0, xmm1",
-                            node->type->kind == TY_FLOAT ? 's' : 'd');
+                            (node->type->kind == TY_FLOAT) ? 's' : 'd');
                     return;
                 default:
                     println("  neg rax");
@@ -471,16 +471,16 @@ static void gen_expr(Node *node) {
                 println("  call %s", node->funcname);
             }
 
-            bool is_u = node->type->is_unsigned;
+            char *sfx = node->type->is_unsigned ? "zx" : "sx";
             switch (node->type->kind) {
                 case TY_BOOL:
                     println("  movzx eax, al");
                     return;
                 case TY_CHAR:
-                    println("  mov%cx eax, al", is_u ? 'z' : 's');
+                    println("  mov%s eax, al", sfx);
                     return;
                 case TY_SHORT:
-                    println("  mov%cx eax, ax", is_u ? 'z' : 's');
+                    println("  mov%s eax, ax", sfx);
                     return;
             }
             return;
@@ -496,25 +496,25 @@ static void gen_expr(Node *node) {
         gen_expr(node->lhs);
         popf(1);
 
-        char *sf = node->lhs->type->kind == TY_FLOAT ? "ss" : "sd";
+        char *sfx = (node->lhs->type->kind == TY_FLOAT) ? "ss" : "sd";
         switch (node->kind) {
             case ND_ADD:
-                println("  add%s xmm0, xmm1", sf);
+                println("  add%s xmm0, xmm1", sfx);
                 return;
             case ND_SUB:
-                println("  sub%s xmm0, xmm1", sf);
+                println("  sub%s xmm0, xmm1", sfx);
                 return;
             case ND_MUL:
-                println("  mul%s xmm0, xmm1", sf);
+                println("  mul%s xmm0, xmm1", sfx);
                 return;
             case ND_DIV:
-                println("  div%s xmm0, xmm1", sf);
+                println("  div%s xmm0, xmm1", sfx);
                 return;
             case ND_EQ:
             case ND_NEQ:
             case ND_LS:
             case ND_LEQ:
-                println("  ucomi%s xmm1, xmm0", sf);
+                println("  ucomi%s xmm1, xmm0", sfx);
                 switch (node->kind) {
                     case ND_EQ:
                         println("  sete al");
@@ -547,7 +547,7 @@ static void gen_expr(Node *node) {
     pop("rdi");
 
     Type *t = node->lhs->type;
-    TypeId id = t->kind == TY_LONG || t->ptr_to ? I64 : I32;
+    TypeId id = (t->kind == TY_LONG || t->ptr_to) ? I64 : I32;
     char *rax = intreg(RAX, id);
     char *rdi = intreg(RDI, id);
     char *rdx = intreg(RDX, id);
@@ -568,7 +568,7 @@ static void gen_expr(Node *node) {
                 println("  mov %s, 0", rdx);
                 println("  div %s", rdi);
             } else {
-                println("  c%s", id == I64 ? "qo" : "dq");
+                println("  c%s", (id == I64) ? "qo" : "dq");
                 println("  idiv %s", rdi);
             }
             if (node->kind == ND_MOD) {
@@ -579,7 +579,7 @@ static void gen_expr(Node *node) {
         case ND_NEQ:
         case ND_LS:
         case ND_LEQ: {
-            bool is_u = node->lhs->type->is_unsigned;
+            char sfx = node->lhs->type->is_unsigned ? 'b' : 'l';
             println("  cmp %s, %s", rax, rdi);
             switch (node->kind) {
                 case ND_EQ:
@@ -589,10 +589,10 @@ static void gen_expr(Node *node) {
                     println("  setne al");
                     break;
                 case ND_LS:
-                    println("  set%c al", is_u ? 'b' : 'l');
+                    println("  set%c al", sfx);
                     break;
                 case ND_LEQ:
-                    println("  set%ce al", is_u ? 'b' : 'l');
+                    println("  set%ce al", sfx);
                     break;
             }
             println("  movzx rax, al");
@@ -612,9 +612,9 @@ static void gen_expr(Node *node) {
             println("  shl %s, cl", rax);
             return;
         case ND_BITSHR: {
-            bool is_u = node->lhs->type->is_unsigned;
             println("  mov rcx, rdi");
-            println("  s%cr %s, cl", is_u ? 'h' : 'a', rax);
+            println("  s%cr %s, cl", node->lhs->type->is_unsigned ? 'h' : 'a',
+                    rax);
             return;
         }
     }
@@ -791,13 +791,15 @@ void emit_text(Object *obj) {
     }
 
     int gp = 0, fp = 0;
-    RegAlias64 param_regs[] = {RDI, RSI, RDX, RCX, R8, R9};
     for (Object *p = obj->params; p; p = p->next) {
         if (is_floatnum(p->type)) {
-            char sf = p->type->kind == TY_FLOAT ? 's' : 'd';
-            println("  movs%c [rbp%+d], xmm%d", sf, p->offset, fp++);
+            char *sfx = (p->type->kind == TY_FLOAT) ? "ss" : "sd";
+
+            println("  mov%s [rbp%+d], xmm%d", sfx, p->offset, fp++);
         } else {
+            RegAlias64 param_regs[] = {RDI, RSI, RDX, RCX, R8, R9};
             TypeId id = type_id(p->type);
+
             println("  mov %s [rbp%+d], %s", intword(id), p->offset,
                     intreg(param_regs[gp++], id));
         }
