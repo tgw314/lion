@@ -283,7 +283,7 @@ static void gen_lval(Node *node) {
             if (node->var->is_local) {
                 println("  lea rax, [rbp%+d]", node->var->offset);
             } else {
-                println("  lea rax, %s[rip]", node->var->name);
+                println("  lea rax, \"%s\"[rip]", node->var->name);
             }
             return;
         case ND_MEMBER:
