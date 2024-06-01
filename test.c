@@ -1295,6 +1295,8 @@ int main() {
     ASSERT(1, g42==1.5);
     ASSERT(1, g45==11);
 
+    ASSERT(8, sizeof(long double));
+
     printf("OK\n");
     return 0;
 }

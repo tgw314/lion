@@ -594,6 +594,7 @@ static Type *declspec(VarAttr *attr) {
                 type = type_float;
                 break;
             case DOUBLE:
+            case LONG + DOUBLE:
                 type = type_double;
                 break;
             default:
