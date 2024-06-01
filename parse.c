@@ -253,7 +253,9 @@ static Member *find_member(Type *type, Token *tok) {
 
 static void check_var_redef(Token *tok) {
     for (VarScope *sc = scope->vars; sc; sc = sc->next) {
-        if (sc->var && !sc->var->is_func && equal(tok, sc->name)) {
+        if (!sc->var) continue;
+
+        if (!sc->var->is_func && sc->var->is_def && equal(tok, sc->name)) {
             error_tok(tok, "再定義です");
         }
     }
