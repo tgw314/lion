@@ -157,9 +157,9 @@ static void load(Type *type) {
                     return;
                 case U8:
                 case U16:
-                case U32:
                     println("  movzx eax, %s [rax]", intword(id));
                     return;
+                case U32:
                 case I32:
                     println("  movsxd rax, %s [rax]", intword(id));
                     return;
