@@ -234,15 +234,6 @@ static Type *find_tag(Token *tok) {
     return NULL;
 }
 
-static Object *find_func(Token *tok) {
-    for (Object *func = globals; func; func = func->next) {
-        if (func->is_func && equal(tok, func->name)) {
-            return func;
-        }
-    }
-    return NULL;
-}
-
 static Type *find_typedef(Token *tok) {
     if (tok->kind == TK_IDENT) {
         VarScope *sc = find_var(tok);
@@ -262,15 +253,17 @@ static Member *find_member(Type *type, Token *tok) {
 
 static void check_var_redef(Token *tok) {
     for (VarScope *sc = scope->vars; sc; sc = sc->next) {
-        if (equal(tok, sc->name)) {
+        if (sc->var && !sc->var->is_func && equal(tok, sc->name)) {
             error_tok(tok, "再定義です");
         }
     }
 }
 
 static void check_func_redef(Token *tok) {
-    if (find_func(tok)) {
-        error_tok(tok, "再定義です");
+    for (Object *func = globals; func; func = func->next) {
+        if (func->is_func && func->is_def && equal(tok, func->name)) {
+            error_tok(tok, "再定義です");
+        }
     }
 }
 
