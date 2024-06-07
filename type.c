@@ -60,8 +60,9 @@ Type *type_array(Type *base_type, int size) {
 
 Type *type_struct(Member *members) {
     Type *type = new_type(TY_STRUCT);
-    type->members = members;
+    type->size = 0;
     type->align = 1;
+    type->members = members;
 
     int offset = 0;
     for (Member *mem = type->members; mem; mem = mem->next) {
@@ -80,8 +81,9 @@ Type *type_struct(Member *members) {
 
 Type *type_union(Member *members) {
     Type *type = new_type(TY_UNION);
-    type->members = members;
+    type->size = 0;
     type->align = 1;
+    type->members = members;
 
     for (Member *mem = type->members; mem; mem = mem->next) {
         if (type->align < mem->align) {
