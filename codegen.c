@@ -56,6 +56,7 @@ static TypeId type_id(Type *type) {
         case TY_BOOL:
         case TY_CHAR:   return type->is_unsigned ? U8 : I8;
         case TY_SHORT:  return type->is_unsigned ? U16 : I16;
+        case TY_ENUM:
         case TY_INT:    return type->is_unsigned ? U32 : I32;
         case TY_LONG:   return type->is_unsigned ? U64 : I64;
         case TY_FLOAT:  return F32;
