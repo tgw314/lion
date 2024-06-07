@@ -6,4 +6,4 @@ lion
 .*
 compile_commands.json
 *.s
-stage2/
+stage*/
