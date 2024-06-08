@@ -81,8 +81,8 @@ for path in sys.argv[1:]:
         s = re.sub(r'"\n\s*"', "", s)
         s = re.sub(r"\bbool\b", "_Bool", s)
         s = re.sub(r"\berrno\b", "*__errno_location()", s)
-        s = re.sub(r"\btrue\b", "1", s)
-        s = re.sub(r"\bfalse\b", "0", s)
+        s = re.sub(r"\b(?!\.)true\b(?!\.)", "1", s)
+        s = re.sub(r"\b(?!\.)false\b(?!\.)", "0", s)
         s = re.sub(r"\bNULL\b", "0", s)
         s = re.sub(
             r"\bva_start\(([^)]*),([^)]*)\)", "*(\\1)=*(__va_elem*)__va_area__", s
