@@ -104,6 +104,7 @@ static Node *mul(void);
 static Node *cast(void);
 static Node *unary(void);
 static Node *postfix(void);
+static Node *callfunc(Node *fn);
 static Node *primary(void);
 
 static char *tokstr(Token *tok) { return strndup(tok->loc, tok->len); }
@@ -2079,7 +2080,15 @@ static Node *unary(void) {
 }
 
 // postfix = "(" typename ")" initializer
-//         | primary ("[" expr "]" | ("." | "->") ident | "++" | "--")*
+//         | ident "(" postfix-tail+
+//         | primary postfix-tail*
+//
+// postfix-tail = "[" expr "]"
+//              | "(" callfunc
+//              | "." ident
+//              | "->" ident
+//              | "++"
+//              | "--"
 static Node *postfix(void) {
     if (match("(") && is_decl(getok()->next)) {
         Token *start = getok();
@@ -2104,6 +2113,11 @@ static Node *postfix(void) {
     Node *node = primary();
     while (true) {
         Token *tok = getok();
+        if (consume("(")) {
+            node = callfunc(node);
+            continue;
+        }
+
         if (consume("[")) {
             Node *idx = expr();
             expect("]");
@@ -2147,21 +2161,20 @@ static Node *postfix(void) {
     }
 }
 
-// callfunc = ident "(" (assign ("," assign)*)? ")"
-static Node *callfunc(Token *tok) {
-    VarScope *sc = find_var(tok);
+// callfunc = (assign ("," assign)*)? ")"
+static Node *callfunc(Node *fn) {
+    set_node_type(fn);
 
-    if (!sc) error_tok(tok, "関数の暗黙的な宣言");
-    if (!sc->var || sc->var->type->kind != TY_FUNC) {
-        error_tok(tok, "関数ではありません");
+    if (!(fn->type->kind == TY_FUNC ||
+          (fn->type->kind == TY_PTR && fn->type->ptr_to->kind == TY_FUNC))) {
+        error_tok(fn->tok, "関数ではありません");
     }
 
-    Type *type = sc->var->type;
+    Type *type = (fn->type->kind == TY_FUNC) ? fn->type : fn->type->ptr_to;
     Type *param_type = type->params;
 
-    Node *node = new_node(ND_CALL, tok);
+    Node *node = node_unary(ND_CALL, fn->tok, fn);
     node->type = type->return_type;
-    node->funcname = tokstr(tok);
     node->functype = type;
 
     if (!consume(")")) {
@@ -2210,9 +2223,8 @@ static Node *string_literal(Token *tok) {
     return node;
 }
 
-// primary = num | ident | callfunc
-//         | string | "(" expr ")"
-//         | "(" "{" stmt+ "}" ")"
+// primary = num | ident | string
+//         | "(" expr ")" | "(" "{" stmt+ "}" ")"
 //         | "sizeof" (unary | "(" typename ")")
 //         | "_Alignof" (unary | "(" typename ")")
 static Node *primary(void) {
@@ -2258,20 +2270,16 @@ static Node *primary(void) {
 
     if (tok->kind == TK_IDENT) {
         seek(tok->next);
-        if (consume("(")) {
-            return callfunc(tok);
-        }
-
         VarScope *sc = find_var(tok);
-        if (!sc || (!sc->var && !sc->enum_type)) {
-            error_tok(tok, "宣言されていない変数です");
+        if (sc) {
+            if (sc->var) return node_var(tok, sc->var);
+            if (sc->enum_type) return node_num(tok, sc->enum_val);
         }
 
-        if (sc->enum_type) {
-            return node_num(tok, sc->enum_val);
+        if (match("(")) {
+            error_tok(getok(), "関数の暗黙的な宣言");
         }
-
-        return node_var(tok, sc->var);
+        error_tok(tok, "宣言されていない変数です");
     }
 
     if (tok->kind == TK_STR) {

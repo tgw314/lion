@@ -175,15 +175,19 @@ double add_double(double x, double y);
 float add_float(float x, float y);
 
 float add_float3(float x, float y, float z) {
-  return x + y + z;
+    return x + y + z;
 }
 
 double add_double3(double x, double y, double z) {
-  return x + y + z;
+    return x + y + z;
 }
 
 float g42 = 1.5;
 double g45 = 0.0 ? 55 : (0, 1 + 1 * 5.0 / 2 * (double)2 * (int)2.0);
+
+int (*fnptr(int (*fn)(int n, ...)))(int, ...) {
+    return fn;
+}
 
 int main() {
     ASSERT(0, 0);
@@ -1296,6 +1300,11 @@ int main() {
     ASSERT(1, g45==11);
 
     ASSERT(8, sizeof(long double));
+
+    ASSERT(5, (add2)(2,3));
+    ASSERT(5, (&add2)(2,3));
+    ASSERT(7, ({ int (*fn)(int,int) = add2; fn(2,5); }));
+    ASSERT(6, fnptr(add_all)(3, 1, 2, 3));
 
     printf("OK\n");
     return 0;

@@ -228,22 +228,26 @@ void set_node_type(Node *node) {
         case ND_MEMBER:
             node->type = node->member->type;
             return;
-        case ND_ADDR:
-            if (node->lhs->type->kind == TY_ARRAY) {
-                node->type = type_ptr(node->lhs->type->ptr_to);
+        case ND_ADDR: {
+            Type *type = node->lhs->type;
+            if (type->kind == TY_ARRAY) {
+                node->type = type_ptr(type->ptr_to);
             } else {
-                node->type = type_ptr(node->lhs->type);
+                node->type = type_ptr(type);
             }
             return;
-        case ND_DEREF:
-            if (node->lhs->type->ptr_to == NULL) {
+        }
+        case ND_DEREF: {
+            Type *ptr_to = node->lhs->type->ptr_to;
+            if (ptr_to == NULL) {
                 error_tok(node->tok, "無効なポインタの参照");
             }
-            if (node->lhs->type->ptr_to->kind == TY_VOID) {
+            if (ptr_to->kind == TY_VOID) {
                 error_tok(node->tok, "void 型のポインタの参照");
             }
-            node->type = node->lhs->type->ptr_to;
+            node->type = ptr_to;
             return;
+        }
         case ND_VAR:
             node->type = node->var->type;
             return;

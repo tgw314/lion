@@ -141,6 +141,7 @@ static void load(Type *type) {
         case TY_ARRAY:
         case TY_STRUCT:
         case TY_UNION:
+        case TY_FUNC:
             return;
         case TY_FLOAT:
             println("  movss xmm0, [rax]");
@@ -283,9 +284,16 @@ static void gen_lval(Node *node) {
         case ND_VAR:
             if (node->var->is_local) {
                 println("  lea rax, [rbp%+d]", node->var->offset);
-            } else {
-                println("  lea rax, \"%s\"[rip]", node->var->name);
+                return;
             }
+
+            if (node->type->kind == TY_FUNC && !node->var->is_def) {
+                println("  mov rax, QWORD PTR \"%s\"@GOTPCREL[rip]",
+                        node->var->name);
+                return;
+            }
+
+            println("  lea rax, \"%s\"[rip]", node->var->name);
             return;
         case ND_MEMBER:
             gen_lval(node->lhs);
@@ -453,6 +461,7 @@ static void gen_expr(Node *node) {
             return;
         case ND_CALL: {
             push_args(node->args);
+            gen_expr(node->lhs);
 
             char *arg_regs[] = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"};
             int iargc = 0, fargc = 0;
@@ -466,10 +475,10 @@ static void gen_expr(Node *node) {
 
             if (offset % 16) {
                 println("  sub rsp, 8");
-                println("  call %s", node->funcname);
+                println("  call rax");
                 println("  add rsp, 8");
             } else {
-                println("  call %s", node->funcname);
+                println("  call rax");
             }
 
             char *sfx = node->type->is_unsigned ? "zx" : "sx";

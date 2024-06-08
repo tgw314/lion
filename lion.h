@@ -137,7 +137,6 @@ struct Node {
     double fval;
     Object *var;
     Type *functype;
-    char *funcname;
     Node *args;
     Member *member;
     char *label;
