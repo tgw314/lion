@@ -13,7 +13,7 @@ stage2/lion: $(OBJS:%=stage2/%)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 stage2/%.o: stage2/%.s
-	$(CC) $(CFLAGS) -c -o $@ $<
+	as -o $@ $<
 
 stage2/%.s: lion stage2/%.c
 	./lion stage2/$*.c > $@
@@ -27,7 +27,7 @@ stage3/lion: $(OBJS:%=stage3/%)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 stage3/%.o: stage3/%.s
-	$(CC) $(CFLAGS) -c -o $@ $<
+	as -o $@ $<
 
 stage3/%.s: stage2/lion stage2/%.c
 	mkdir -p stage3
@@ -53,4 +53,4 @@ clean:
 	rm -rf lion *.o *~ tmp* stage*
 
 .PHONY: test test-stage1 test-stage2 clean
-.PRECIOUS: stage2/%.s stage2/%.c stage3/%.s stage3/%.c
+.PRECIOUS: stage2/%.s stage2/%.c stage3/%.s
