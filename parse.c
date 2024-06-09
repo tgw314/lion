@@ -1216,13 +1216,18 @@ static Type *params(bool *is_variadic) {
             *is_variadic = true;
             break;
         }
-        Type *type = copy_type(declarator(declspec(NULL)));
+
+        Type *type = declarator(declspec(NULL));
+        Token *name = type->name;
+
         if (type->kind == TY_ARRAY) {
-            Token *name = type->name;
             type = type_ptr(type->ptr_to);
-            type->name = name;
+        } else if (type->kind == TY_FUNC) {
+            type = type_ptr(type);
         }
-        cur = cur->next = type;
+        type->name = name;
+
+        cur = cur->next = copy_type(type);
     } while (consume(","));
     expect(")");
 
