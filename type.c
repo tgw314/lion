@@ -120,6 +120,10 @@ static Type *common_type(Type *ty1, Type *ty2) {
     if (is_pointer(ty1)) {
         return type_ptr(ty1->ptr_to);
     }
+
+    if (ty1->kind == TY_FUNC) return type_ptr(ty1);
+    if (ty2->kind == TY_FUNC) return type_ptr(ty2);
+
     if (ty1->kind == TY_DOUBLE || ty2->kind == TY_DOUBLE) {
         return type_double;
     }
