@@ -7,7 +7,9 @@
 #include "lion.h"
 
 static char *user_input;
-static char *filename;
+static char *input_path;
+
+static char *cliopt_o;
 
 void error(char *fmt, ...) {
     va_list ap;
@@ -29,7 +31,7 @@ static void verror_at(int line_no, int len, char *loc, char *fmt, va_list ap) {
     }
 
     // 見つかった行を、ファイル名と行番号と一緒に表示
-    int indent = fprintf(stderr, "%s:%d: ", filename, line_no);
+    int indent = fprintf(stderr, "%s:%d: ", input_path, line_no);
     fprintf(stderr, "%.*s\n", (int)(end - line), line);
 
     int pos = loc - line + indent;
@@ -70,18 +72,19 @@ void error_tok(Token *tok, char *fmt, ...) {
     verror_at(tok->line_no, tok->len, tok->loc, fmt, ap);
 }
 
-char *read_file(char *path) {
-    FILE *fp;
-
-    if (strcmp(path, "-") == 0) {
-        fp = stdin;
+static FILE *open_file(char *path, char *modes) {
+    if (!path || !strcmp(path, "-")) {
+        return NULL;
     } else {
-        fp = fopen(path, "r");
+        FILE *fp = fopen(path, modes);
         if (!fp) {
             error("'%s' を開けません: %s", path, strerror(errno));
         }
+        return fp;
     }
+}
 
+static char *read_file(FILE *fp) {
     char *buf;
     size_t buflen;
     FILE *out = open_memstream(&buf, &buflen);
@@ -106,18 +109,52 @@ char *read_file(char *path) {
     return buf;
 }
 
-int main(int argc, char **argv) {
-    if (argc != 2) {
-        error("%s: 引数の数が正しくありません", argv[0]);
-        return 1;
+static void show_help(int status) {
+    fprintf(stderr, "lion [ -o <path> ] <file>\n");
+    exit(status);
+}
+
+static void parse_args(int argc, char **argv) {
+    for (int i = 1; i < argc; i++) {
+        if (!strcmp(argv[i], "--help")) show_help(0);
+
+        if (!strcmp(argv[i], "-o")) {
+            if (!argv[i + 1]) show_help(1);  // must be argv[argc] == NULL
+            cliopt_o = argv[++i];
+            continue;
+        }
+
+        if (!strncmp(argv[i], "-o", 2)) {
+            cliopt_o = argv[i] + 2;
+            continue;
+        }
+
+        if (argv[i][0] == '-' && argv[i][1]) {
+            error("無効なオプション: %s", argv[i]);
+        }
+
+        input_path = argv[i];
     }
-    filename = argv[1];
 
-    tokenize(user_input = read_file(filename));
+    if (!input_path) error("入力ファイルがありません");
+}
 
+int main(int argc, char **argv) {
+    parse_args(argc, argv);
+
+    FILE *in = open_file(input_path, "r");
+    if (!in) in = stdin;
+
+    FILE *out = open_file(cliopt_o, "w");
+    if (!out) out = stdout;
+
+    user_input = read_file(in);
+
+    tokenize(user_input);
     Object *prog = program();
-    printf(".file 1 \"%s\"\n", filename);
-    generate(prog);
+
+    fprintf(out, ".file 1 \"%s\"\n", input_path);
+    generate(prog, out);
 
     return 0;
 }

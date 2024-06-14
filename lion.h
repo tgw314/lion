@@ -1,5 +1,6 @@
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
 
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
@@ -260,4 +261,4 @@ void set_node_type(Node *node);
 
 int align(int n, int align);
 
-void generate(Object *funcs);
+void generate(Object *globals, FILE *out);

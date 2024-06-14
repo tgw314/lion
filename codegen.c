@@ -23,6 +23,7 @@ typedef enum {
 } RegAlias64;
 
 static Object *obj;
+static FILE *output_file;
 static int offset = 0;
 
 static void gen_lval(Node *node);
@@ -37,9 +38,9 @@ static int count(void) {
 static void println(const char *fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
-    vprintf(fmt, ap);
+    vfprintf(output_file, fmt, ap);
     va_end(ap);
-    printf("\n");
+    fprintf(output_file, "\n");
 }
 
 int align(int n, int align) {
@@ -823,7 +824,8 @@ void emit_text(Object *obj) {
     println("  ret");
 }
 
-void generate(Object *globals) {
+void generate(Object *globals, FILE *out) {
+    output_file = out;
     println(".intel_syntax noprefix");
     for (obj = globals; obj; obj = obj->next) {
         if (!obj->is_def) continue;
