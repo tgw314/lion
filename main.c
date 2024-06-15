@@ -1,14 +1,20 @@
 #include <errno.h>
 #include <stdarg.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 #include "lion.h"
 
 static char *user_input;
 static char *input_path;
 
+static bool cliopt_cc1;
+static bool cliopt_hash3;
 static char *cliopt_o;
 
 void error(char *fmt, ...) {
@@ -116,6 +122,16 @@ static void show_help(int status) {
 
 static void parse_args(int argc, char **argv) {
     for (int i = 1; i < argc; i++) {
+        if (!strcmp(argv[i], "-###")) {
+            cliopt_hash3 = true;
+            continue;
+        }
+
+        if (!strcmp(argv[i], "-cc1")) {
+            cliopt_cc1 = true;
+            continue;
+        }
+
         if (!strcmp(argv[i], "--help")) show_help(0);
 
         if (!strcmp(argv[i], "-o")) {
@@ -139,9 +155,33 @@ static void parse_args(int argc, char **argv) {
     if (!input_path) error("入力ファイルがありません");
 }
 
-int main(int argc, char **argv) {
-    parse_args(argc, argv);
+static void run_subprocess(char **argv) {
+    if (cliopt_hash3) {
+        fprintf(stderr, "%s", argv[0]);
+        for (int i = 1; argv[i]; i++) fprintf(stderr, " %s", argv[i]);
+        fprintf(stderr, "\n");
+    }
 
+    if (fork() == 0) {
+        execvp(argv[0], argv);
+
+        fprintf(stderr, "実行失敗: %s: %s", argv[0], strerror(errno));
+        _exit(1);
+    }
+
+    int status;
+    while (wait(&status) > 0);
+    if (status != 0) exit(1);
+}
+
+static void run_cc1(int argc, char **argv) {
+    char **args = calloc(argc + 10, sizeof(char *));
+    memcpy(args, argv, argc * sizeof(char *));
+    args[argc] = "-cc1";
+    run_subprocess(args);
+}
+
+static void cc1(void) {
     FILE *in = open_file(input_path, "r");
     if (!in) in = stdin;
 
@@ -155,6 +195,16 @@ int main(int argc, char **argv) {
 
     fprintf(out, ".file 1 \"%s\"\n", input_path);
     generate(prog, out);
+}
 
+int main(int argc, char **argv) {
+    parse_args(argc, argv);
+
+    if (cliopt_cc1) {
+        cc1();
+        return 0;
+    }
+
+    run_cc1(argc, argv);
     return 0;
 }

@@ -53,12 +53,10 @@ int memcmp(char *s1, char *s2, long n);
 int printf(char *fmt, ...);
 int sprintf(char *buf, char *fmt, ...);
 int fprintf(FILE *fp, char *fmt, ...);
-int vprintf(char *fmt, va_list ap);
 int vfprintf(FILE *fp, char *fmt, va_list ap);
 long strlen(char *p);
 int strncmp(char *p, char *q, long n);
 void *memcpy(char *dst, char *src, long n);
-char *strdup(char *p);
 char *strndup(char *p, long n);
 int isspace(int c);
 int ispunct(int c);
@@ -70,6 +68,10 @@ double strtod(char *nptr, char **endptr);
 static void va_end(va_list ap) {}
 long strtoul(char *nptr, char **endptr, int base);
 void exit(int code);
+int fork(void);
+int execvp(char *file, char **argv);
+void _exit(int code);
+int wait(int *wstatus);
 """
 )
 
